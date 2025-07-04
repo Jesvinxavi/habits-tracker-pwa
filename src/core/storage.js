@@ -1,10 +1,7 @@
 import { appData, subscribe, notify } from './state.js';
 import { ensureHolidayIntegrity } from './state.js';
 
-const STORAGE_KEY = 'healthyHabitsAppData';
-
-// Simple schema meta in case future migrations needed.
-const SCHEMA_VERSION = 1;
+const STORAGE_KEY = 'healthyHabitsData';
 
 /**
  * Check if localStorage is both available and writable.

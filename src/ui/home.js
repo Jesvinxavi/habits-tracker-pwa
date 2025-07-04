@@ -3,7 +3,7 @@
 // in index.html / Tailwind classes.
 
 import { appData, mutate, subscribe } from '../core/state.js';
-import { updateProgressRing, getProgressColor } from './progressRing.js';
+import { updateProgressRing } from './progressRing.js';
 import { mountCalendar } from './calendar.js';
 import * as scheduleUtils from '../utils/scheduleLogic.js';
 import { makeCardSwipable } from '../components/swipeableCard.js';
@@ -352,7 +352,6 @@ function renderHabitsForHome() {
             input.addEventListener('blur', finalize);
 
             // Dynamically adjust box width as user types
-            let currentWidth = lockedWidth;
             const adjustBoxWidth = () => {
               const span = document.createElement('span');
               span.style.visibility = 'hidden';
@@ -753,8 +752,7 @@ function renderHabitsForHome() {
 
   // After fragment insertion, log actual pill widths to see if they span the full card or hug text.
   document.querySelectorAll('#home-view .category-pill').forEach((el) => {
-    const rect = el.getBoundingClientRect();
-    const parentRect = el.parentElement.getBoundingClientRect();
+    // Pill width logging removed for cleaner code
   });
 }
 
@@ -957,7 +955,6 @@ function bindControls() {
 
   function findNextGroupWithHabits(current, dir) {
     const idx = GROUPS.indexOf(current);
-    const date = new Date(appData.selectedDate);
     for (let i = 1; i <= GROUPS.length; i++) {
       const nextIdx = (idx + dir * i + GROUPS.length) % GROUPS.length;
       const g = GROUPS[nextIdx];
@@ -1127,16 +1124,6 @@ function calculateProgressForCurrentContext() {
 
   const progress = activeHabits.length ? (completed.length / activeHabits.length) * 100 : 0;
   return progress;
-}
-
-function calculateProgressForGroup(group) {
-  const date = new Date(appData.selectedDate);
-  const habitsForGroup = appData.habits.filter(
-    (h) => belongsToSelectedGroup(h, group) && isHabitScheduledOnDate(h, date)
-  );
-  const active = habitsForGroup.filter((h) => !isHabitSkippedToday(h, date));
-  const completed = active.filter((h) => isHabitCompleted(h, date));
-  return active.length ? (completed.length / active.length) * 100 : 0;
 }
 
 /* -------------------------------------------------------------------------- */

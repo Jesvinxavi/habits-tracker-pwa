@@ -28,7 +28,6 @@ import {
   formatElapsedTime,
   setTimerUpdateCallback,
   initializeTimer,
-  getElapsedForRecording,
 } from '../utils/timer.js';
 
 // State for search section expansion
@@ -277,22 +276,6 @@ function bindSearchExpansion() {
   // Add focus management for activity items
   if (isSearchSectionExpanded) {
     bindSearchKeyboardNavigation();
-  }
-}
-
-/**
- * Toggles the search section expansion
- */
-function toggleSearchSection() {
-  const searchSection = document.getElementById('activities-search-section');
-  if (!searchSection) return;
-
-  isSearchSectionExpanded = !isSearchSectionExpanded;
-
-  if (isSearchSectionExpanded) {
-    expandSearchSection();
-  } else {
-    collapseSearchSection();
   }
 }
 
@@ -2020,29 +2003,27 @@ function generateActivityPills(record, category) {
       if (rightIdx < n) orderedIndices.push(rightIdx);
     }
 
-    // Helper to format a single set display string
-    function formatSetDisplay(set, idx) {
-      let setDisplay = `Set ${idx + 1}: ${set.reps} reps`;
-      if (set.value && set.unit && set.unit !== 'none') {
-        let unitDisplay = '';
-        if (set.unit === 'seconds') {
-          unitDisplay = 's';
-        } else if (set.unit === 'minutes') {
-          unitDisplay = ' Mins';
-        } else if (set.unit === 'kg') {
-          unitDisplay = 'kg';
-        } else {
-          unitDisplay = set.unit;
-        }
-        setDisplay += ` × ${set.value}${unitDisplay}`;
-      } else if (set.value) {
-        setDisplay += ` × ${set.value}`;
-      }
-      return `<span class="inline-block text-white text-xs px-2 py-1 rounded-lg mr-1 mb-1 font-medium" style="background-color: ${category.color};">${setDisplay}</span>`;
-    }
-
     const pillsMarkup = orderedIndices
-      .map((idx) => formatSetDisplay(record.sets[idx], idx))
+      .map((idx) => {
+        const set = record.sets[idx];
+        let setDisplay = `Set ${idx + 1}: ${set.reps} reps`;
+        if (set.value && set.unit && set.unit !== 'none') {
+          let unitDisplay = '';
+          if (set.unit === 'seconds') {
+            unitDisplay = 's';
+          } else if (set.unit === 'minutes') {
+            unitDisplay = ' Mins';
+          } else if (set.unit === 'kg') {
+            unitDisplay = 'kg';
+          } else {
+            unitDisplay = set.unit;
+          }
+          setDisplay += ` × ${set.value}${unitDisplay}`;
+        } else if (set.value) {
+          setDisplay += ` × ${set.value}`;
+        }
+        return `<span class="inline-block text-white text-xs px-2 py-1 rounded-lg mr-1 mb-1 font-medium" style="background-color: ${category.color};">${setDisplay}</span>`;
+      })
       .join('');
 
     // Wrap pills in a 2-column grid so they utilise horizontal space predictably
@@ -2172,7 +2153,6 @@ function openTimerModal() {
   // Clear any existing lap times when opening modal (fresh session)
   if (getTimerState().elapsedSeconds === 0) {
     sessionLapTimes = [];
-    currentLapStartTime = null;
   }
 
   // Update display before showing
@@ -2208,7 +2188,6 @@ let timerModalUpdateInterval = null;
 
 // Lap times storage for current session
 let sessionLapTimes = [];
-let currentLapStartTime = null;
 
 function startTimerModalUpdateInterval() {
   // Clear any existing interval
@@ -2238,7 +2217,6 @@ function updateTimerDisplay() {
   const timeDisplay = document.getElementById('timer-time-display');
   const statusDisplay = document.getElementById('timer-status');
   const startStopBtn = document.getElementById('timer-start-stop-btn');
-  const recordBtn = document.getElementById('record-timer-btn');
 
   // Update time display - show current lap time
   if (timeDisplay) {
@@ -2486,7 +2464,6 @@ function bindTimerModalEvents() {
       resetTimer(() => {
         // Also clear lap times when resetting
         sessionLapTimes = [];
-        currentLapStartTime = null;
 
         updateTimerDisplay();
         updateTimerButton(); // Update main button too

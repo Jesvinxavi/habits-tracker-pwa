@@ -6,7 +6,7 @@
  * / new month / new year depending on the active group.
  */
 import { appData, mutate } from '../core/state.js';
-import { getISOWeekNumber, isSamePeriod } from '../utils/datetime.js';
+import { isSamePeriod } from '../utils/datetime.js';
 import { removeLoadingState } from '../utils/loader.js';
 
 function alignSelected() {

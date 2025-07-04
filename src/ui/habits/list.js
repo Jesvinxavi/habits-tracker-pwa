@@ -1,17 +1,11 @@
 import { appData, mutate } from '../../core/state.js';
 import { updateProgressRing } from '../progressRing.js';
-import {
-  getFrequencyText,
-  getCSSColorClass,
-  getTextColorClass,
-  getFrequencyIcon,
-} from '../../utils/habits.js';
+import { getFrequencyText, getFrequencyIcon } from '../../utils/habits.js';
 import { hexToRgba } from '../../utils/color.js';
 import {
   toggleHabitCompleted as _toggleDone,
   isHabitCompleted,
   isHabitScheduledOnDate,
-  getPeriodKey,
   belongsToSelectedGroup,
   isHabitSkippedToday,
 } from '../../utils/scheduleLogic.js';
@@ -94,7 +88,6 @@ function calculateHabitStatistics(habitId) {
   if (habit.target && typeof habit.target === 'number') {
     const targetFrequency = habit.targetFrequency || habit.frequency || 'daily';
     const completedToday = isHabitCompleted(habit, today);
-    const scheduledToday = isHabitScheduledOnDate(habit, today);
 
     if (targetFrequency === 'daily') {
       stats.targetProgress = {

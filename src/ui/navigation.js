@@ -101,8 +101,6 @@ export function initializeNavigation() {
   async function setActiveView(viewId) {
     ensurePlaceholder(viewId);
 
-    const targetView = document.getElementById(viewId);
-
     views.forEach((view) => {
       if (view.id === viewId) {
         view.classList.add('active-view');
@@ -116,9 +114,7 @@ export function initializeNavigation() {
     });
 
     tabItems.forEach((item) => {
-      const wasActive = item.classList.contains('active');
       item.classList.toggle('active', item.dataset.view === viewId);
-      const isActive = item.classList.contains('active');
     });
     localStorage.setItem('activeHabitTrackerTab', viewId);
 

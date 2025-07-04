@@ -84,7 +84,6 @@ export function getFrequencyIcon(habit) {
 
 export function getFrequencyText(habit) {
   const dayNames = DAY_NAMES;
-  const monthNames = MONTH_NAMES;
 
   const cap = capitalize;
   let text = '';

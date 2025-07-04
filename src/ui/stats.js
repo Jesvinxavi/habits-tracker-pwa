@@ -12,14 +12,7 @@
  */
 
 import { appData, subscribe } from '../core/state.js';
-import { getActivitiesForDate } from '../utils/activities.js';
-import {
-  isHabitCompleted,
-  isHabitScheduledOnDate,
-  belongsToSelectedGroup,
-  getPeriodKey,
-} from '../utils/scheduleLogic.js';
-import { dateToKey } from '../utils/holidays.js';
+import { isHabitCompleted, isHabitScheduledOnDate } from '../utils/scheduleLogic.js';
 
 // Current stats view state - 'habits' or 'fitness'
 let currentStatsView = 'habits';
@@ -205,7 +198,9 @@ function calculateHabitStatistics() {
         name: habit.name,
         completionRate: completionRate,
       });
-    } catch (error) {}
+    } catch (error) {
+      // Ignore calculation errors for individual habits
+    }
   });
 
   // Calculate category completion rates
@@ -568,7 +563,8 @@ function calculateCurrentStreak(habit) {
   let streak = 0;
   let date = new Date(today);
 
-  while (true) {
+  // Check up to 365 days back
+  for (let i = 0; i < 365; i++) {
     if (isHabitScheduledOnDate(habit, date)) {
       if (isHabitCompleted(habit, date)) {
         streak++;
@@ -577,9 +573,6 @@ function calculateCurrentStreak(habit) {
       }
     }
     date.setDate(date.getDate() - 1);
-
-    // Prevent infinite loop - max 365 days
-    if (streak > 365) break;
   }
 
   return streak;
@@ -955,7 +948,7 @@ function renderEmptyState(container) {
       <p class="text-gray-600 dark:text-gray-400 max-w-sm mx-auto mb-6">
         Start tracking habits and fitness activities to see your personalized statistics here.
       </p>
-      <button class="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors" onclick="document.querySelector('[data-view=\'home-view\']').click()">
+      <button class="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors" onclick="document.querySelector('[data-view=&quot;home-view&quot;]').click()">
         Start Tracking
       </button>
     </div>

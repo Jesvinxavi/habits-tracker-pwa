@@ -15,15 +15,6 @@ import { capitalize } from '../utils/string.js';
 
 const GROUPS = ['daily', 'weekly', 'monthly', 'yearly'];
 
-function calculateProgressForGroup(group, date) {
-  const habitsForGroup = appData.habits.filter(
-    (h) => belongsToSelectedGroup(h, group) && isHabitScheduledOnDate(h, date)
-  );
-  const active = habitsForGroup.filter((h) => !isHabitSkippedToday(h, date) && !h.paused);
-  const completed = active.filter((h) => isHabitCompleted(h, date));
-  return active.length ? (completed.length / active.length) * 100 : 0;
-}
-
 export function updateProgressPills() {
   const section = document.querySelector('#home-view .progress-section');
   if (!section) return;

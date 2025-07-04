@@ -5,7 +5,7 @@
 // Pure functions only – no DOM operations.
 
 import { isHoliday, dateToKey } from '../../utils/holidays.js';
-import { mondayStart, weeksBetween, getISOWeekNumber } from '../../utils/datetime.js';
+import { weeksBetween, getISOWeekNumber } from '../../utils/datetime.js';
 
 /**
  * Return the first date that should be treated as this habit's "anchor" – the

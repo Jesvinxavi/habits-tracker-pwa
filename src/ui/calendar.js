@@ -376,14 +376,6 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
     }
   }
 
-  function applyLeadingPadding() {
-    const first = weekDays.querySelector('.day-item');
-    if (!first) return;
-    const contW = container.getBoundingClientRect().width;
-    const tileW = first.getBoundingClientRect().width;
-    weekDays.style.paddingLeft = `${Math.max(0, contW / 2 - tileW / 2)}px`;
-  }
-
   function updateClasses() {
     // Apply a helper class on the calendar wrapper so that CSS can style
     // weekly-group tiles differently (e.g. extra padding for height parity).

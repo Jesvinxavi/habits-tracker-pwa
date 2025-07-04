@@ -11,7 +11,7 @@
 //
 // NOTE: Persistence to appData is TODO – we only emit console logs so far.
 
-import { appData, mutate } from '../../core/state.js';
+import { mutate } from '../../core/state.js';
 
 let SortableLib = null;
 let sortables = [];
