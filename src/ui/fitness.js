@@ -1248,13 +1248,13 @@ function buildStatsContent(activity, stats, category) {
         ${
           stats.totalVolume > 0
             ? `
-          <div class="mt-4">
-            <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-              <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${stats.totalVolume.toFixed(1)}</div>
-              <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Total Volume (weight × reps)</div>
-            </div>
+        <div class="mt-4">
+          <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+            <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${stats.totalVolume.toFixed(1)}</div>
+            <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Total Volume (weight × reps)</div>
           </div>
-        `
+        </div>
+      `
             : ''
         }
       </div>
@@ -1994,7 +1994,7 @@ function createActivityItem(record, category) {
           </div>
           <div class="activity-content flex-grow text-left">
             <div class="activity-name font-semibold leading-tight text-gray-900 dark:text-white mb-1">${record.activityName}</div>
-            ${record.notes ? `<div class=\"activity-notes text-xs text-gray-500 dark:text-gray-400 my-1 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit max-w-full\">${record.notes}</div>` : ''}
+            ${record.notes ? `<div class="activity-notes text-xs text-gray-500 dark:text-gray-400 my-1 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit max-w-full">${record.notes}</div>` : ''}
             ${pillsMarkup}
           </div>
           <!-- Time placed absolutely so it doesn't restrict content width -->

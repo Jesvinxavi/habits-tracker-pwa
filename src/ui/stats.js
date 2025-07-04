@@ -955,7 +955,7 @@ function renderEmptyState(container) {
       <p class="text-gray-600 dark:text-gray-400 max-w-sm mx-auto mb-6">
         Start tracking habits and fitness activities to see your personalized statistics here.
       </p>
-      <button class="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors" onclick="document.querySelector('[data-view=\\\"home-view\\\"]').click()">
+      <button class="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors" onclick="document.querySelector('[data-view=\'home-view\']').click()">
         Start Tracking
       </button>
     </div>
