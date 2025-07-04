@@ -1,0 +1,28 @@
+{
+  "name": "healthy-habits-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Progressive Web App for habit tracking (vanilla-first).",
+  "scripts": {
+    "lint": "eslint \"src/**/*.js\"",
+    "format": "prettier --write \"**/*.{js,json,css,md}\"",
+    "format:check": "prettier --check \"**/*.{js,json,css,md}\"",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "husky": "^9.0.11",
+    "postcss": "^8.5.6",
+    "prettier": "^3.2.5",
+    "tailwindcss": "^4.1.11",
+    "vite": "^5.2.0",
+    "vite-plugin-pwa": "^0.19.3"
+  }
+}

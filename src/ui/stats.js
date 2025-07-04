@@ -1,0 +1,1046 @@
+/**
+ * Stats view controller - manages the statistics and analytics page
+ *
+ * This module provides a comprehensive statistics dashboard for the PWA Habits tracker.
+ * It displays general statistics for both habits and fitness activities, including:
+ * - Habit completion rates and streaks
+ * - Category-based breakdowns
+ * - Fitness session analytics
+ * - 100% completion streak calculations
+ *
+ * The page follows the same styling patterns as the fitness page with left-aligned titles.
+ */
+
+import { appData, subscribe } from '../core/state.js';
+import { getActivitiesForDate } from '../utils/activities.js';
+import {
+  isHabitCompleted,
+  isHabitScheduledOnDate,
+  belongsToSelectedGroup,
+  getPeriodKey,
+} from '../utils/scheduleLogic.js';
+import { dateToKey } from '../utils/holidays.js';
+
+// Current stats view state - 'habits' or 'fitness'
+let currentStatsView = 'habits';
+let activeCarouselInterval = null;
+
+/**
+ * Initializes the stats view with all its components
+ */
+export function initializeStats() {
+  buildHeader();
+  buildStatsContainer();
+
+  // Subscribe to state changes for reactive updates
+  subscribe(() => {
+    renderStatsContent();
+  });
+
+  // Initial render
+  renderStatsContent();
+}
+
+/**
+ * Builds the header for the stats view
+ */
+function buildHeader() {
+  const statsView = document.getElementById('stats-view');
+  if (!statsView) return;
+
+  // Clear any existing content
+  statsView.innerHTML = '';
+
+  buildHeaderBar();
+}
+
+/**
+ * Builds the header bar with left-aligned title (same styling as fitness page)
+ */
+function buildHeaderBar() {
+  const statsView = document.getElementById('stats-view');
+  if (!statsView) return;
+
+  // Create header identical to Fitness page structure but with left-aligned title
+  const header = document.createElement('header');
+  header.className =
+    'app-header flex justify-between items-center h-11 px-4 sm:px-6 lg:px-8 border-b border-gray-200 dark:border-gray-700 border-opacity-50 w-full';
+
+  header.innerHTML = `
+    <div></div>
+    <h1 class="app-title text-left flex-grow text-[36px] font-extrabold leading-none flex items-end">Statistics</h1>
+    <div></div>
+  `;
+
+  statsView.appendChild(header);
+}
+
+/**
+ * Builds the main stats container
+ */
+function buildStatsContainer() {
+  const statsView = document.getElementById('stats-view');
+  if (!statsView) return;
+
+  const container = document.createElement('div');
+  container.className =
+    'stats-container flex-1 overflow-y-auto overscroll-behavior-contain px-4 py-4 pb-8';
+  container.id = 'stats-container';
+
+  statsView.appendChild(container);
+}
+
+/**
+ * Renders the statistics content
+ */
+function renderStatsContent() {
+  const container = document.getElementById('stats-container');
+  if (!container) return;
+
+  // Show loading state
+  container.innerHTML =
+    '<div class="loading-state p-8 text-center"><div class="loading-shimmer h-32 rounded-xl mb-4"></div><div class="loading-shimmer h-24 rounded-xl"></div></div>';
+
+  try {
+    // Calculate statistics
+    const habitStats = calculateHabitStatistics();
+    const fitnessStats = calculateFitnessStatistics();
+
+    // Clear loading state
+    container.innerHTML = '';
+
+    // Render sections
+    renderOverviewSection(container, habitStats, fitnessStats);
+    renderStatsToggleSection(container);
+    renderDetailedStatsSection(container, habitStats, fitnessStats);
+
+    // Add empty state if no data
+    if (habitStats.totalHabits === 0 && fitnessStats.totalActivities === 0) {
+      renderEmptyState(container);
+    }
+  } catch (error) {
+    // Error state
+    container.innerHTML = `
+      <div class="error-state p-8 text-center">
+        <div class="w-16 h-16 bg-red-100 dark:bg-red-900 rounded-full mx-auto mb-4 flex items-center justify-center">
+          <svg class="w-8 h-8 text-red-600 dark:text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-2.694-.833-3.464 0L3.349 16.5c-.77.833.192 2.5 1.732 2.5z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Error Loading Statistics</h3>
+        <p class="text-gray-600 dark:text-gray-400">Please try refreshing the page</p>
+      </div>
+    `;
+  }
+}
+
+/**
+ * Calculate comprehensive habit statistics
+ */
+function calculateHabitStatistics() {
+  const habits = (appData.habits || []).filter(validateHabitData);
+  const today = new Date();
+
+  // Basic counts
+  const stats = {
+    totalHabits: habits.length,
+    activeHabits: habits.filter((h) => !h.paused).length,
+    pausedHabits: habits.filter((h) => h.paused).length,
+    completedToday: 0,
+    streaks: [],
+    categoryBreakdown: new Map(),
+    completionRates: new Map(),
+    longestStreak: 0,
+    currentStreak: 0,
+    averageCompletionRate: 0,
+  };
+
+  // Calculate completion rates and streaks for each habit
+  habits.forEach((habit) => {
+    if (habit.paused) return;
+
+    try {
+      // Calculate completion rate over the last 30 days
+      const completionRate = safeCalculation(() => calculateHabitCompletionRate(habit, 30), 0);
+      stats.completionRates.set(habit.id, {
+        habitName: habit.name,
+        rate: completionRate,
+        categoryId: habit.categoryId,
+      });
+
+      // Calculate current streak
+      const currentStreak = safeCalculation(() => calculateCurrentStreak(habit), 0);
+      const longestStreak = safeCalculation(() => calculateLongestStreak(habit), 0);
+
+      stats.streaks.push({
+        habitName: habit.name,
+        currentStreak,
+        longestStreak,
+        categoryId: habit.categoryId,
+      });
+
+      // Update longest streak record
+      if (longestStreak > stats.longestStreak) {
+        stats.longestStreak = longestStreak;
+      }
+
+      // Check if completed today
+      if (isHabitCompleted(habit, today)) {
+        stats.completedToday++;
+      }
+
+      // Category breakdown
+      const categoryId = habit.categoryId;
+      if (!stats.categoryBreakdown.has(categoryId)) {
+        stats.categoryBreakdown.set(categoryId, {
+          count: 0,
+          completionRate: 0,
+          habits: [],
+        });
+      }
+
+      const categoryData = stats.categoryBreakdown.get(categoryId);
+      categoryData.count++;
+      categoryData.habits.push({
+        name: habit.name,
+        completionRate: completionRate,
+      });
+    } catch (error) {}
+  });
+
+  // Calculate category completion rates
+  stats.categoryBreakdown.forEach((categoryData, categoryId) => {
+    const totalRate = categoryData.habits.reduce((sum, h) => sum + (h.completionRate || 0), 0);
+    categoryData.completionRate =
+      categoryData.habits.length > 0 ? totalRate / categoryData.habits.length : 0;
+  });
+
+  // Calculate overall average completion rate
+  const completionRates = Array.from(stats.completionRates.values());
+  const totalCompletionRate = completionRates.reduce((sum, h) => sum + (h.rate || 0), 0);
+  stats.averageCompletionRate =
+    completionRates.length > 0 ? totalCompletionRate / completionRates.length : 0;
+
+  return stats;
+}
+
+/**
+ * Calculate completion rate for a specific habit over the last N days
+ * Only counts scheduled days as denominator for accurate percentage
+ * Only looks back to when the habit was actually created
+ */
+function calculateHabitCompletionRate(habit, days = 30) {
+  const today = new Date();
+  let completed = 0;
+  let scheduled = 0;
+
+  // Extract creation date from habit ID (timestamp + random string)
+  const creationTimestamp = parseInt(habit.id.toString(), 10);
+  const creationDate = new Date(creationTimestamp);
+
+  // Calculate how many days the habit has existed
+  const daysSinceCreation = Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)) + 1; // +1 to include today
+
+  // Only look back as far as the habit has existed, or the requested days, whichever is smaller
+  const daysToCheck = Math.min(days, daysSinceCreation);
+
+  for (let i = 0; i < daysToCheck; i++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+
+    // Don't check dates before the habit was created
+    if (date < creationDate) {
+      continue;
+    }
+
+    if (isHabitScheduledOnDate(habit, date)) {
+      scheduled++;
+      if (isHabitCompleted(habit, date)) {
+        completed++;
+      }
+    }
+  }
+
+  // Return completion rate based only on scheduled days since creation
+  // If no days were scheduled in the period, return 0
+  return scheduled > 0 ? (completed / scheduled) * 100 : 0;
+}
+
+/**
+ * Calculate completion rates for multiple time periods
+ */
+function calculateMultiPeriodCompletionRates() {
+  const habits = (appData.habits || []).filter(validateHabitData).filter((h) => !h.paused);
+  const today = new Date();
+
+  // Determine what periods we can show based on oldest habit
+  let oldestHabitDays = 0;
+  habits.forEach((habit) => {
+    try {
+      const creationTimestamp = parseInt(habit.id.toString(), 10);
+      const creationDate = new Date(creationTimestamp);
+      const daysSinceCreation = Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)) + 1;
+      oldestHabitDays = Math.max(oldestHabitDays, daysSinceCreation);
+    } catch (error) {
+      // Fallback for invalid IDs
+      oldestHabitDays = Math.max(oldestHabitDays, 30);
+    }
+  });
+
+  const periods = [];
+
+  // Always show current period (adaptive)
+  const currentPeriodDays = Math.min(30, oldestHabitDays);
+  periods.push({
+    days: currentPeriodDays,
+    label: getCompletionPeriodLabel(),
+    rate: calculateAverageCompletionRateForPeriod(habits, currentPeriodDays),
+  });
+
+  // Show 7 days if we have at least 7 days of data and it's different from current
+  if (oldestHabitDays >= 7 && currentPeriodDays !== 7) {
+    periods.push({
+      days: 7,
+      label: '7d',
+      rate: calculateAverageCompletionRateForPeriod(habits, 7),
+    });
+  }
+
+  // Show 30 days if we have at least 30 days of data and it's different from current
+  if (oldestHabitDays >= 30 && currentPeriodDays !== 30) {
+    periods.push({
+      days: 30,
+      label: '30d',
+      rate: calculateAverageCompletionRateForPeriod(habits, 30),
+    });
+  }
+
+  // Show 1 year if we have at least 365 days of data
+  if (oldestHabitDays >= 365) {
+    periods.push({
+      days: 365,
+      label: '1y',
+      rate: calculateAverageCompletionRateForPeriod(habits, 365),
+    });
+  }
+
+  return periods;
+}
+
+/**
+ * Calculate average completion rate across all habits for a specific period
+ */
+function calculateAverageCompletionRateForPeriod(habits, days) {
+  if (habits.length === 0) return 0;
+
+  const rates = habits.map((habit) => calculateHabitCompletionRate(habit, days));
+  const totalRate = rates.reduce((sum, rate) => sum + rate, 0);
+  return totalRate / rates.length;
+}
+
+/**
+ * Render completion carousel for multiple time periods
+ */
+function renderCompletionCarousel(periods) {
+  if (periods.length === 1) {
+    // Single period - render simple tile
+    const period = periods[0];
+    return `
+      <div class="completion-rates">
+        <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+          <div class="text-2xl font-bold text-center mb-1 text-gray-900 dark:text-white">
+            ${period.rate.toFixed(1)}%
+          </div>
+          <div class="text-center text-sm text-gray-600 dark:text-gray-400">
+            Avg completion (${period.label})
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Multiple periods - render carousel
+  const slidesHTML = periods
+    .map(
+      (period, index) => `
+    <div class="carousel-slide ${index === 0 ? 'active' : ''}" data-slide="${index}">
+      <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+        <div class="text-2xl font-bold text-center mb-1 text-gray-900 dark:text-white">
+          ${period.rate.toFixed(1)}%
+        </div>
+        <div class="text-center text-sm text-gray-600 dark:text-gray-400">
+          Avg completion (${period.label})
+        </div>
+      </div>
+    </div>
+  `
+    )
+    .join('');
+
+  const dotsHTML = periods
+    .map(
+      (_, index) => `
+    <div class="carousel-dot ${index === 0 ? 'active' : ''}" data-slide="${index}"></div>
+  `
+    )
+    .join('');
+
+  return `
+    <div class="completion-rates">
+      <div class="completion-carousel" id="completion-carousel">
+        <div class="carousel-container">
+          <div class="carousel-track" id="carousel-track">
+            ${slidesHTML}
+          </div>
+        </div>
+        <div class="carousel-dots" id="carousel-dots">
+          ${dotsHTML}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Initialize completion carousel functionality
+ */
+function initializeCompletionCarousel() {
+  // Cleanup any existing carousel interval
+  if (activeCarouselInterval) {
+    clearInterval(activeCarouselInterval);
+    activeCarouselInterval = null;
+  }
+
+  const carousel = document.getElementById('completion-carousel');
+  const track = document.getElementById('carousel-track');
+  const dots = document.getElementById('carousel-dots');
+
+  if (!carousel || !track || !dots) return;
+
+  const slides = track.querySelectorAll('.carousel-slide');
+  const dotElements = dots.querySelectorAll('.carousel-dot');
+
+  if (slides.length <= 1) return;
+
+  let currentSlide = 0;
+  let touchStartX = 0;
+  let touchEndX = 0;
+
+  // Update active slide and dot
+  function updateActiveSlide(index) {
+    if (index < 0 || index >= slides.length) return;
+
+    currentSlide = index;
+
+    // Update slides
+    slides.forEach((slide, i) => {
+      slide.classList.toggle('active', i === currentSlide);
+    });
+
+    // Update dots
+    dotElements.forEach((dot, i) => {
+      dot.classList.toggle('active', i === currentSlide);
+    });
+  }
+
+  // Go to next slide
+  function nextSlide() {
+    const next = (currentSlide + 1) % slides.length;
+    updateActiveSlide(next);
+  }
+
+  // Go to previous slide
+  function prevSlide() {
+    const prev = (currentSlide - 1 + slides.length) % slides.length;
+    updateActiveSlide(prev);
+  }
+
+  // Auto-advance functionality
+  function startAutoAdvance() {
+    stopAutoAdvance();
+    activeCarouselInterval = setInterval(nextSlide, 4000); // 4 seconds
+  }
+
+  function stopAutoAdvance() {
+    if (activeCarouselInterval) {
+      clearInterval(activeCarouselInterval);
+      activeCarouselInterval = null;
+    }
+  }
+
+  // Dot click handlers
+  dotElements.forEach((dot, index) => {
+    dot.addEventListener('click', () => {
+      updateActiveSlide(index);
+      stopAutoAdvance();
+      setTimeout(startAutoAdvance, 5000); // Restart auto-advance after 5 seconds
+    });
+  });
+
+  // Touch/swipe handlers
+  carousel.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    stopAutoAdvance();
+  });
+
+  carousel.addEventListener('touchend', (e) => {
+    touchEndX = e.changedTouches[0].clientX;
+    handleSwipe();
+    setTimeout(startAutoAdvance, 2000); // Restart auto-advance after 2 seconds
+  });
+
+  // Mouse drag handlers for desktop
+  let isDragging = false;
+  let startX = 0;
+
+  carousel.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    startX = e.clientX;
+    stopAutoAdvance();
+    carousel.style.cursor = 'grabbing';
+  });
+
+  carousel.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+  });
+
+  carousel.addEventListener('mouseup', (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    carousel.style.cursor = 'grab';
+
+    const endX = e.clientX;
+    const diffX = startX - endX;
+
+    if (Math.abs(diffX) > 50) {
+      if (diffX > 0) {
+        nextSlide();
+      } else {
+        prevSlide();
+      }
+    }
+
+    setTimeout(startAutoAdvance, 2000);
+  });
+
+  carousel.addEventListener('mouseleave', () => {
+    if (isDragging) {
+      isDragging = false;
+      carousel.style.cursor = 'grab';
+      setTimeout(startAutoAdvance, 1000);
+    }
+  });
+
+  function handleSwipe() {
+    const swipeThreshold = 50;
+    const diffX = touchStartX - touchEndX;
+
+    if (Math.abs(diffX) > swipeThreshold) {
+      if (diffX > 0) {
+        nextSlide(); // Swipe left - next slide
+      } else {
+        prevSlide(); // Swipe right - previous slide
+      }
+    }
+  }
+
+  // Pause auto-advance on hover
+  carousel.addEventListener('mouseenter', stopAutoAdvance);
+  carousel.addEventListener('mouseleave', () => {
+    if (!isDragging) {
+      setTimeout(startAutoAdvance, 1000);
+    }
+  });
+
+  // Start auto-advance
+  startAutoAdvance();
+
+  // Add CSS cursor
+  carousel.style.cursor = 'grab';
+}
+
+/**
+ * Calculate current streak for a habit (consecutive days of completion)
+ */
+function calculateCurrentStreak(habit) {
+  const today = new Date();
+  let streak = 0;
+  let date = new Date(today);
+
+  while (true) {
+    if (isHabitScheduledOnDate(habit, date)) {
+      if (isHabitCompleted(habit, date)) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    date.setDate(date.getDate() - 1);
+
+    // Prevent infinite loop - max 365 days
+    if (streak > 365) break;
+  }
+
+  return streak;
+}
+
+/**
+ * Calculate longest streak for a habit
+ */
+function calculateLongestStreak(habit) {
+  const today = new Date();
+  let longestStreak = 0;
+  let currentStreak = 0;
+
+  // Check last 365 days
+  for (let i = 365; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+
+    if (isHabitScheduledOnDate(habit, date)) {
+      if (isHabitCompleted(habit, date)) {
+        currentStreak++;
+        longestStreak = Math.max(longestStreak, currentStreak);
+      } else {
+        currentStreak = 0;
+      }
+    }
+  }
+
+  return longestStreak;
+}
+
+/**
+ * Calculate fitness statistics
+ */
+function calculateFitnessStatistics() {
+  const activities = appData.activities || [];
+  const recordedActivities = appData.recordedActivities || {};
+
+  const stats = {
+    totalActivities: activities.length,
+    totalSessions: 0,
+    categoriesUsed: new Set(),
+    recentSessions: 0,
+    totalDuration: 0,
+    averageSessionDuration: 0,
+  };
+
+  // Calculate from recorded activities
+  Object.values(recordedActivities).forEach((dayRecords) => {
+    dayRecords.forEach((record) => {
+      stats.totalSessions++;
+
+      // Track categories
+      if (record.categoryId) {
+        stats.categoriesUsed.add(record.categoryId);
+      }
+
+      // Calculate duration
+      if (record.duration) {
+        let durationInMinutes = parseInt(record.duration) || 0;
+        if (record.durationUnit === 'hours') {
+          durationInMinutes *= 60;
+        } else if (record.durationUnit === 'seconds') {
+          durationInMinutes /= 60;
+        }
+        stats.totalDuration += durationInMinutes;
+      }
+    });
+  });
+
+  // Calculate recent sessions (last 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  Object.entries(recordedActivities).forEach(([dateStr, dayRecords]) => {
+    const recordDate = new Date(dateStr);
+    if (recordDate >= thirtyDaysAgo) {
+      stats.recentSessions += dayRecords.length;
+    }
+  });
+
+  // Calculate average session duration
+  stats.averageSessionDuration =
+    stats.totalSessions > 0 ? stats.totalDuration / stats.totalSessions : 0;
+
+  return stats;
+}
+
+/**
+ * Render overview section
+ */
+function renderOverviewSection(container, habitStats, fitnessStats) {
+  const section = document.createElement('div');
+  section.className = 'overview-section mb-6';
+
+  section.innerHTML = `
+    <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-white">Overview</h2>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="stat-card bg-blue-50 dark:bg-blue-900 p-4 rounded-lg hover:scale-105 transition-transform">
+        <div class="stat-value text-2xl font-bold text-blue-600 dark:text-blue-300">${formatNumber(habitStats.totalHabits)}</div>
+        <div class="stat-label text-sm text-blue-600 dark:text-blue-300">Total Habits</div>
+      </div>
+      <div class="stat-card bg-green-50 dark:bg-green-900 p-4 rounded-lg hover:scale-105 transition-transform">
+        <div class="stat-value text-2xl font-bold text-green-600 dark:text-green-300">${formatNumber(habitStats.completedToday)}</div>
+        <div class="stat-label text-sm text-green-600 dark:text-green-300">Completed Today</div>
+      </div>
+      <div class="stat-card bg-purple-50 dark:bg-purple-900 p-4 rounded-lg hover:scale-105 transition-transform">
+        <div class="stat-value text-2xl font-bold text-purple-600 dark:text-purple-300">${formatNumber(fitnessStats.recentSessions)}</div>
+        <div class="stat-label text-sm text-purple-600 dark:text-purple-300">Fitness Sessions</div>
+        <div class="text-sm text-purple-600 dark:text-purple-300 mt-1">Last 30 days</div>
+      </div>
+      <div class="stat-card bg-orange-50 dark:bg-orange-900 p-4 rounded-lg hover:scale-105 transition-transform">
+        <div class="stat-value text-2xl font-bold text-orange-600 dark:text-orange-300">${formatNumber(habitStats.longestStreak)}</div>
+        <div class="stat-label text-sm text-orange-600 dark:text-orange-300">Longest Streak</div>
+        <div class="text-sm text-orange-600 dark:text-orange-300 mt-1">Days</div>
+      </div>
+    </div>
+  `;
+
+  container.appendChild(section);
+}
+
+/**
+ * Render habit statistics section - compressed version
+ */
+function renderHabitStatsSection(container, stats) {
+  const section = document.createElement('div');
+  section.className = 'habit-stats-section mb-6';
+
+  let categoryStatsHTML = '';
+  stats.categoryBreakdown.forEach((categoryData, categoryId) => {
+    const category = appData.categories.find((c) => c.id === categoryId);
+    const categoryName = category ? category.name : 'Unknown';
+    const categoryColor = category ? category.color : '#888';
+
+    categoryStatsHTML += `
+      <div class="category-stat mb-3 p-3 rounded-lg border-l-4 bg-gray-50 dark:bg-gray-800" style="border-left-color: ${categoryColor};">
+        <div class="flex justify-between items-center">
+          <span class="font-medium text-sm">${categoryName}</span>
+          <span class="text-sm text-gray-600 dark:text-gray-400">${categoryData.count} habits</span>
+        </div>
+        <div class="text-sm text-gray-600 dark:text-gray-400">
+          Avg: ${categoryData.completionRate.toFixed(1)}%
+        </div>
+      </div>
+    `;
+  });
+
+  // Get completion periods for carousel
+  const completionPeriods = calculateMultiPeriodCompletionRates();
+  const completionCarouselHTML = renderCompletionCarousel(completionPeriods);
+
+  section.innerHTML = `
+    <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-white">Habit Stats</h2>
+    
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      ${completionCarouselHTML}
+      
+      <div class="streaks">
+        <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+          <div class="text-2xl font-bold text-center mb-1 text-gray-900 dark:text-white">
+            ${stats.longestStreak}
+          </div>
+          <div class="text-center text-sm text-gray-600 dark:text-gray-400">
+            Longest streak (days)
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    ${
+      categoryStatsHTML
+        ? `<div class="category-breakdown">
+      <h3 class="text-lg font-medium mb-3 text-gray-900 dark:text-white">By Category</h3>
+      ${categoryStatsHTML}
+    </div>`
+        : ''
+    }
+  `;
+
+  container.appendChild(section);
+
+  // Initialize carousel if multiple periods exist
+  if (completionPeriods.length > 1) {
+    initializeCompletionCarousel();
+  }
+}
+
+/**
+ * Render fitness statistics section - compressed version
+ */
+function renderFitnessStatsSection(container, stats) {
+  const section = document.createElement('div');
+  section.className = 'fitness-stats-section mb-8 pb-6';
+
+  section.innerHTML = `
+    <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-white">Fitness Stats</h2>
+    
+    <div class="grid grid-cols-2 gap-3">
+      <div class="stat-card bg-red-50 dark:bg-red-900 p-4 rounded-lg hover:scale-105 transition-transform">
+        <div class="stat-value text-2xl font-bold text-red-600 dark:text-red-300">${formatNumber(stats.totalActivities)}</div>
+        <div class="stat-label text-sm text-red-600 dark:text-red-300">Total Activities</div>
+      </div>
+      <div class="stat-card bg-indigo-50 dark:bg-indigo-900 p-4 rounded-lg hover:scale-105 transition-transform">
+        <div class="stat-value text-2xl font-bold text-indigo-600 dark:text-indigo-300">${formatNumber(stats.recentSessions)}</div>
+        <div class="stat-label text-sm text-indigo-600 dark:text-indigo-300">Recent Sessions</div>
+        <div class="text-sm text-indigo-600 dark:text-indigo-300 mt-1">Last 30 days</div>
+      </div>
+      <div class="stat-card bg-teal-50 dark:bg-teal-900 p-4 rounded-lg hover:scale-105 transition-transform">
+        <div class="stat-value text-2xl font-bold text-teal-600 dark:text-teal-300">${formatDuration(stats.totalDuration)}</div>
+        <div class="stat-label text-sm text-teal-600 dark:text-teal-300">Total Time</div>
+      </div>
+      <div class="stat-card bg-pink-50 dark:bg-pink-900 p-4 rounded-lg hover:scale-105 transition-transform">
+        <div class="stat-value text-2xl font-bold text-pink-600 dark:text-pink-300">${formatDuration(stats.averageSessionDuration)}</div>
+        <div class="stat-label text-sm text-pink-600 dark:text-pink-300">Avg Session</div>
+      </div>
+    </div>
+  `;
+
+  container.appendChild(section);
+}
+
+/**
+ * Render toggle section for switching between habits and fitness stats
+ */
+function renderStatsToggleSection(container) {
+  const section = document.createElement('div');
+  section.className = 'stats-toggle-section mb-6';
+
+  section.innerHTML = `
+    <div class="toggle-container bg-gray-100 dark:bg-gray-800 p-1 rounded-xl inline-flex w-full max-w-md mx-auto">
+      <button 
+        id="habits-toggle" 
+        class="toggle-btn flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-all duration-300 ${currentStatsView === 'habits' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}"
+        data-view="habits"
+      >
+        Habits
+      </button>
+      <button 
+        id="fitness-toggle" 
+        class="toggle-btn flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-all duration-300 ${currentStatsView === 'fitness' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}"
+        data-view="fitness"
+      >
+        Fitness
+      </button>
+    </div>
+  `;
+
+  container.appendChild(section);
+
+  // Bind toggle event listeners
+  bindStatsToggleEvents();
+}
+
+/**
+ * Render detailed stats section based on current view
+ */
+function renderDetailedStatsSection(container, habitStats, fitnessStats) {
+  const section = document.createElement('div');
+  section.className = 'detailed-stats-section';
+  section.id = 'detailed-stats-container';
+  section.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+  section.style.opacity = '1';
+  section.style.transform = 'translateY(0)';
+
+  // Render appropriate stats based on current view
+  if (currentStatsView === 'habits') {
+    section.innerHTML = '';
+    renderHabitStatsSection(section, habitStats);
+  } else {
+    section.innerHTML = '';
+    renderFitnessStatsSection(section, fitnessStats);
+  }
+
+  container.appendChild(section);
+}
+
+/**
+ * Bind event listeners for the stats toggle buttons
+ */
+function bindStatsToggleEvents() {
+  const habitsToggle = document.getElementById('habits-toggle');
+  const fitnessToggle = document.getElementById('fitness-toggle');
+
+  if (!habitsToggle || !fitnessToggle) return;
+
+  habitsToggle.addEventListener('click', () => switchStatsView('habits'));
+  fitnessToggle.addEventListener('click', () => switchStatsView('fitness'));
+}
+
+/**
+ * Switch between habits and fitness stats views with smooth transition
+ */
+function switchStatsView(view) {
+  if (currentStatsView === view) return;
+
+  currentStatsView = view;
+  const detailedContainer = document.getElementById('detailed-stats-container');
+
+  if (!detailedContainer) return;
+
+  // Add fade out effect
+  detailedContainer.style.opacity = '0';
+  detailedContainer.style.transform = 'translateY(10px)';
+
+  setTimeout(() => {
+    // Cleanup any active carousel intervals before re-rendering
+    if (activeCarouselInterval) {
+      clearInterval(activeCarouselInterval);
+      activeCarouselInterval = null;
+    }
+
+    // Re-render with new data
+    const habitStats = calculateHabitStatistics();
+    const fitnessStats = calculateFitnessStatistics();
+
+    detailedContainer.innerHTML = '';
+
+    if (currentStatsView === 'habits') {
+      renderHabitStatsSection(detailedContainer, habitStats);
+    } else {
+      renderFitnessStatsSection(detailedContainer, fitnessStats);
+    }
+
+    // Update toggle button states
+    updateToggleButtonStates();
+
+    // Add fade in effect
+    detailedContainer.style.opacity = '1';
+    detailedContainer.style.transform = 'translateY(0)';
+  }, 150);
+}
+
+/**
+ * Update toggle button visual states
+ */
+function updateToggleButtonStates() {
+  const habitsToggle = document.getElementById('habits-toggle');
+  const fitnessToggle = document.getElementById('fitness-toggle');
+
+  if (!habitsToggle || !fitnessToggle) return;
+
+  // Reset both buttons
+  habitsToggle.className =
+    'toggle-btn flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-all duration-300';
+  fitnessToggle.className =
+    'toggle-btn flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-all duration-300';
+
+  // Apply active state to current view
+  if (currentStatsView === 'habits') {
+    habitsToggle.className += ' bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm';
+    fitnessToggle.className +=
+      ' text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200';
+  } else {
+    fitnessToggle.className += ' bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm';
+    habitsToggle.className +=
+      ' text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200';
+  }
+}
+
+/**
+ * Render empty state when no data is available
+ */
+function renderEmptyState(container) {
+  container.innerHTML = `
+    <div class="empty-state flex flex-col items-center justify-center py-16 px-4 text-center">
+      <div class="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6">
+        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-3">No Data Yet</h3>
+      <p class="text-gray-600 dark:text-gray-400 max-w-sm mx-auto mb-6">
+        Start tracking habits and fitness activities to see your personalized statistics here.
+      </p>
+      <button class="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors" onclick="document.querySelector('[data-view=\\\"home-view\\\"]').click()">
+        Start Tracking
+      </button>
+    </div>
+  `;
+}
+
+/**
+ * Format large numbers with appropriate units
+ */
+function formatNumber(num) {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1) + 'M';
+  } else if (num >= 1000) {
+    return (num / 1000).toFixed(1) + 'K';
+  }
+  return num.toString();
+}
+
+/**
+ * Calculate time-based statistics with proper formatting
+ */
+function formatDuration(minutes) {
+  if (minutes < 60) {
+    return `${Math.round(minutes)}m`;
+  } else if (minutes < 1440) {
+    // Less than 24 hours
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = Math.round(minutes % 60);
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  } else {
+    const days = Math.floor(minutes / 1440);
+    const remainingHours = Math.floor((minutes % 1440) / 60);
+    return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+  }
+}
+
+/**
+ * Validate habit data to prevent calculation errors
+ */
+function validateHabitData(habit) {
+  return (
+    habit &&
+    typeof habit.id === 'string' &&
+    typeof habit.name === 'string' &&
+    typeof habit.paused === 'boolean'
+  );
+}
+
+/**
+ * Get completion period label based on actual habit tracking periods
+ */
+function getCompletionPeriodLabel() {
+  const habits = (appData.habits || []).filter(validateHabitData).filter((h) => !h.paused);
+  if (habits.length === 0) return '30d';
+
+  const today = new Date();
+  let maxDays = 0;
+
+  habits.forEach((habit) => {
+    try {
+      const creationTimestamp = parseInt(habit.id.toString(), 10);
+      const creationDate = new Date(creationTimestamp);
+      const daysSinceCreation = Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)) + 1;
+      const actualDays = Math.min(30, daysSinceCreation);
+      maxDays = Math.max(maxDays, actualDays);
+    } catch (error) {
+      // Fallback for habits with invalid IDs
+      maxDays = Math.max(maxDays, 30);
+    }
+  });
+
+  if (maxDays === 1) return 'today';
+  if (maxDays <= 7) return `${maxDays}d`;
+  if (maxDays >= 30) return '30d';
+  return `${maxDays}d`;
+}
+
+/**
+ * Enhanced error handling for calculations
+ */
+function safeCalculation(fn, fallback = 0) {
+  try {
+    const result = fn();
+    return isNaN(result) ? fallback : result;
+  } catch (error) {
+    return fallback;
+  }
+}

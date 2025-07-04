@@ -1,0 +1,56 @@
+name: CI-PWA-Performance
+
+on:
+  push:
+    branches: [ main, develop, feat/lazy-views ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  performance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci --no-audit --prefer-offline
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Start preview server
+        run: npx vite preview --port 4173 &
+        env:
+          NODE_ENV: production
+
+      - name: Wait for server
+        run: npx wait-on http://localhost:4173
+
+      - name: Run Lighthouse (perf + PWA)
+        run: npx lighthouse http://localhost:4173 --only-categories=performance --preset=pwa --output=json --output-path=./lighthouse.json --quiet
+
+      - name: Parse Lighthouse score & bundle size
+        run: |
+          SCORE=$(jq '.categories.performance.score * 100' lighthouse.json)
+          echo "Performance score: $SCORE"
+          if (( $(echo "$SCORE < 90" | bc -l) )); then echo "::error::Lighthouse performance score below threshold" && exit 1; fi
+
+          SIZE=$(stat -c%s dist/assets/index-*.js | sort -n | head -1)
+          SIZE_KB=$(echo "scale=2; $SIZE/1024" | bc)
+          echo "Main bundle size: ${SIZE_KB} KB"
+          if (( $(echo "$SIZE_KB > 150" | bc -l) )); then echo "::error::Main bundle exceeds 150 KB (gzip)" && exit 1; fi
+
+      - name: Upload Lighthouse report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: lighthouse.json 
