@@ -18,7 +18,6 @@ if (
   window.process = window.process || {};
   window.process.env = window.process.env || {};
   window.process.env.NODE_ENV = 'test';
-  // console.log('🧪 Test mode enabled! Console assertions will run.');
 }
 
 function registerServiceWorker() {

@@ -1,773 +1,776 @@
 /* --- style.css --- */
 :root {
-    --primary-color: #007bff;
-    --secondary-color: #6c757d;
-    --background-color: #ffffff;
-    --surface-color: #ffffff;
-    --text-color-primary: #000000;
-    --text-color-secondary: #8e8e93;
-    --success-color: #34c759;
-    --warning-color: #ff9500;
-    --danger-color: #ff3b30;
-    --info-color: #007aff;
-    --tab-bar-height: 83px;
-    --status-bar-height: 44px;
-    --app-header-height: 44px;
-    --border-radius: 12px;
-    --border-radius-small: 8px;
-    --border-radius-large: 16px;
-    --shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-    --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.1);
-    --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-    --home-inset: 16px; /* horizontal offset for key elements on Home view */
+  --primary-color: #007bff;
+  --secondary-color: #6c757d;
+  --background-color: #ffffff;
+  --surface-color: #ffffff;
+  --text-color-primary: #000000;
+  --text-color-secondary: #8e8e93;
+  --success-color: #34c759;
+  --warning-color: #ff9500;
+  --danger-color: #ff3b30;
+  --info-color: #007aff;
+  --tab-bar-height: 83px;
+  --status-bar-height: 44px;
+  --app-header-height: 44px;
+  --border-radius: 12px;
+  --border-radius-small: 8px;
+  --border-radius-large: 16px;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --home-inset: 16px; /* horizontal offset for key elements on Home view */
 }
 
 /* Dark mode variables */
-[data-theme="dark"] {
-    --background-color: #000000;
-    --surface-color: #1c1c1e;
-    --text-color-primary: #ffffff;
-    --text-color-secondary: #8e8e93;
+[data-theme='dark'] {
+  --background-color: #000000;
+  --surface-color: #1c1c1e;
+  --text-color-primary: #ffffff;
+  --text-color-secondary: #8e8e93;
 }
 
 /* .rest-day styles moved to components.css for parity with holiday styling */
 
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    color: var(--text-color-primary);
-    overscroll-behavior-y: contain;
-    line-height: 1.4;
-    font-size: 16px;
-    margin: 0; /* remove default browser gutter */
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+  color: var(--text-color-primary);
+  overscroll-behavior-y: contain;
+  line-height: 1.4;
+  font-size: 16px;
+  margin: 0; /* remove default browser gutter */
 }
 
 .app-container {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    width: 100vw;
-    overflow: hidden;
-    max-width: none;
-    margin: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  max-width: none;
+  margin: 0;
 }
 
 .content-area {
-    flex-grow: 1;
-    overflow-y: auto;
-    padding-bottom: var(--tab-bar-height);
-    position: relative;
+  flex-grow: 1;
+  overflow-y: auto;
+  padding-bottom: var(--tab-bar-height);
+  position: relative;
 }
 
 .view {
-    min-height: calc(100vh - var(--tab-bar-height));
+  min-height: calc(100vh - var(--tab-bar-height));
 }
 
 /* Status Bar */
 .status-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    height: var(--status-bar-height);
-    padding: 0 20px;
-    background-color: var(--background-color);
-    font-size: 17px;
-    font-weight: 600;
-    color: var(--text-color-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: var(--status-bar-height);
+  padding: 0 20px;
+  background-color: var(--background-color);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-color-primary);
 }
 
 .status-icons {
-    display: flex;
-    gap: 6px;
-    font-size: 14px;
+  display: flex;
+  gap: 6px;
+  font-size: 14px;
 }
 
 /* App Header */
 .app-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    height: var(--app-header-height);
-    padding: 0 20px;
-    background-color: var(--background-color);
-    border-bottom: 0.5px solid rgba(60, 60, 67, 0.12);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: var(--app-header-height);
+  padding: 0 20px;
+  background-color: var(--background-color);
+  border-bottom: 0.5px solid rgba(60, 60, 67, 0.12);
 }
 
 .app-title {
-    font-size: 17px;
-    font-weight: 600;
-    color: var(--text-color-primary);
-    text-align: center;
-    flex-grow: 1;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-color-primary);
+  text-align: center;
+  flex-grow: 1;
 }
 
 .theme-toggle,
 .menu-toggle,
 .back-btn,
 .add-btn {
-    background: none;
-    border: none;
-    color: var(--primary-color);
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
-    transition: background-color 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .theme-toggle:hover,
 .menu-toggle:hover,
 .back-btn:hover,
 .add-btn:hover {
-    background-color: rgba(0, 122, 255, 0.1);
+  background-color: rgba(0, 122, 255, 0.1);
 }
 
 /* Menu Dropdown */
 .menu-container {
-    position: relative;
+  position: relative;
 }
 
 /* Apple-style dropdown menu - now using Tailwind utilities */
 
-[data-theme="dark"] .dropdown-item {
-    color: #FFF;
+[data-theme='dark'] .dropdown-item {
+  color: #fff;
 }
 
 /* Refined hover: enable only on non-touch devices */
-@media (hover:hover) {
+@media (hover: hover) {
   .dropdown-item:hover {
-    background: rgba(0,0,0,0.07);
+    background: rgba(0, 0, 0, 0.07);
   }
 }
-@media (hover:none) {
+@media (hover: none) {
   .dropdown-item:hover {
     background: none;
   }
 }
 
 .dropdown-item:active {
-    background: none;
+  background: none;
 }
 
 .dropdown-item:focus {
-    background: none;
-    outline: none;
+  background: none;
+  outline: none;
 }
 
 .dropdown-icon {
-    margin-right: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  margin-right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .dropdown-icon svg {
-    width: 18px;
-    height: 18px;
-    display: block;
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 /* Home Content */
 
 /* Progress Section */
 .progress-section {
-    text-align: center;
-    margin: 0;
+  text-align: center;
+  margin: 0;
 }
 
 .progress-ring-container {
-    position: relative;
-    width: 150px;
-    height: 150px;
-    margin: 0 auto 8px auto;
+  position: relative;
+  width: 150px;
+  height: 150px;
+  margin: 0 auto 8px auto;
 }
 
 .progress-ring {
-    transform: rotate(-90deg);
+  transform: rotate(-90deg);
 }
 
 .progress-ring-bg {
-    stroke: #e5e5e7;
+  stroke: #e5e5e7;
 }
 
 .progress-ring-fg {
-    stroke: #ff6347;
-    stroke-linecap: round;
-    transition: stroke-dashoffset 0.5s ease;
+  stroke: #ff6347;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease;
 }
 
 .progress-text {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
 }
 
 .progress-number {
-    display: block;
-    font-size: 32px;
-    font-weight: 700;
-    color: var(--text-color-primary);
-    line-height: 1;
+  display: block;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-color-primary);
+  line-height: 1;
 }
 
 .progress-label {
-    display: block;
-    font-size: 16px;
-    font-weight: 400;
-    color: var(--text-color-secondary);
-    margin-top: 4px;
+  display: block;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text-color-secondary);
+  margin-top: 4px;
 }
 
 .weekly-progress {
-    margin: 0;
+  margin: 0;
 }
 
 .weekly-label {
-    background-color: rgba(142, 142, 147, 0.12);
-    color: var(--text-color-secondary);
-    padding: 6px 16px;
-    border-radius: 20px;
-    font-size: 14px;
-    font-weight: 500;
+  background-color: rgba(142, 142, 147, 0.12);
+  color: var(--text-color-secondary);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
 }
 
-
-
 .week-days {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    align-items: center;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; /* Firefox */
-    min-height: 80px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  align-items: center;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  min-height: 80px;
 }
 
 .week-days::-webkit-scrollbar {
-    display: none; /* Safari and Chrome */
+  display: none; /* Safari and Chrome */
 }
 
 .day-item {
-    text-align: center;
-    padding: 10px 6px;
-    border-radius: 12px;
-    min-width: 52px;
-    scroll-snap-align: center;
-    transition: background-color 0.2s ease, transform 0.2s ease;
-    cursor: pointer;
-    flex: 0 0 auto;
-    background-color: #f3f4f6; /* light grey */
+  text-align: center;
+  padding: 10px 6px;
+  border-radius: 12px;
+  min-width: 52px;
+  scroll-snap-align: center;
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease;
+  cursor: pointer;
+  flex: 0 0 auto;
+  background-color: #f3f4f6; /* light grey */
 }
 
 .day-item:hover {
-    background-color: rgba(0, 122, 255, 0.1);
+  background-color: rgba(0, 122, 255, 0.1);
 }
 
 .day-item.current-day {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 8px 6px;
-    z-index: 1;
+  background-color: var(--primary-color);
+  color: white;
+  padding: 8px 6px;
+  z-index: 1;
 }
 
 .day-name {
-    display: block;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-color-secondary);
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-color-secondary);
 }
 
 .day-item.current-day .day-name {
-    color: white;
-    font-weight: 400; /* lighter than date number */
+  color: white;
+  font-weight: 400; /* lighter than date number */
 }
 
 .day-number {
-    display: block;
-    font-size: 17px;
-    font-weight: 600;
-    color: var(--text-color-primary);
+  display: block;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-color-primary);
 }
 
 .day-item.current-day .day-number {
-    color: white;
-    font-weight: 700; /* heavier weight for emphasis */
+  color: white;
+  font-weight: 700; /* heavier weight for emphasis */
 }
 
 .day-item.current-day .day-month {
-    display: block;
-    color: white;
-    font-weight: 400; /* lighter than date number */
+  display: block;
+  color: white;
+  font-weight: 400; /* lighter than date number */
 }
 
 .calendar-nav {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 16px;
-    margin: 0;
-    position: relative;
-    top: -3px; /* pull navigation upward to reduce vertical gap */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  position: relative;
+  top: -3px; /* pull navigation upward to reduce vertical gap */
 }
 
 .nav-arrow,
 .today-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 8px 12px;
-    border-radius: var(--border-radius-small);
-    font-size: 16px;
-    transition: background-color 0.2s ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: var(--border-radius-small);
+  font-size: 16px;
+  transition: background-color 0.2s ease;
 }
 
 .nav-arrow:hover,
 .today-btn:hover {
-    background-color: rgba(0, 122, 255, 0.1);
+  background-color: rgba(0, 122, 255, 0.1);
 }
 
 .today-btn {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 1px 12px;
-    border-radius: 20px;
-    font-size: 14px;
+  background-color: var(--primary-color);
+  color: white;
+  padding: 1px 12px;
+  border-radius: 20px;
+  font-size: 14px;
 }
 
 .today-btn:hover {
-    background-color: #0056b3;
+  background-color: #0056b3;
 }
 
-
-
 .habits-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .habits-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 18px;
-    color: var(--text-color-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  color: var(--text-color-primary);
 }
 
 .habits-icon {
-    font-size: 20px;
+  font-size: 20px;
 }
 
 .expand-btn {
-    background: none;
-    border: none;
-    color: var(--text-color-secondary);
-    cursor: pointer;
-    padding: 4px;
-    transition: transform 0.2s ease;
+  background: none;
+  border: none;
+  color: var(--text-color-secondary);
+  cursor: pointer;
+  padding: 4px;
+  transition: transform 0.2s ease;
 }
 
 .expand-btn:hover {
-    transform: scale(1.1);
+  transform: scale(1.1);
 }
 
 /* Habits Sections */
 .habits-section {
-    padding: 0 0 20px 0;
+  padding: 0 0 20px 0;
 }
 
 .section-label {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text-color-primary);
-    margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-color-primary);
+  margin-bottom: 12px;
 }
 
 .section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
 .toggle-section {
-    background: none;
-    border: none;
-    color: var(--primary-color);
-    cursor: pointer;
-    font-size: 14px;
-    padding: 4px 8px;
-    border-radius: var(--border-radius-small);
-    transition: background-color 0.2s ease;
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: var(--border-radius-small);
+  transition: background-color 0.2s ease;
 }
 
 .toggle-section:hover {
-    background-color: rgba(0, 122, 255, 0.1);
+  background-color: rgba(0, 122, 255, 0.1);
 }
 
 /* Habit Cards */
 .habit-card {
-    display: flex;
-    align-items: center;
-    padding: 16px;
-    margin-bottom: 8px;
-    border-radius: var(--border-radius);
-    border: 2px solid transparent;
-    transition: all 0.2s ease;
-    gap: 12px;
-    cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  margin-bottom: 8px;
+  border-radius: var(--border-radius);
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+  gap: 12px;
+  cursor: pointer;
 }
 
 .habit-card:last-child {
-    margin-bottom: 0;
+  margin-bottom: 0;
 }
 
 .habit-card.completed {
-    border-color: var(--primary-color);
-    background-color: rgba(0, 122, 255, 0.05);
+  border-color: var(--primary-color);
+  background-color: rgba(0, 122, 255, 0.05);
 }
 
 .habit-card.in-progress {
-    border-color: var(--primary-color);
-    background-color: var(--primary-color);
-    color: white;
+  border-color: var(--primary-color);
+  background-color: var(--primary-color);
+  color: white;
 }
 
 .habit-card.scheduled {
-    border-color: var(--danger-color);
-    background-color: rgba(255, 59, 48, 0.05);
+  border-color: var(--danger-color);
+  background-color: rgba(255, 59, 48, 0.05);
 }
 
 .habit-card.completed-item {
-    background-color: rgba(52, 199, 89, 0.05);
-    border-color: var(--success-color);
+  background-color: rgba(52, 199, 89, 0.05);
+  border-color: var(--success-color);
 }
 
 .habit-card.skipped-item {
-    background-color: rgba(255, 149, 0, 0.05);
-    border-color: var(--warning-color);
+  background-color: rgba(255, 149, 0, 0.05);
+  border-color: var(--warning-color);
 }
 
 .habit-check {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background-color: var(--primary-color);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .habit-check.success {
-    background-color: var(--success-color);
+  background-color: var(--success-color);
 }
 
 .habit-check.skipped {
-    background-color: var(--text-color-secondary);
+  background-color: var(--text-color-secondary);
 }
 
 .habit-content {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .habit-name {
-    font-size: 16px;
-    font-weight: 600;
-    color: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: inherit;
 }
 
 .habit-tag {
-    font-size: 12px;
-    background-color: rgba(0, 122, 255, 0.12);
-    color: var(--primary-color);
-    padding: 2px 8px;
-    border-radius: 6px;
-    display: inline-block;
-    width: fit-content;
-    font-weight: 500;
+  font-size: 12px;
+  background-color: rgba(0, 122, 255, 0.12);
+  color: var(--primary-color);
+  padding: 2px 8px;
+  border-radius: 6px;
+  display: inline-block;
+  width: fit-content;
+  font-weight: 500;
 }
 
 .habit-card.in-progress .habit-tag {
-    background-color: rgba(255, 255, 255, 0.2);
-    color: white;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
 }
 
 .scheduled-tag {
-    background-color: rgba(255, 59, 48, 0.12);
-    color: var(--danger-color);
+  background-color: rgba(255, 59, 48, 0.12);
+  color: var(--danger-color);
 }
 
 .habit-counter {
-    text-align: center;
-    font-weight: 600;
-    color: white;
+  text-align: center;
+  font-weight: 600;
+  color: white;
 }
 
 .counter-value {
-    display: block;
-    font-size: 16px;
-    line-height: 1.2;
+  display: block;
+  font-size: 16px;
+  line-height: 1.2;
 }
 
 .counter-unit {
-    font-size: 12px;
-    font-weight: 500;
-    opacity: 0.8;
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.8;
 }
 
 .scheduled-time {
-    background-color: var(--danger-color);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 600;
+  background-color: var(--danger-color);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .habit-status {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background-color: var(--primary-color);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .completed-status {
-    background-color: var(--primary-color);
+  background-color: var(--primary-color);
 }
 
 .status-badge {
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .completed-badge {
-    background-color: var(--success-color);
-    color: white;
+  background-color: var(--success-color);
+  color: white;
 }
 
 .skipped-badge {
-    background-color: var(--warning-color);
-    color: white;
+  background-color: var(--warning-color);
+  color: white;
 }
 
 /* Collapsible sections */
 .habits-section.collapsible.collapsed .habit-card {
-    display: none;
+  display: none;
 }
 
 /* Placeholder content */
 .placeholder-content {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--text-color-secondary);
-    font-size: 16px;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-color-secondary);
+  font-size: 16px;
 }
 
 /* Bottom Tab Bar */
 .tab-bar {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    height: var(--tab-bar-height);
-    border-top: 0.5px solid rgba(60, 60, 67, 0.12);
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    z-index: 1000;
-    padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: var(--tab-bar-height);
+  border-top: 0.5px solid rgba(60, 60, 67, 0.12);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 1000;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .tab-item {
-    background: none;
-    border: none;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    padding: 8px 0;
-    cursor: pointer;
-    transition: color 0.2s ease;
-    min-width: 0;
-    max-width: none;
+  background: none;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 8px 0;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  min-width: 0;
+  max-width: none;
 }
 
 .tab-icon {
-    margin-bottom: 4px;
+  margin-bottom: 4px;
 }
 
 .tab-label {
-    font-size: 10px;
-    font-weight: 500;
-    line-height: 1.2;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
 }
-
-
 
 /* Animations */
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .view.active-view {
-    opacity: 1;
-    /* animation: fadeIn 0.3s ease-out; */
+  opacity: 1;
+  /* animation: fadeIn 0.3s ease-out; */
 }
 
 /* Dark mode adjustments */
-[data-theme="dark"] .dropdown-menu {
-    border: 0.5px solid rgba(84, 84, 88, 0.6);
+[data-theme='dark'] .dropdown-menu {
+  border: 0.5px solid rgba(84, 84, 88, 0.6);
 }
 
-[data-theme="dark"] .habit-card {
-    background-color: rgba(44, 44, 46, 0.5);
+[data-theme='dark'] .habit-card {
+  background-color: rgba(44, 44, 46, 0.5);
 }
 
-[data-theme="dark"] .habit-card.completed {
-    background-color: rgba(0, 122, 255, 0.15);
+[data-theme='dark'] .habit-card.completed {
+  background-color: rgba(0, 122, 255, 0.15);
 }
 
-[data-theme="dark"] .habit-card.scheduled {
-    background-color: rgba(255, 59, 48, 0.15);
+[data-theme='dark'] .habit-card.scheduled {
+  background-color: rgba(255, 59, 48, 0.15);
 }
 
-[data-theme="dark"] .habit-card.completed-item {
-    background-color: rgba(52, 199, 89, 0.15);
+[data-theme='dark'] .habit-card.completed-item {
+  background-color: rgba(52, 199, 89, 0.15);
 }
 
-[data-theme="dark"] .habit-card.skipped-item {
-    background-color: rgba(255, 149, 0, 0.15);
+[data-theme='dark'] .habit-card.skipped-item {
+  background-color: rgba(255, 149, 0, 0.15);
 }
 
 /* Responsive Design */
 @media (max-width: 375px) {
-    .day-item {
-        min-width: 40px;
-        padding: 6px 2px;
-    }
+  .day-item {
+    min-width: 40px;
+    padding: 6px 2px;
+  }
 }
 
 @media (min-height: 812px) {
-    .status-bar {
-        height: 47px;
-    }
-    
-    .tab-bar {
-        height: 90px;
-        padding-bottom: 24px;
-    }
-    
-    .content-area {
-        padding-bottom: 90px;
-    }
+  .status-bar {
+    height: 47px;
+  }
+
+  .tab-bar {
+    height: 90px;
+    padding-bottom: 24px;
+  }
+
+  .content-area {
+    padding-bottom: 90px;
+  }
 }
 
 /* Safe area adjustments for iPhone */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
-    .tab-bar {
-        padding-bottom: calc(8px + env(safe-area-inset-bottom));
-    }
-    
-    .content-area {
-        padding-bottom: calc(var(--tab-bar-height) + env(safe-area-inset-bottom));
-    }
+  .tab-bar {
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .content-area {
+    padding-bottom: calc(var(--tab-bar-height) + env(safe-area-inset-bottom));
+  }
 }
 
 /* Time Picker Styles */
 #time-picker-popup {
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 }
 
 #hour-picker,
 #minute-picker {
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge */
-    position: relative;
-    background: 
-        linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, transparent 20%),
-        linear-gradient(0deg, rgba(255, 255, 255, 0.8) 0%, transparent 20%);
-    border-radius: 8px;
-    scroll-snap-type: y mandatory;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, transparent 20%),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.8) 0%, transparent 20%);
+  border-radius: 8px;
+  scroll-snap-type: y mandatory;
 }
 
-[data-theme="dark"] #hour-picker,
-[data-theme="dark"] #minute-picker {
-    background: 
-        linear-gradient(180deg, rgba(0, 0, 0, 0.8) 0%, transparent 20%),
-        linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, transparent 20%);
+[data-theme='dark'] #hour-picker,
+[data-theme='dark'] #minute-picker {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.8) 0%, transparent 20%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, transparent 20%);
 }
 
 #hour-picker::-webkit-scrollbar,
 #minute-picker::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+  display: none; /* Chrome, Safari, Opera */
 }
 
 /* Rolodex-style options */
 .hour-option,
 .minute-option {
-    position: relative;
-    transition: all 0.2s ease;
-    transform-style: preserve-3d;
-    margin: 1px 0;
-    z-index: 1;
-    scroll-snap-align: center;
+  position: relative;
+  transition: all 0.2s ease;
+  transform-style: preserve-3d;
+  margin: 1px 0;
+  z-index: 1;
+  scroll-snap-align: center;
 }
 
 /* Center selection bar - single bar across both columns */
 #time-picker-container::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 0;
-    right: 0;
-    height: 24px;
-    transform: translateY(-50%);
-    background: rgba(128, 128, 128, 0.15);
-    pointer-events: none;
-    z-index: 2;
-    border-radius: 4px;
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 24px;
+  transform: translateY(-50%);
+  background: rgba(128, 128, 128, 0.15);
+  pointer-events: none;
+  z-index: 2;
+  border-radius: 4px;
 }
 
-[data-theme="dark"] #time-picker-container::before {
-    background: rgba(128, 128, 128, 0.25);
+[data-theme='dark'] #time-picker-container::before {
+  background: rgba(128, 128, 128, 0.25);
 }
 
 /* Date button selection styles - now using Tailwind utilities */
 
-.scrollbar-hide::-webkit-scrollbar{display:none;}
-.scrollbar-hide{scrollbar-width:none; -ms-overflow-style:none;}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
 
 /* Removed hardcoded white backgrounds - let Tailwind handle this */
 
@@ -775,67 +778,52 @@ body {
 /*  Fine-tune Home view spacing - now using Tailwind utilities                */
 /* -------------------------------------------------------------------------- */
 
-
 #home-view .week-days {
-    height: 85px;
-    min-height: 85px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    touch-action: pan-x; /* restrict touch gestures to horizontal */
+  height: 85px;
+  min-height: 85px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  touch-action: pan-x; /* restrict touch gestures to horizontal */
 }
-
-
 
 /* Progress Pills - now using Tailwind utilities */
 #home-view .progress-pills {
-    width: 110px; /* updated fixed width */
+  width: 110px; /* updated fixed width */
 }
 
 #home-view .progress-pill {
-    min-width: 86px; /* 5% reduction from original 90 */
+  min-width: 86px; /* 5% reduction from original 90 */
 }
-
-
-
-
 
 /* --- TODAY (not selected) style --- */
 .day-item.today {
-    border: 2px solid var(--primary-color);
-    background-color: #f3f4f6; /* same as regular tiles */
-    color: var(--primary-color);
-    padding-top: 6px;
-    padding-bottom: 6px;
+  border: 2px solid var(--primary-color);
+  background-color: #f3f4f6; /* same as regular tiles */
+  color: var(--primary-color);
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 
 .day-item.today .day-name,
 .day-item.today .day-number,
 .day-item.today .day-month {
-    color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .day-item.today .day-month {
-    display: block;
+  display: block;
 }
 
 .day-item.today .day-name,
 .day-item.today .day-month {
-    font-weight: 400;
+  font-weight: 400;
 }
 
-
-
-
-
-
-
-#home-view .calendar-nav { /* global rule now handles positioning */ }
-
-
+#home-view .calendar-nav {
+  /* global rule now handles positioning */
+}
 
 /* Fitness view styling - mirror Habits view for consistency */
-
-
 
 /* Stats completion carousel styles */
 .completion-carousel {
@@ -860,7 +848,9 @@ body {
   width: 100%;
   opacity: 0;
   transform: translateX(20px);
-  transition: opacity 0.4s ease, transform 0.4s ease;
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
 }
 
 .carousel-slide.active {
@@ -921,119 +911,117 @@ body {
     width: 0.75rem;
     height: 0.75rem;
   }
-  
+
   .carousel-dots {
     gap: 0.75rem;
     margin-top: 1rem;
   }
 }
 
-
-
 /* Allow fitness activity swipe to slide past margins */
-
 
 /* Fitness expandable search section styles */
 #fitness-view .search-container {
-    position: relative; /* Create positioning context for absolute child */
+  position: relative; /* Create positioning context for absolute child */
 }
 
 #fitness-view .activities-search-section {
-    position: absolute;
-    top: 100%; /* Position directly below search input */
-    left: 8px; /* Add left margin */
-    right: 8px; /* Add right margin */
-    z-index: 500; /* Below modals but above other content */
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.8s cubic-bezier(0.25, 0.1, 0.25, 1);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    margin: 0; /* Remove margin to prevent layout shifts */
-    background: #f9f9f9; /* Light grey background */
+  position: absolute;
+  top: 100%; /* Position directly below search input */
+  left: 8px; /* Add left margin */
+  right: 8px; /* Add right margin */
+  z-index: 500; /* Below modals but above other content */
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.8s cubic-bezier(0.25, 0.1, 0.25, 1);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  margin: 0; /* Remove margin to prevent layout shifts */
+  background: #f9f9f9; /* Light grey background */
 }
 
 #fitness-view .activities-search-section.expanded {
-    max-height: 600px; /* Will be overridden by JS calculation */
+  max-height: 600px; /* Will be overridden by JS calculation */
 }
 
 #fitness-view .activities-search-section.hidden {
-    max-height: 0;
+  max-height: 0;
 }
 
 #fitness-view .activities-search-content {
-    position: relative;
-    background: inherit;
-    padding: 16px; /* Add padding to create margin from edges */
+  position: relative;
+  background: inherit;
+  padding: 16px; /* Add padding to create margin from edges */
 }
 
 /* Smooth scrollbar for search section content */
 #fitness-view .activities-search-content::-webkit-scrollbar {
-    width: 4px;
+  width: 4px;
 }
 
 #fitness-view .activities-search-content::-webkit-scrollbar-track {
-    background: rgba(229, 231, 235, 0.5);
+  background: rgba(229, 231, 235, 0.5);
 }
 
 #fitness-view .activities-search-content::-webkit-scrollbar-thumb {
-    background: rgba(156, 163, 175, 0.8);
-    border-radius: 2px;
+  background: rgba(156, 163, 175, 0.8);
+  border-radius: 2px;
 }
 
 #fitness-view .activities-search-content::-webkit-scrollbar-thumb:hover {
-    background: rgba(107, 114, 128, 1);
+  background: rgba(107, 114, 128, 1);
 }
 
 /* Dark mode adjustments for search section */
-[data-theme="dark"] #fitness-view .activities-search-section {
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-    background: #2d3748; /* Dark grey background for dark mode */
+[data-theme='dark'] #fitness-view .activities-search-section {
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.3),
+    0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  background: #2d3748; /* Dark grey background for dark mode */
 }
 
 /* Dark mode scrollbar for fitness search */
-[data-theme="dark"] #fitness-view .activities-search-content::-webkit-scrollbar-track {
-    background: rgba(55, 65, 81, 0.5);
+[data-theme='dark'] #fitness-view .activities-search-content::-webkit-scrollbar-track {
+  background: rgba(55, 65, 81, 0.5);
 }
-[data-theme="dark"] #fitness-view .activities-search-content::-webkit-scrollbar-thumb {
-    background: rgba(107, 114, 128, 0.8);
+[data-theme='dark'] #fitness-view .activities-search-content::-webkit-scrollbar-thumb {
+  background: rgba(107, 114, 128, 0.8);
 }
-[data-theme="dark"] #fitness-view .activities-search-content::-webkit-scrollbar-thumb:hover {
-    background: rgba(156, 163, 175, 1);
+[data-theme='dark'] #fitness-view .activities-search-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 1);
 }
 
 /* Category collapse animations */
 #fitness-view .search-category-content {
-    overflow: hidden;
-    transition: max-height 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  overflow: hidden;
+  transition: max-height 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 #fitness-view .search-category-section.collapsed .search-category-content {
-    max-height: 0;
+  max-height: 0;
 }
 
 #fitness-view .search-expand-btn {
-    transition: transform 0.4s ease;
+  transition: transform 0.4s ease;
 }
 
 #fitness-view .search-category-section.collapsed .search-expand-btn {
-    transform: rotate(-90deg);
+  transform: rotate(-90deg);
 }
 
 /* Search input focus states */
 #fitness-view #fitness-activity-search:focus {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* Activity hover states */
 #fitness-view .search-activity-item:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s ease;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
 }
 
-[data-theme="dark"] #fitness-view .search-activity-item:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+[data-theme='dark'] #fitness-view .search-activity-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
-
-
-

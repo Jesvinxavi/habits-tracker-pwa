@@ -945,7 +945,7 @@ function cleanupFitnessFromHabitsCategories() {
 
     const removedCount = originalLength - s.categories.length;
     if (removedCount > 0) {
-      // console.log(`Cleaned up ${removedCount} fitness categories from habits categories`);
+      // Removed console.log for cleaner code
     }
   });
 }
@@ -2408,10 +2408,6 @@ function recordLap() {
 
   // Update display
   renderLapTimesList();
-
-  // console.log(
-  //   `Lap ${lapData.number}: ${formatElapsedTime(currentLapTime)} (Total: ${formatElapsedTime(currentTime)})`
-  // );
 }
 
 /**
@@ -2432,8 +2428,6 @@ function deleteLap(lapIndex) {
 
   // Update display
   renderLapTimesList();
-
-  // console.log(`Deleted lap ${lapIndex + 1}`);
 }
 
 /**
