@@ -309,7 +309,7 @@ function calculateHabitCompletionRate(habit, days = 30) {
       creationDate = new Date(ts);
     }
   }
-  
+
   // Fallback to current date if we can't extract creation date
   if (!creationDate || isNaN(creationDate)) {
     creationDate = new Date();
@@ -359,7 +359,7 @@ function calculateWeeklyHabitCompletionRate(habit, weeks = 4) {
       creationDate = new Date(ts);
     }
   }
-  
+
   // Fallback to current date if we can't extract creation date
   if (!creationDate || isNaN(creationDate)) {
     creationDate = new Date();
@@ -426,7 +426,7 @@ function calculateMonthlyHabitCompletionRate(habit, months = 3) {
       creationDate = new Date(ts);
     }
   }
-  
+
   // Fallback to current date if we can't extract creation date
   if (!creationDate || isNaN(creationDate)) {
     creationDate = new Date();
@@ -561,7 +561,6 @@ function calculateAverageCompletionRateForPeriod(habits, days) {
  * Render completion carousel for multiple time periods
  */
 function renderCompletionCarousel(periods) {
-
   if (periods.length === 1) {
     // Single period - render simple tile
     const period = periods[0];

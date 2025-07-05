@@ -1,15 +1,15 @@
 // Service Worker – keeps the critical shell files cached for offline use.
 // Increment CACHE_VERSION every time any asset in `urlsToCache` changes.
 
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v7';
 const CACHE_NAME = `healthy-habits-cache-${CACHE_VERSION}`;
 
 // Only add truly critical, lightweight assets here. Large images should rely on network fallback.
 const urlsToCache = [
   '/',
   '/index.html',
-  '/public/styles/style.css',
-  '/public/styles/components.css',
+  '/styles/style.css',
+  '/styles/components.css',
   '/src/main.js',
   '/assets/manifest.json',
   // Touch icons
@@ -70,4 +70,4 @@ self.addEventListener('fetch', (event) => {
       return cached || fetchPromise;
     })
   );
-});
+}); 

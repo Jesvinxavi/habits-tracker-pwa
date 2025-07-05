@@ -45,7 +45,7 @@ function calculateHabitStatistics(habitId) {
       creationDate = new Date(ts);
     }
   }
-  
+
   // Fallback to current date if we can't extract creation date
   if (!creationDate || isNaN(creationDate)) {
     creationDate = new Date();
@@ -143,12 +143,12 @@ function calculateHabitCompletionRate(habit, days = 30) {
       creationDate = new Date(ts);
     }
   }
-  
+
   // Fallback to current date if we can't extract creation date
   if (!creationDate || isNaN(creationDate)) {
     creationDate = new Date();
   }
-  
+
   const daysToCheck = Math.min(
     days,
     Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)) + 1
@@ -186,7 +186,7 @@ function calculateCurrentStreak(habit) {
       creationDate = new Date(ts);
     }
   }
-  
+
   // Fallback to current date if we can't extract creation date
   if (!creationDate || isNaN(creationDate)) {
     creationDate = new Date();
@@ -221,12 +221,12 @@ function calculateLongestStreak(habit) {
       creationDate = new Date(ts);
     }
   }
-  
+
   // Fallback to current date if we can't extract creation date
   if (!creationDate || isNaN(creationDate)) {
     creationDate = new Date();
   }
-  
+
   const daysSinceCreation = Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)) + 1;
 
   for (let i = daysSinceCreation - 1; i >= 0; i--) {
