@@ -8,7 +8,12 @@ import { appData, mutate, subscribe } from '../core/state.js';
 import { openModal, closeModal } from '../components/Modal.js';
 import { makeCardSwipable } from '../components/swipeableCard.js';
 import { hexToRgba } from '../utils/color.js';
-import { getLocalISODate, formatDuration, formatLastPerformed } from '../utils/datetime.js';
+import {
+  getLocalISODate,
+  formatDuration,
+  formatLastPerformed,
+  formatElapsedTime,
+} from '../utils/datetime.js';
 import {
   getActivitiesForDate,
   getActivitiesByCategory,
@@ -25,7 +30,6 @@ import {
   stopTimer,
   resetTimer,
   getTimerState,
-  formatElapsedTime,
   setTimerUpdateCallback,
   initializeTimer,
 } from '../utils/timer.js';
