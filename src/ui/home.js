@@ -873,47 +873,49 @@ function buildHolidayToggle() {
 function updateHolidayToggle() {
   const toggle = document.getElementById('holiday-toggle');
   if (!toggle) return;
-  import('../utils/holidays.js').then(({ isHoliday, dateToKey }) => {
-    const group = appData.selectedGroup || 'daily';
-    // Show toggle only in Daily group – hide in Weekly and all others
-    if (group !== 'daily') {
-      toggle.style.display = 'none';
-      return;
-    }
-    toggle.style.display = '';
-    const refISO = dateToKey(new Date(appData.selectedDate));
-    const isOn = isHoliday(refISO);
-    toggle.classList.toggle('bg-ios-orange', isOn);
-    toggle.classList.toggle('bg-gray-200', !isOn);
-    toggle.classList.toggle('text-white', isOn);
-    toggle.classList.toggle('text-gray-500', !isOn);
+  Promise.all([import('../utils/holidays.js'), import('../utils/datetime.js')]).then(
+    ([{ isHoliday }, { dateToKey }]) => {
+      const group = appData.selectedGroup || 'daily';
+      // Show toggle only in Daily group – hide in Weekly and all others
+      if (group !== 'daily') {
+        toggle.style.display = 'none';
+        return;
+      }
+      toggle.style.display = '';
+      const refISO = dateToKey(new Date(appData.selectedDate));
+      const isOn = isHoliday(refISO);
+      toggle.classList.toggle('bg-ios-orange', isOn);
+      toggle.classList.toggle('bg-gray-200', !isOn);
+      toggle.classList.toggle('text-white', isOn);
+      toggle.classList.toggle('text-gray-500', !isOn);
 
-    const planeEl = toggle.querySelector('.plane');
-    const labelEl = toggle.querySelector('.label');
-    if (planeEl) {
-      if (isOn) {
-        planeEl.style.left = '8px';
-        planeEl.style.transform = 'translateY(-50%) rotate(-90deg)';
-      } else {
-        planeEl.style.left = '50%';
-        planeEl.style.transform = 'translate(-50%, -50%) rotate(-90deg)';
+      const planeEl = toggle.querySelector('.plane');
+      const labelEl = toggle.querySelector('.label');
+      if (planeEl) {
+        if (isOn) {
+          planeEl.style.left = '8px';
+          planeEl.style.transform = 'translateY(-50%) rotate(-90deg)';
+        } else {
+          planeEl.style.left = '50%';
+          planeEl.style.transform = 'translate(-50%, -50%) rotate(-90deg)';
+        }
+      }
+
+      if (labelEl) {
+        if (isOn) {
+          labelEl.classList.add('opacity-100');
+          toggle.classList.add('pl-9', 'pr-4');
+          toggle.classList.remove('justify-center');
+          toggle.style.width = '140px';
+        } else {
+          labelEl.classList.remove('opacity-100');
+          toggle.classList.remove('pl-9', 'pr-4');
+          toggle.classList.add('justify-center');
+          toggle.style.width = '36px';
+        }
       }
     }
-
-    if (labelEl) {
-      if (isOn) {
-        labelEl.classList.add('opacity-100');
-        toggle.classList.add('pl-9', 'pr-4');
-        toggle.classList.remove('justify-center');
-        toggle.style.width = '140px';
-      } else {
-        labelEl.classList.remove('opacity-100');
-        toggle.classList.remove('pl-9', 'pr-4');
-        toggle.classList.add('justify-center');
-        toggle.style.width = '36px';
-      }
-    }
-  });
+  );
 }
 
 function buildCalendar() {
