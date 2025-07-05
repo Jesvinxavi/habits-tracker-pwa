@@ -1,5 +1,6 @@
 import { appData, subscribe, notify } from './state.js';
 import { ensureHolidayIntegrity } from './state.js';
+import { debounce, safeJsonParse, safeJsonStringify } from '../utils/common.js';
 
 const STORAGE_KEY = 'healthyHabitsData';
 
@@ -36,14 +37,7 @@ const memoryStorage = (() => {
 
 const storageBackend = isLocalStorageAvailable() ? localStorage : memoryStorage;
 
-// Debounce helper -------------------------------------------------------------
-function debounce(fn, delay = 300) {
-  let t;
-  return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), delay);
-  };
-}
+// Debounce helper moved to utils/common.js for centralization
 
 // ----------------------------- Migration helpers -----------------------------
 function migrateDataIfNeeded(data) {
@@ -102,7 +96,7 @@ export function loadDataFromLocalStorage() {
 
     if (storedRaw) {
       try {
-        const parsedData = migrateDataIfNeeded(JSON.parse(storedRaw));
+        const parsedData = migrateDataIfNeeded(safeJsonParse(storedRaw, {}));
 
         Object.assign(appData, parsedData);
 
@@ -183,7 +177,7 @@ export function loadDataFromLocalStorage() {
 
 function rawSave() {
   try {
-    const payload = JSON.stringify(appData);
+    const payload = safeJsonStringify(appData, '{}');
     storageBackend.setItem(STORAGE_KEY, payload);
     idbSet('appData', appData);
   } catch (error) {

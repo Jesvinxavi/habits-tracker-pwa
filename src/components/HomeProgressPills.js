@@ -10,8 +10,8 @@ import {
   isHabitScheduledOnDate,
   isHabitCompleted,
   isHabitSkippedToday,
-} from '../utils/scheduleLogic.js';
-import { capitalize } from '../utils/string.js';
+} from '../features/home/schedule.js';
+import { capitalize } from '../utils/common.js';
 
 const GROUPS = ['daily', 'weekly', 'monthly', 'yearly'];
 

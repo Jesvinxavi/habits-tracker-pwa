@@ -6,7 +6,8 @@
  */
 
 import { appData, mutate } from '../core/state.js';
-import { generateUniqueId } from './uid.js';
+import { generateUniqueId } from './common.js';
+import { dateToKey } from './datetime.js';
 
 // Internal Set tracking manual (single-day) holiday toggles.
 const manualSingles = new Set();
@@ -108,14 +109,4 @@ export function deleteAllPeriods() {
   recalcHolidayDates();
 }
 
-/**
- * Convert a Date object or ISO string to a calendar-key string (YYYY-MM-DD) in local time.
- * This avoids the UTC shift that Date.toISOString introduces.
- */
-export function dateToKey(dateObj) {
-  if (!(dateObj instanceof Date)) dateObj = new Date(dateObj);
-  const y = dateObj.getFullYear();
-  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const d = String(dateObj.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
+// dateToKey function moved to datetime.js for centralization

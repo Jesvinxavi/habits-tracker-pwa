@@ -8,7 +8,7 @@ import { appData, mutate, subscribe } from '../core/state.js';
 import { openModal, closeModal } from '../components/Modal.js';
 import { makeCardSwipable } from '../components/swipeableCard.js';
 import { hexToRgba } from '../utils/color.js';
-import { getLocalISODate } from '../utils/datetime.js';
+import { getLocalISODate, formatDuration, formatLastPerformed } from '../utils/datetime.js';
 import {
   getActivitiesForDate,
   getActivitiesByCategory,
@@ -1308,33 +1308,7 @@ function buildStatsContent(activity, stats, category) {
   return content;
 }
 
-/**
- * Helper function to format duration in minutes to readable format
- */
-function formatDuration(minutes) {
-  if (minutes < 60) {
-    return `${Math.round(minutes)}m`;
-  } else {
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = Math.round(minutes % 60);
-    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
-  }
-}
-
-/**
- * Helper function to format last performed date
- */
-function formatLastPerformed(timestamp) {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays} days ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-  return date.toLocaleDateString();
-}
+// formatDuration and formatLastPerformed functions moved to datetime.js for centralization
 
 /**
  * Helper function to format best session details

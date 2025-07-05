@@ -12,6 +12,7 @@ import {
 } from '../../utils/holidays.js';
 import { openModal, closeModal } from '../../components/Modal.js';
 import { showConfirm } from '../../components/ConfirmDialog.js';
+import { formatDate } from '../../utils/datetime.js';
 
 let hasInitialised = false;
 let periodFormInit = false;
@@ -127,15 +128,7 @@ function initPeriodFormModal() {
 
 let openPeriodForm = () => {};
 
-/** Format YYYY-MM-DD → 13 Apr 2025 */
-function formatDate(key) {
-  const d = new Date(key);
-  return d.toLocaleDateString(undefined, {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-}
+// formatDate function moved to datetime.js for centralization
 
 function refreshPeriodList() {
   const wrap = document.getElementById('period-list');

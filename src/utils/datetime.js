@@ -1,8 +1,8 @@
 /**
  * Date-time utilities (framework-agnostic, no DOM).
  * -------------------------------------------------
- * Currently only exposes getISOWeekNumber() but keep this module for future
- * calendar helpers so we avoid re-defining them across files.
+ * Centralized datetime utilities to avoid duplication across files.
+ * All date/time formatting, conversion, and calculation functions.
  */
 
 /**
@@ -116,4 +116,85 @@ export function getLocalISODate(date) {
   }
 
   return result;
+}
+
+/**
+ * Convert a Date object or ISO string to a calendar-key string (YYYY-MM-DD) in local time.
+ * This avoids the UTC shift that Date.toISOString introduces.
+ * Consolidated from holidays.js to centralize date conversion logic.
+ */
+export function dateToKey(dateObj) {
+  if (!(dateObj instanceof Date)) dateObj = new Date(dateObj);
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const d = String(dateObj.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Format duration in minutes to readable format
+ * Consolidated from multiple UI files to centralize duration formatting
+ * @param {number} minutes - Duration in minutes
+ * @returns {string} Formatted duration string
+ */
+export function formatDuration(minutes) {
+  if (minutes < 60) {
+    return `${Math.round(minutes)}m`;
+  } else if (minutes < 1440) {
+    // Less than 24 hours
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = Math.round(minutes % 60);
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  } else {
+    const days = Math.floor(minutes / 1440);
+    const remainingHours = Math.floor((minutes % 1440) / 60);
+    return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+  }
+}
+
+/**
+ * Format elapsed time in seconds to MM:SS format
+ * Moved from timer.js to centralize time formatting
+ * @param {number} seconds - Total seconds elapsed
+ * @returns {string} Formatted time string (MM:SS)
+ */
+export function formatElapsedTime(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Format last performed/completed date in human-readable format
+ * Consolidated from multiple UI files to centralize relative date formatting
+ * @param {string|number} timestamp - ISO timestamp or timestamp number
+ * @returns {string} Human-readable relative date
+ */
+export function formatLastPerformed(timestamp) {
+  if (!timestamp) return 'Never';
+
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+  return date.toLocaleDateString();
+}
+
+/**
+ * Format a date to a readable format (DD MMM YYYY)
+ * Consolidated from holidays manage.js
+ * @param {string} key - YYYY-MM-DD date string
+ * @returns {string} Formatted date string
+ */
+export function formatDate(key) {
+  const d = new Date(key);
+  return d.toLocaleDateString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }

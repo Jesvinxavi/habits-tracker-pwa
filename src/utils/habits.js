@@ -4,7 +4,7 @@ import {
   DAY_NAMES_SHORT as DAY_NAMES,
   MONTH_NAMES_SHORT as MONTH_NAMES,
 } from './constants.js';
-import { capitalize } from './string.js';
+import { capitalize } from './common.js';
 
 // ---------------- Inlined schedule-formatting helpers ----------------
 

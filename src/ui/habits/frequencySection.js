@@ -15,7 +15,7 @@ import {
   FREQUENCIES,
   MONTH_NAMES_SHORT as MONTHS,
 } from '../../utils/constants.js';
-import { capitalize } from '../../utils/string.js';
+import { capitalize } from '../../utils/common.js';
 
 /* ----- Selection state (exported) ----- */
 export const selectedWeeklyDays = new Set(); // indices 0-6

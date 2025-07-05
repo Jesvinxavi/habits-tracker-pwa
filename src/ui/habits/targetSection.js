@@ -2,7 +2,7 @@
 // Provides live example text and event wiring for Completion Target controls.
 
 import { TARGET_UNITS, FREQUENCIES } from '../../utils/constants.js';
-import { capitalize } from '../../utils/string.js';
+import { capitalize } from '../../utils/common.js';
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                    */

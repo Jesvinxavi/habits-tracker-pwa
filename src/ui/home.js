@@ -5,12 +5,12 @@
 import { appData, mutate, subscribe } from '../core/state.js';
 import { updateProgressRing } from './progressRing.js';
 import { mountCalendar } from './calendar.js';
-import * as scheduleUtils from '../utils/scheduleLogic.js';
+import * as scheduleUtils from '../features/home/schedule.js';
 import { makeCardSwipable } from '../components/swipeableCard.js';
 import { hexToRgba, tintedLinearGradient } from '../utils/color.js';
 import { updateProgressPills } from '../components/HomeProgressPills.js';
-import { dateToKey } from '../utils/holidays.js';
-import { capitalize } from '../utils/string.js';
+import { dateToKey } from '../utils/datetime.js';
+import { capitalize } from '../utils/common.js';
 import { isSameDay } from '../utils/datetime.js';
 import { centerHorizontally } from '../components/scrollHelpers.js';
 

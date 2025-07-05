@@ -3,6 +3,8 @@
  * Provides start/stop/reset functionality with persistent state
  */
 
+// formatElapsedTime import removed - function moved to datetime.js but not used in timer.js
+
 // Timer state
 let timerState = {
   isRunning: false,
@@ -15,16 +17,7 @@ let timerState = {
 let timerInterval = null;
 let updateCallback = null;
 
-/**
- * Formats elapsed time in seconds to MM:SS format
- * @param {number} seconds - Total seconds elapsed
- * @returns {string} Formatted time string (MM:SS)
- */
-export function formatElapsedTime(seconds) {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-}
+// formatElapsedTime function moved to datetime.js for centralization
 
 /**
  * Gets the current timer state

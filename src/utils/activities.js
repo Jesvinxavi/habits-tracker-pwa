@@ -1,5 +1,5 @@
 import { appData, mutate } from '../core/state.js';
-import { generateUniqueId } from './uid.js';
+import { generateUniqueId } from './common.js';
 
 /**
  * Add a new activity to the activities list

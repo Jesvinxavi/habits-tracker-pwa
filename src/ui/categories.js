@@ -1,6 +1,6 @@
 import { appData, mutate } from '../core/state.js';
 import { openModal, closeModal } from '../components/Modal.js';
-import { generateUniqueId } from '../utils/uid.js';
+import { generateUniqueId } from '../utils/common.js';
 import { showConfirm } from '../components/ConfirmDialog.js';
 import { CATEGORY_COLOR_PALETTE } from '../utils/constants.js';
 

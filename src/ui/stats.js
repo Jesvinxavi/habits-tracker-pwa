@@ -12,7 +12,8 @@
  */
 
 import { appData, subscribe } from '../core/state.js';
-import { isHabitCompleted, isHabitScheduledOnDate } from '../utils/scheduleLogic.js';
+import { isHabitCompleted, isHabitScheduledOnDate } from '../features/home/schedule.js';
+import { formatDuration } from '../utils/datetime.js';
 
 // Current stats view state - 'habits' or 'fitness'
 let currentStatsView = 'habits';
@@ -967,23 +968,7 @@ function formatNumber(num) {
   return num.toString();
 }
 
-/**
- * Calculate time-based statistics with proper formatting
- */
-function formatDuration(minutes) {
-  if (minutes < 60) {
-    return `${Math.round(minutes)}m`;
-  } else if (minutes < 1440) {
-    // Less than 24 hours
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = Math.round(minutes % 60);
-    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
-  } else {
-    const days = Math.floor(minutes / 1440);
-    const remainingHours = Math.floor((minutes % 1440) / 60);
-    return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
-  }
-}
+// formatDuration function moved to datetime.js for centralization
 
 /**
  * Validate habit data to prevent calculation errors

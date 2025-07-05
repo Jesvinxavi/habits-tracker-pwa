@@ -2,7 +2,7 @@ import { openModal, closeModal } from '../../components/Modal.js';
 import { populateCategoryDropdown } from '../categories.js';
 import { initializeTimePicker } from './form-pickers.js';
 import { mutate } from '../../core/state.js';
-import { generateUniqueId } from '../../utils/uid.js';
+import { generateUniqueId } from '../../utils/common.js';
 import { renderHabitsView } from './list.js';
 import { appData } from '../../core/state.js';
 import { initIconPicker, getSelectedIcon, setSelectedIcon } from './iconPicker.js';
