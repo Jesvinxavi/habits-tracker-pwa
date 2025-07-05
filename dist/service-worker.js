@@ -8,8 +8,8 @@ const CACHE_NAME = `healthy-habits-cache-${CACHE_VERSION}`;
 const urlsToCache = [
   '/',
   '/index.html',
-  '/public/styles/style.css',
-  '/public/styles/components.css',
+  '/styles/style.css',
+  '/styles/components.css',
   '/src/main.js',
   '/assets/manifest.json',
   // Touch icons

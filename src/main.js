@@ -1,13 +1,15 @@
 // Main entry – bootstraps the PWA
 import { loadDataFromLocalStorage } from './core/storage.js';
-import { initializeTheme, toggleTheme, forceLightMode } from './ui/theme.js';
-import { initializeNavigation } from './ui/navigation.js';
-import { initializeHabitsForm } from './ui/habits/form.js';
-import { initializeHome } from './ui/home.js';
-import { initializeFitness } from './ui/fitness.js';
-import { initializeStats } from './ui/stats.js';
-import { initializeInstallPrompt } from './ui/installPrompt.js';
-import { showUpdateBanner } from './ui/updatePrompt.js';
+import { initializeTheme, toggleTheme, forceLightMode } from './core/theme.js';
+import { initializeNavigation } from './core/navigation.js';
+import { initializeHabitsForm } from './habits/modals/HabitFormModal.js';
+// import { initializeHome } from './features/home/home.js'; // Now lazy loaded via navigation
+import { initializeFitness } from './fitness/FitnessModule.js';
+import { initializeStats } from './features/stats/stats.js';
+import { initializeInstallPrompt } from './components/InstallPrompt.js';
+import { showUpdateBanner } from './components/UpdatePrompt.js';
+import { measurePerformance } from './utils/common.js';
+import performanceMonitor from './utils/performance.js';
 import './features/autoToday.js';
 
 // Enable test mode if URL contains ?test=true
@@ -45,38 +47,74 @@ function registerServiceWorker() {
   }
 }
 
-function bootstrap() {
-  registerServiceWorker();
+async function bootstrap() {
+  const bootstrapStart = performance.now();
 
-  // Load data first, then initialize UI components
-  loadDataFromLocalStorage()
-    .then(() => {
-      // Force app to start on Home view (Daily group) every launch
-      localStorage.removeItem('activeHabitTrackerTab');
-      import('./core/state.js').then(({ appData }) => {
-        appData.selectedGroup = 'daily';
-      });
+  try {
+    // Register service worker
+    registerServiceWorker();
 
-      // Force light mode to ensure app starts in light mode
-      forceLightMode();
+    // Load data first, then initialize UI components
+    await measurePerformance('Data Loading', () => loadDataFromLocalStorage());
 
-      initializeTheme();
-      initializeNavigation();
-      initializeHabitsForm();
-      initializeHome();
-      initializeFitness();
-      initializeStats();
-      initializeInstallPrompt();
-
-      // Theme toggle click handler
-      const themeToggle = document.getElementById('theme-toggle');
-      if (themeToggle) {
-        themeToggle.addEventListener('click', toggleTheme);
-      }
-    })
-    .catch((error) => {
-      console.error('[DEBUG] Bootstrap failed:', error);
+    // Force app to start on Home view (Daily group) every launch
+    localStorage.removeItem('activeHabitTrackerTab');
+    import('./core/state.js').then(({ appData }) => {
+      appData.selectedGroup = 'daily';
     });
+
+    // Force light mode to ensure app starts in light mode
+    forceLightMode();
+
+    // Initialize core components with performance tracking
+    await measurePerformance('Theme Initialization', () => initializeTheme());
+    await measurePerformance('Navigation Initialization', () => initializeNavigation());
+    await measurePerformance('Habits Form Initialization', () => initializeHabitsForm());
+    // await measurePerformance('Home Initialization', () => initializeHome()); // Now lazy loaded via navigation
+    await measurePerformance('Fitness Initialization', () => initializeFitness());
+    await measurePerformance('Stats Initialization', () => initializeStats());
+    await measurePerformance('Install Prompt Initialization', () => initializeInstallPrompt());
+
+    // Theme toggle click handler
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', toggleTheme);
+    }
+
+    // Record successful bootstrap
+    const bootstrapTime = performance.now() - bootstrapStart;
+    performanceMonitor.recordInteraction('app_bootstrap', {
+      duration: bootstrapTime,
+      success: true,
+      timestamp: Date.now(),
+    });
+
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      console.log(`🚀 App bootstrap completed in ${bootstrapTime.toFixed(2)}ms`);
+
+      // Log performance metrics summary
+      setTimeout(() => {
+        const metrics = performanceMonitor.getMetrics();
+        console.log('📊 Performance Summary:', metrics.summary);
+      }, 1000);
+    }
+  } catch (error) {
+    console.error('[DEBUG] Bootstrap failed:', error);
+
+    // Record failed bootstrap
+    const bootstrapTime = performance.now() - bootstrapStart;
+    performanceMonitor.recordInteraction('app_bootstrap', {
+      duration: bootstrapTime,
+      success: false,
+      error: error.message,
+      timestamp: Date.now(),
+    });
+  }
+}
+
+// Expose performance monitor for debugging
+if (typeof window !== 'undefined') {
+  window.performanceMonitor = performanceMonitor;
 }
 
 if (document.readyState === 'loading') {

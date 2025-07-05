@@ -3,26 +3,67 @@
   "version": "1.0.0",
   "private": true,
   "description": "Progressive Web App for habit tracking (vanilla-first).",
+  "type": "module",
   "scripts": {
-    "lint": "eslint \"src/**/*.js\"",
-    "format": "prettier --write \"**/*.{js,json,css,md}\"",
-    "format:check": "prettier --check \"**/*.{js,json,css,md}\"",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "prepare": "husky install"
+    "analyze": "vite build --mode analyze",
+    "build:prod": "vite build --mode production",
+    "build:dev": "vite build --mode development",
+    "serve": "npx serve dist -l 8100",
+    "test": "echo \"No tests specified\" && exit 0",
+    "lint": "eslint src --ext .js",
+    "format": "prettier --write src/**/*.js",
+    "clean": "rm -rf dist node_modules/.vite",
+    "size": "npm run build && npx vite-bundle-analyzer dist/assets",
+    "performance": "npm run build && npx lighthouse http://localhost:8100 --output=json --output-path=./lighthouse-report.json",
+    "audit": "npm audit && npm run lint && npm run build"
+  },
+  "dependencies": {
+    "vite": "^7.0.2",
+    "vite-plugin-pwa": "^0.19.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11",
     "autoprefixer": "^10.4.21",
-    "eslint": "^8.56.0",
+    "eslint": "^8.0.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-prettier": "^5.0.0",
     "husky": "^9.0.11",
     "postcss": "^8.5.6",
-    "prettier": "^3.2.5",
+    "prettier": "^3.0.0",
     "tailwindcss": "^4.1.11",
-    "vite": "^5.2.0",
-    "vite-plugin-pwa": "^0.19.3"
-  }
+    "vite-bundle-analyzer": "^0.7.0",
+    "lighthouse": "^11.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead",
+    "not ie 11"
+  ],
+  "keywords": [
+    "pwa",
+    "habits",
+    "tracker",
+    "health",
+    "productivity",
+    "javascript",
+    "vite"
+  ],
+  "author": "Healthy Habits Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/healthy-habits-tracker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/healthy-habits-tracker/issues"
+  },
+  "homepage": "https://github.com/your-org/healthy-habits-tracker#readme"
 }

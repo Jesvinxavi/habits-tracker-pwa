@@ -146,3 +146,61 @@ export function getActivityCategory(categoryId) {
 export function getActivity(activityId) {
   return appData.activities.find((activity) => activity.id === activityId);
 }
+
+/**
+ * Group activities by muscle group (for strength training)
+ * Moved from fitness.js for reusability
+ * @param {Array} items - Array of activities or records
+ * @returns {Object} Activities grouped by muscle group
+ */
+export function groupActivitiesByMuscleGroup(items) {
+  const grouped = {};
+  items.forEach((it) => {
+    let mg = it.muscleGroup;
+    if (!mg && it.activityId) {
+      // item is a record – lookup original activity
+      const act = getActivity(it.activityId);
+      mg = act?.muscleGroup;
+    }
+    if (!mg) mg = 'Other';
+    if (!grouped[mg]) grouped[mg] = [];
+    grouped[mg].push(it);
+  });
+  return grouped;
+}
+
+/**
+ * Delete an activity and all its recorded instances
+ */
+export function deleteActivity(activityId) {
+  mutate((state) => {
+    // Remove from activities array
+    state.activities = state.activities?.filter((a) => a.id !== activityId) || [];
+
+    // Remove any recorded activities with this activity ID
+    Object.keys(state.recordedActivities || {}).forEach((date) => {
+      state.recordedActivities[date] = state.recordedActivities[date].filter(
+        (record) => record.activityId !== activityId
+      );
+      if (state.recordedActivities[date].length === 0) {
+        delete state.recordedActivities[date];
+      }
+    });
+  });
+}
+
+/**
+ * Update an existing activity
+ */
+export function updateActivity(activityId, updates) {
+  mutate((state) => {
+    const activityIndex = state.activities.findIndex((a) => a.id === activityId);
+    if (activityIndex !== -1) {
+      state.activities[activityIndex] = {
+        ...state.activities[activityIndex],
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+  });
+}

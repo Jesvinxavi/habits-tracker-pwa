@@ -152,7 +152,7 @@ export function dispatch(action) {
     notify();
 
     // Development logging
-    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       // eslint-disable-next-line no-console
       console.group(`Action: ${action.type}`);
       // eslint-disable-next-line no-console

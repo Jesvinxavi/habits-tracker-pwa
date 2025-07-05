@@ -217,7 +217,7 @@
 .day-item.holiday {
   background-color: rgba(255, 159, 10, 0.25);
   border-radius: 12px;
-  padding-bottom: 18px;
+  padding-bottom: 18px; /* Restored to original 18px */
 }
 .day-item.holiday.current-day {
   background-color: #ff9500;
@@ -287,19 +287,19 @@ body {
   background-color: rgba(255, 149, 0, 0.25);
   border-radius: 12px;
   padding-top: 8px;
-  padding-bottom: 16px;
+  padding-bottom: 16px; /* Restored to original 16px */
 }
 .day-item.rest-day.current-day {
   background-color: #ff9500;
   color: #fff;
   padding-top: 8px;
-  padding-bottom: 16px;
+  padding-bottom: 16px; /* Restored to original 16px */
 }
 .day-item.rest-day.today {
   background-color: rgba(255, 149, 0, 0.25);
   border-radius: 12px;
   padding-top: 8px;
-  padding-bottom: 16px;
+  padding-bottom: 16px; /* Restored to original 16px */
 }
 .day-item.rest-day .rest-icon {
   position: absolute;
@@ -323,12 +323,31 @@ body {
   min-height: 95px;
   overflow-x: auto;
   overflow-y: hidden;
-  /* Padding and margin now handled by Tailwind classes */
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
 #fitness-view .week-calendar {
-  /* Margin and padding now handled by Tailwind classes */
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
+  min-height: 120px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+#fitness-view .calendar-wrapper {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow: visible;
+}
+
+/* Fitness calendar navigation styling - more specific to override main .calendar-nav */
+#fitness-view .week-calendar .calendar-nav {
+  margin-top: 0;
+  /* margin-bottom: 4px; /* Reduced from 8px to 4px */
+  margin-bottom: 0; /* Remove all bottom margin */
+  top: -8px; /* Pull navigation up by 8px to reduce gap */
 }
 /* Stats Page Specific Styles */
 #stats-view .stats-container {

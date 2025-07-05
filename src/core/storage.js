@@ -124,11 +124,7 @@ export function loadDataFromLocalStorage() {
         // After state is populated, rebuild holiday caches so manualSingles matches stored dates.
         import('../utils/holidays.js').then((m) => m.initializeHolidays());
       } catch (error) {
-        if (
-          typeof process !== 'undefined' &&
-          process.env &&
-          process.env.NODE_ENV !== 'production'
-        ) {
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
           console.error('[storage] Error parsing stored data:', error);
         }
       }
@@ -181,7 +177,7 @@ function rawSave() {
     storageBackend.setItem(STORAGE_KEY, payload);
     idbSet('appData', appData);
   } catch (error) {
-    if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       console.error('[storage] Error saving data to localStorage:', error);
     }
   }
@@ -229,7 +225,7 @@ export function importAppData(jsonString) {
     saveDataToLocalStorage();
     return true;
   } catch (e) {
-    if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       console.error('[storage] Failed to import data:', e);
     }
     return false;

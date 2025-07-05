@@ -1,6 +1,5 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-# Temporarily disable lint for Phase 1 demonstration
-# npm run lint
+npm run lint
 npm run format

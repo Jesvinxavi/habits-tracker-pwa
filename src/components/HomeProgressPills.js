@@ -4,13 +4,13 @@
 // that appear next to the main circular progress ring.
 
 import { appData } from '../core/state.js';
-import { getProgressColor } from '../ui/progressRing.js';
+import { getProgressColor } from './ProgressRing.js';
 import {
   belongsToSelectedGroup,
   isHabitScheduledOnDate,
   isHabitCompleted,
   isHabitSkippedToday,
-} from '../features/home/schedule.js';
+} from '../home/schedule.js';
 import { capitalize } from '../utils/common.js';
 
 const GROUPS = ['daily', 'weekly', 'monthly', 'yearly'];
@@ -58,7 +58,7 @@ export function updateProgressPills() {
 
     const pill = document.createElement('span');
     pill.className =
-      'progress-pill relative overflow-hidden px-4 py-1.5 rounded-full text-xs font-medium';
+      'progress-pill relative overflow-hidden py-1.5 rounded-full text-xs font-medium';
     pill.textContent = `${capitalize(g)} (${pct}%)`;
 
     // Apply progress fill based on percentage thresholds
@@ -67,6 +67,17 @@ export function updateProgressPills() {
     pill.style.background = `linear-gradient(to right, ${fillColor} ${pct}%, ${unfilled} ${pct}%)`;
     pill.style.color = '#000';
     pill.style.border = '1px solid #4B5563';
+
+    // Ensure consistent width and prevent text wrapping
+    pill.style.width = '110px';
+    pill.style.minWidth = '110px';
+    pill.style.maxWidth = '110px';
+    pill.style.whiteSpace = 'nowrap';
+    pill.style.textAlign = 'center';
+    pill.style.fontSize = '11px';
+    pill.style.lineHeight = '1.2';
+    pill.style.paddingLeft = '0';
+    pill.style.paddingRight = '0';
     container.appendChild(pill);
   });
 

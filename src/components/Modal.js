@@ -24,4 +24,10 @@ export function closeModal(id) {
   modal.classList.add('hidden');
   modal.style.display = 'none';
   document.body.style.overflow = '';
+
+  // Dispatch custom event to notify that a modal was closed
+  const event = new CustomEvent('modalClosed', {
+    detail: { modalId: id },
+  });
+  document.dispatchEvent(event);
 }
