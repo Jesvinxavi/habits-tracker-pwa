@@ -4,15 +4,10 @@
  */
 
 import { appData, mutate } from '../../core/state.js';
-import {
-  addPeriod,
-  deletePeriod,
-  deleteAllPeriods,
-  recalcHolidayDates,
-} from '../../utils/holidays.js';
+import { addPeriod, deletePeriod, deleteAllPeriods, recalcHolidayDates } from './holidays.js';
 import { openModal, closeModal } from '../../components/Modal.js';
 import { showConfirm } from '../../components/ConfirmDialog.js';
-import { formatDate } from '../../utils/datetime.js';
+import { formatDate } from '../../shared/datetime.js';
 
 let hasInitialised = false;
 let periodFormInit = false;
@@ -127,8 +122,6 @@ function initPeriodFormModal() {
 }
 
 let openPeriodForm = () => {};
-
-// formatDate function moved to datetime.js for centralization
 
 function refreshPeriodList() {
   const wrap = document.getElementById('period-list');

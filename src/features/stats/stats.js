@@ -16,10 +16,10 @@ import {
   isHabitCompleted,
   isHabitScheduledOnDate,
   belongsToSelectedGroup,
-} from '../../home/schedule.js';
-import { formatDuration } from '../../utils/datetime.js';
-import { isHoliday } from '../../utils/holidays.js';
-import { isRestDay } from '../../utils/restDays.js';
+} from '../home/schedule.js';
+import { formatDuration } from '../../shared/datetime.js';
+import { isHoliday } from '../../features/holidays/holidays.js';
+import { isRestDay } from '../../features/fitness/restDays.js';
 
 // Current stats view state - 'habits' or 'fitness'
 let currentStatsView = 'habits';
@@ -484,319 +484,6 @@ function calculateMonthlyHabitCompletionRate(habit, months = 3) {
 }
 
 /**
- * Calculate completion rates for multiple time periods
- */
-function calculateMultiPeriodCompletionRates() {
-  const habits = (appData.habits || []).filter(validateHabitData).filter((h) => !h.paused);
-  return calculateMultiPeriodCompletionRatesForHabits(habits);
-}
-
-/**
- * Calculate completion rates for multiple time periods for specific habits
- */
-function calculateMultiPeriodCompletionRatesForHabits(habits) {
-  const today = new Date();
-
-  // Always show 7 days, 30 days, and all time periods (similar to individual habit stats)
-  const periods = [];
-
-  // 7 days period
-  periods.push({
-    days: 7,
-    label: '7 days',
-    rate: calculateAverageCompletionRateForPeriod(habits, 7),
-  });
-
-  // 30 days period
-  periods.push({
-    days: 30,
-    label: '30 days',
-    rate: calculateAverageCompletionRateForPeriod(habits, 30),
-  });
-
-  // All time period (use the oldest habit's creation date or default to 365 days)
-  let oldestHabitDays = 365; // Default to 1 year
-  habits.forEach((habit) => {
-    try {
-      let creationDate;
-      if (typeof habit.id === 'string' && /^[0-9]{13}/.test(habit.id)) {
-        const ts = parseInt(habit.id.slice(0, 13), 10);
-        if (!Number.isNaN(ts)) {
-          creationDate = new Date(ts);
-        }
-      }
-      if (!creationDate || isNaN(creationDate)) {
-        creationDate = new Date();
-      }
-      const daysSinceCreation = Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)) + 1;
-      const actualDays = Math.min(30, daysSinceCreation);
-      oldestHabitDays = Math.max(oldestHabitDays, actualDays);
-    } catch (error) {
-      // Fallback for habits with invalid IDs
-      oldestHabitDays = Math.max(oldestHabitDays, 365);
-    }
-  });
-
-  periods.push({
-    days: oldestHabitDays,
-    label: 'All time',
-    rate: calculateAverageCompletionRateForPeriod(habits, oldestHabitDays),
-  });
-
-  return periods;
-}
-
-/**
- * Calculate average completion rate across all habits for a specific period
- */
-function calculateAverageCompletionRateForPeriod(habits, days) {
-  if (habits.length === 0) return 0;
-
-  const rates = habits.map((habit) => calculateHabitCompletionRate(habit, days));
-  const totalRate = rates.reduce((sum, rate) => sum + rate, 0);
-  return totalRate / rates.length;
-}
-
-/**
- * Render completion carousel for multiple time periods
- */
-function renderCompletionCarousel(periods) {
-  if (periods.length === 1) {
-    // Single period - render simple tile
-    const period = periods[0];
-    return `
-      <div class="completion-rates">
-        <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-          <div class="text-2xl font-bold text-center mb-1 text-gray-900 dark:text-white">
-            ${period.rate.toFixed(1)}%
-          </div>
-          <div class="text-center text-xs text-gray-600 dark:text-gray-400">
-            Avg completion (${period.label})
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  // Multiple periods - render carousel
-
-  const slidesHTML = periods
-    .map(
-      (period, index) => `
-    <div class="carousel-slide ${index === 0 ? 'active' : ''}" data-slide="${index}">
-      <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-        <div class="text-2xl font-bold text-center mb-1 text-gray-900 dark:text-white">
-          ${period.rate.toFixed(1)}%
-        </div>
-        <div class="text-center text-xs text-gray-600 dark:text-gray-400">
-          Avg completion (${period.label})
-        </div>
-      </div>
-    </div>
-  `
-    )
-    .join('');
-
-  const dotsHTML = periods
-    .map(
-      (_, index) => `
-    <div class="carousel-dot ${index === 0 ? 'active' : ''}" data-slide="${index}"></div>
-  `
-    )
-    .join('');
-
-  const carouselHTML = `
-    <div class="completion-rates">
-      <div class="completion-carousel" id="completion-carousel">
-        <div class="carousel-container">
-          <div class="carousel-track" id="carousel-track">
-            ${slidesHTML}
-          </div>
-        </div>
-        <div class="carousel-dots" id="carousel-dots">
-          ${dotsHTML}
-        </div>
-      </div>
-    </div>
-  `;
-
-  return carouselHTML;
-}
-
-/**
- * Initialize completion carousel functionality
- */
-function initializeCompletionCarousel() {
-  // Cleanup any existing carousel interval
-  if (activeCarouselInterval) {
-    clearInterval(activeCarouselInterval);
-    activeCarouselInterval = null;
-  }
-
-  const carousel = document.getElementById('completion-carousel');
-  const track = document.getElementById('carousel-track');
-  const dots = document.getElementById('carousel-dots');
-
-  if (!carousel || !track || !dots) {
-    console.log('Carousel elements not found:', {
-      carousel: !!carousel,
-      track: !!track,
-      dots: !!dots,
-    });
-    return;
-  }
-
-  const slides = track.querySelectorAll('.carousel-slide');
-  const dotElements = dots.querySelectorAll('.carousel-dot');
-
-  if (slides.length <= 1) {
-    console.log('Not enough slides for carousel:', slides.length);
-    return;
-  }
-
-  console.log('Initializing carousel with', slides.length, 'slides');
-
-  let currentSlide = 0;
-  let touchStartX = 0;
-  let touchEndX = 0;
-
-  // Update active slide and dot
-  function updateActiveSlide(index) {
-    if (index < 0 || index >= slides.length) return;
-
-    currentSlide = index;
-    console.log('Updating to slide', currentSlide);
-
-    // Update slides
-    slides.forEach((slide, i) => {
-      slide.classList.toggle('active', i === currentSlide);
-    });
-
-    // Update dots
-    dotElements.forEach((dot, i) => {
-      dot.classList.toggle('active', i === currentSlide);
-    });
-  }
-
-  // Go to next slide
-  function nextSlide() {
-    const next = (currentSlide + 1) % slides.length;
-    updateActiveSlide(next);
-  }
-
-  // Go to previous slide
-  function prevSlide() {
-    const prev = (currentSlide - 1 + slides.length) % slides.length;
-    updateActiveSlide(prev);
-  }
-
-  // Auto-advance functionality
-  function startAutoAdvance() {
-    stopAutoAdvance();
-    activeCarouselInterval = setInterval(nextSlide, 4000); // 4 seconds
-  }
-
-  function stopAutoAdvance() {
-    if (activeCarouselInterval) {
-      clearInterval(activeCarouselInterval);
-      activeCarouselInterval = null;
-    }
-  }
-
-  // Dot click handlers
-  dotElements.forEach((dot, index) => {
-    dot.addEventListener('click', () => {
-      console.log('Dot clicked:', index);
-      updateActiveSlide(index);
-      stopAutoAdvance();
-      setTimeout(startAutoAdvance, 5000); // Restart auto-advance after 5 seconds
-    });
-  });
-
-  // Touch/swipe handlers
-  carousel.addEventListener('touchstart', (e) => {
-    touchStartX = e.touches[0].clientX;
-    stopAutoAdvance();
-  });
-
-  carousel.addEventListener('touchend', (e) => {
-    touchEndX = e.changedTouches[0].clientX;
-    handleSwipe();
-    setTimeout(startAutoAdvance, 2000); // Restart auto-advance after 2 seconds
-  });
-
-  // Mouse drag handlers for desktop
-  let isDragging = false;
-  let startX = 0;
-
-  carousel.addEventListener('mousedown', (e) => {
-    isDragging = true;
-    startX = e.clientX;
-    stopAutoAdvance();
-    carousel.style.cursor = 'grabbing';
-  });
-
-  carousel.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    e.preventDefault();
-  });
-
-  carousel.addEventListener('mouseup', (e) => {
-    if (!isDragging) return;
-    isDragging = false;
-    carousel.style.cursor = 'grab';
-
-    const endX = e.clientX;
-    const diffX = startX - endX;
-
-    if (Math.abs(diffX) > 50) {
-      if (diffX > 0) {
-        nextSlide();
-      } else {
-        prevSlide();
-      }
-    }
-
-    setTimeout(startAutoAdvance, 2000);
-  });
-
-  carousel.addEventListener('mouseleave', () => {
-    if (isDragging) {
-      isDragging = false;
-      carousel.style.cursor = 'grab';
-      setTimeout(startAutoAdvance, 1000);
-    }
-  });
-
-  function handleSwipe() {
-    const swipeThreshold = 50;
-    const diffX = touchStartX - touchEndX;
-
-    if (Math.abs(diffX) > swipeThreshold) {
-      if (diffX > 0) {
-        nextSlide(); // Swipe left - next slide
-      } else {
-        prevSlide(); // Swipe right - previous slide
-      }
-    }
-  }
-
-  // Pause auto-advance on hover
-  carousel.addEventListener('mouseenter', stopAutoAdvance);
-  carousel.addEventListener('mouseleave', () => {
-    if (!isDragging) {
-      setTimeout(startAutoAdvance, 1000);
-    }
-  });
-
-  // Start auto-advance
-  startAutoAdvance();
-
-  // Add CSS cursor
-  carousel.style.cursor = 'grab';
-}
-
-/**
  * Calculate current streak for a habit (consecutive days of completion)
  */
 function calculateCurrentStreak(habit) {
@@ -962,37 +649,52 @@ function renderHabitStatsSection(container, stats) {
   const section = document.createElement('div');
   section.className = 'habit-stats-section mb-6';
 
-  let categoryStatsHTML = '';
-  stats.categoryBreakdown.forEach((categoryData, categoryId) => {
-    const category = appData.categories.find((c) => c.id === categoryId);
-    const categoryName = category ? category.name : 'Unknown';
-    const categoryColor = category ? category.color : '#888';
-
-    categoryStatsHTML += `
-      <div class="category-stat mb-3 p-3 rounded-lg border-l-4 bg-gray-50 dark:bg-gray-800" style="border-left-color: ${categoryColor};">
-        <div class="flex justify-between items-center">
-          <span class="font-medium text-sm">${categoryName}</span>
-          <span class="text-sm text-gray-600 dark:text-gray-400">${categoryData.count} habits</span>
-        </div>
-        <div class="text-sm text-gray-600 dark:text-gray-400">
-          Avg: ${categoryData.completionRate.toFixed(1)}%
-        </div>
-      </div>
-    `;
-  });
-
-  // Get completion periods for carousel (only daily habits)
-  const dailyHabits = stats.dailyHabits.filter((h) => !h.paused);
-  const completionPeriods =
-    dailyHabits.length > 0 ? calculateMultiPeriodCompletionRatesForHabits(dailyHabits) : [];
-  console.log('Daily habits:', dailyHabits.length, 'Completion periods:', completionPeriods);
-  const completionCarouselHTML = renderCompletionCarousel(completionPeriods);
+  // --- Completion Carousel ---
+  // Calculate average completion rates for all daily habits
+  const periods = [
+    {
+      label: '7d',
+      rate:
+        stats.dailyHabits.length > 0
+          ? stats.dailyHabits
+              .map((h) => safeCalculation(() => calculateHabitCompletionRate(h, 7), 0))
+              .reduce((sum, r) => sum + r, 0) / stats.dailyHabits.length
+          : 0,
+    },
+    {
+      label: '30d',
+      rate:
+        stats.dailyHabits.length > 0
+          ? stats.dailyHabits
+              .map((h) => safeCalculation(() => calculateHabitCompletionRate(h, 30), 0))
+              .reduce((sum, r) => sum + r, 0) / stats.dailyHabits.length
+          : 0,
+    },
+    {
+      label: 'All Time',
+      rate:
+        stats.dailyHabits.length > 0
+          ? stats.dailyHabits
+              .map((h) => safeCalculation(() => calculateHabitCompletionRate(h, 3650), 0))
+              .reduce((sum, r) => sum + r, 0) / stats.dailyHabits.length
+          : 0,
+    },
+  ];
 
   // Build dynamic tiles based on available habit groups
   const tiles = [];
 
-  // Always show completion carousel (7 days, 30 days, all time)
-  tiles.push(completionCarouselHTML);
+  // Always show longest streak tile
+  tiles.push(`
+    <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+      <div class="text-2xl font-bold text-center mb-1 text-gray-900 dark:text-white">
+        ${stats.longestStreak}
+      </div>
+      <div class="text-center text-sm text-gray-600 dark:text-gray-400">
+        Longest streak (days)
+      </div>
+    </div>
+  `);
 
   // Weekly habits tile
   if (stats.weeklyHabits.length > 0) {
@@ -1022,20 +724,6 @@ function renderHabitStatsSection(container, stats) {
     `);
   }
 
-  // Longest streak tile (only for daily habits)
-  if (dailyHabits.length > 0) {
-    tiles.push(`
-      <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-        <div class="text-2xl font-bold text-center mb-1 text-gray-900 dark:text-white">
-          ${stats.longestStreak}
-        </div>
-        <div class="text-center text-sm text-gray-600 dark:text-gray-400">
-          Longest streak (days)
-        </div>
-      </div>
-    `);
-  }
-
   // Holiday days tile
   tiles.push(`
     <div class="bg-yellow-50 dark:bg-yellow-900 p-4 rounded-lg">
@@ -1048,28 +736,49 @@ function renderHabitStatsSection(container, stats) {
     </div>
   `);
 
-  // Determine grid layout based on number of tiles
+  // Determine grid layout - max 2 tiles per row
   let gridClass = 'grid gap-3 mb-4';
   if (tiles.length === 1) {
     gridClass += ' grid-cols-1';
-  } else if (tiles.length === 2) {
-    gridClass += ' grid-cols-2';
-  } else if (tiles.length === 3) {
-    gridClass += ' grid-cols-3';
-  } else if (tiles.length === 4) {
-    gridClass += ' grid-cols-2';
   } else {
-    // For 5+ tiles, use 3 columns
-    gridClass += ' grid-cols-3';
+    // Always use 2 columns for 2+ tiles
+    gridClass += ' grid-cols-2';
   }
 
   section.innerHTML = `
     <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-white">Habit Stats</h2>
     
+    <!-- Stats Tiles including Carousel -->
     <div class="${gridClass}">
+      <!-- Completion Carousel as a tile -->
+      <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+        ${renderHabitCompletionCarousel(periods)}
+      </div>
+      
       ${tiles.join('')}
     </div>
-    
+  `;
+
+  let categoryStatsHTML = '';
+  stats.categoryBreakdown.forEach((categoryData, categoryId) => {
+    const category = appData.categories.find((c) => c.id === categoryId);
+    const categoryName = category ? category.name : 'Unknown';
+    const categoryColor = category ? category.color : '#888';
+
+    categoryStatsHTML += `
+      <div class="category-stat mb-3 p-3 rounded-lg border-l-4 bg-gray-50 dark:bg-gray-800" style="border-left-color: ${categoryColor};">
+        <div class="flex justify-between items-center">
+          <span class="font-medium text-sm">${categoryName}</span>
+          <span class="text-sm text-gray-600 dark:text-gray-400">${categoryData.count} habits</span>
+        </div>
+        <div class="text-sm text-gray-600 dark:text-gray-400">
+          Avg: ${categoryData.completionRate.toFixed(1)}%
+        </div>
+      </div>
+    `;
+  });
+
+  section.innerHTML += `
     ${
       categoryStatsHTML
         ? `<div class="category-breakdown">
@@ -1082,10 +791,9 @@ function renderHabitStatsSection(container, stats) {
 
   container.appendChild(section);
 
-  // Always initialize carousel since we now have 3 periods (7 days, 30 days, all time)
-  // Add a small delay to ensure DOM is updated before initializing carousel
+  // After rendering the section, call initializeHabitCompletionCarousel
   setTimeout(() => {
-    initializeCompletionCarousel();
+    initializeHabitCompletionCarousel();
   }, 100);
 }
 
@@ -1306,8 +1014,6 @@ function formatNumber(num) {
   return num.toString();
 }
 
-// formatDuration function moved to datetime.js for centralization
-
 /**
  * Validate habit data to prevent calculation errors
  */
@@ -1321,43 +1027,6 @@ function validateHabitData(habit) {
 }
 
 /**
- * Get completion period label based on actual habit tracking periods
- */
-function getCompletionPeriodLabel() {
-  const habits = (appData.habits || []).filter(validateHabitData).filter((h) => !h.paused);
-  if (habits.length === 0) return '30d';
-
-  const today = new Date();
-  let maxDays = 0;
-
-  habits.forEach((habit) => {
-    try {
-      let creationDate;
-      if (typeof habit.id === 'string' && /^[0-9]{13}/.test(habit.id)) {
-        const ts = parseInt(habit.id.slice(0, 13), 10);
-        if (!Number.isNaN(ts)) {
-          creationDate = new Date(ts);
-        }
-      }
-      if (!creationDate || isNaN(creationDate)) {
-        creationDate = new Date();
-      }
-      const daysSinceCreation = Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)) + 1;
-      const actualDays = Math.min(30, daysSinceCreation);
-      maxDays = Math.max(maxDays, actualDays);
-    } catch (error) {
-      // Fallback for habits with invalid IDs
-      maxDays = Math.max(maxDays, 30);
-    }
-  });
-
-  if (maxDays === 1) return 'today';
-  if (maxDays <= 7) return `${maxDays}d`;
-  if (maxDays >= 30) return '30d';
-  return `${maxDays}d`;
-}
-
-/**
  * Enhanced error handling for calculations
  */
 function safeCalculation(fn, fallback = 0) {
@@ -1367,4 +1036,152 @@ function safeCalculation(fn, fallback = 0) {
   } catch (error) {
     return fallback;
   }
+}
+
+// --- Carousel rendering and logic (copied from HabitsListModule.js, adapted for stats page) ---
+function renderHabitCompletionCarousel(periods) {
+  if (periods.length === 1) {
+    const period = periods[0];
+    return `
+      <div class="text-lg font-bold text-center mb-1 text-gray-900 dark:text-white">
+        ${period.rate.toFixed(1)}%
+      </div>
+      <div class="text-center text-xs text-gray-500 dark:text-gray-400">
+        Completion Rate (${period.label})
+      </div>
+    `;
+  }
+  const slidesHTML = periods
+    .map(
+      (period, index) => `
+    <div class="carousel-slide ${index === 0 ? 'active' : ''}" data-slide="${index}">
+      <div class="text-lg font-bold text-center mb-1 text-gray-900 dark:text-white">
+        ${period.rate.toFixed(1)}%
+      </div>
+      <div class="text-center text-xs text-gray-500 dark:text-gray-400">
+        Completion Rate (${period.label})
+      </div>
+    </div>
+  `
+    )
+    .join('');
+  const dotsHTML = periods
+    .map(
+      (_, index) => `
+    <div class="carousel-dot ${index === 0 ? 'active' : ''}" data-slide="${index}"></div>
+  `
+    )
+    .join('');
+  return `
+    <div class="completion-carousel" id="habit-completion-carousel">
+      <div class="carousel-container">
+        <div class="carousel-track" id="habit-carousel-track">
+          ${slidesHTML}
+        </div>
+      </div>
+      <div class="carousel-dots" id="habit-carousel-dots">
+        ${dotsHTML}
+      </div>
+    </div>
+  `;
+}
+
+function initializeHabitCompletionCarousel() {
+  const carousel = document.getElementById('habit-completion-carousel');
+  const track = document.getElementById('habit-carousel-track');
+  const dots = document.getElementById('habit-carousel-dots');
+  if (!carousel || !track || !dots) return;
+  const slides = track.querySelectorAll('.carousel-slide');
+  const dotElements = dots.querySelectorAll('.carousel-dot');
+  if (slides.length <= 1) return;
+  let currentSlide = 0;
+  let touchStartX = 0;
+  let touchEndX = 0;
+  let autoScrollInterval = null;
+  function updateActiveSlide(index) {
+    if (index < 0 || index >= slides.length) return;
+    currentSlide = index;
+    slides.forEach((slide, i) => {
+      slide.classList.toggle('active', i === currentSlide);
+    });
+    dotElements.forEach((dot, i) => {
+      dot.classList.toggle('active', i === currentSlide);
+    });
+  }
+  function nextSlide() {
+    const next = (currentSlide + 1) % slides.length;
+    updateActiveSlide(next);
+  }
+  function prevSlide() {
+    const prev = (currentSlide - 1 + slides.length) % slides.length;
+    updateActiveSlide(prev);
+  }
+  dotElements.forEach((dot, index) => {
+    dot.addEventListener('click', () => {
+      updateActiveSlide(index);
+    });
+  });
+  carousel.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+  });
+  carousel.addEventListener('touchend', (e) => {
+    touchEndX = e.changedTouches[0].clientX;
+    handleSwipe();
+  });
+  let isDragging = false;
+  let startX = 0;
+  carousel.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    startX = e.clientX;
+    carousel.style.cursor = 'grabbing';
+  });
+  carousel.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+  });
+  carousel.addEventListener('mouseup', (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    carousel.style.cursor = 'grab';
+    const endX = e.clientX;
+    const diffX = startX - endX;
+    if (Math.abs(diffX) > 50) {
+      if (diffX > 0) {
+        nextSlide();
+      } else {
+        prevSlide();
+      }
+    }
+  });
+  carousel.addEventListener('mouseleave', () => {
+    if (isDragging) {
+      isDragging = false;
+      carousel.style.cursor = 'grab';
+    }
+  });
+  function handleSwipe() {
+    const swipeThreshold = 50;
+    const diffX = touchStartX - touchEndX;
+    if (Math.abs(diffX) > swipeThreshold) {
+      if (diffX > 0) {
+        nextSlide();
+      } else {
+        prevSlide();
+      }
+    }
+  }
+  carousel.style.cursor = 'grab';
+  // --- Autoscroll ---
+  if (autoScrollInterval) clearInterval(autoScrollInterval);
+  autoScrollInterval = setInterval(() => {
+    nextSlide();
+  }, 30000);
+  carousel.addEventListener('mouseenter', () => {
+    if (autoScrollInterval) clearInterval(autoScrollInterval);
+  });
+  carousel.addEventListener('mouseleave', () => {
+    autoScrollInterval = setInterval(() => {
+      nextSlide();
+    }, 30000);
+  });
 }

@@ -8,7 +8,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
       },
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['favicon.svg', 'masked-icon.svg'],
       manifest: {
         name: 'Healthy Habits Tracker',
         short_name: 'Habits',
@@ -21,17 +21,17 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'assets/icons/android-chrome-192x192.png',
+            src: 'public/icons/apple-touch-icon.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: 'assets/icons/android-chrome-512x512.png',
+            src: 'public/icons/apple-touch-icon.png',
             sizes: '512x512',
             type: 'image/png',
           },
           {
-            src: 'assets/icons/apple-touch-icon.png',
+            src: 'public/icons/apple-touch-icon.png',
             sizes: '180x180',
             type: 'image/png',
           },
@@ -44,7 +44,7 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true,
+        drop_console: false,
         drop_debugger: true,
       },
     },
@@ -53,32 +53,32 @@ export default defineConfig({
         manualChunks: {
           // Feature-specific chunks
           'habits-core': [
-            './src/habits/HabitsModule.js',
-            './src/habits/HabitsView.js',
-            './src/habits/HabitsListModule.js',
+            './src/features/habits/HabitsModule.js',
+            './src/features/habits/HabitsView.js',
+            './src/features/habits/HabitsListModule.js',
           ],
           'habits-modals': [
-            './src/habits/modals/HabitFormModal.js',
-            './src/habits/modals/HabitReorderModal.js',
-            './src/habits/modals/HabitIconPicker.js',
+            './src/features/habits/modals/HabitFormModal.js',
+            './src/features/habits/modals/HabitReorderModal.js',
+            './src/features/habits/modals/HabitIconPicker.js',
           ],
           'fitness-core': [
-            './src/fitness/FitnessModule.js',
-            './src/fitness/FitnessView.js',
-            './src/fitness/ActivityListModule.js',
+            './src/features/fitness/FitnessModule.js',
+            './src/features/fitness/FitnessView.js',
+            './src/features/fitness/ActivityListModule.js',
           ],
           'fitness-modals': [
-            './src/fitness/Modals/ActivityDetailsModal.js',
-            './src/fitness/Modals/AddEditActivityModal.js',
-            './src/fitness/Modals/StatsModal.js',
+            './src/features/fitness/Modals/ActivityDetailsModal.js',
+            './src/features/fitness/Modals/AddEditActivityModal.js',
+            './src/features/fitness/Modals/StatsModal.js',
           ],
-          'utils': [
-            './src/utils/common.js',
-            './src/utils/datetime.js',
-            './src/utils/constants.js',
-            './src/utils/holidays.js',
+          utils: [
+            './src/shared/common.js',
+            './src/shared/datetime.js',
+            './src/shared/constants.js',
+            './src/features/holidays/holidays.js',
           ],
-          'components': [
+          components: [
             './src/components/Modal.js',
             './src/components/ConfirmDialog.js',
             './src/components/InstallPrompt.js',
@@ -95,12 +95,12 @@ export default defineConfig({
           const info = assetInfo.name.split('.');
           const ext = info[info.length - 1];
           if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(ext)) {
-            return `assets/images/[name]-[hash][extname]`;
+            return 'assets/images/[name]-[hash][extname]';
           }
           if (/woff2?|eot|ttf|otf/i.test(ext)) {
-            return `assets/fonts/[name]-[hash][extname]`;
+            return 'assets/fonts/[name]-[hash][extname]';
           }
-          return `assets/[name]-[hash][extname]`;
+          return 'assets/[name]-[hash][extname]';
         },
       },
     },

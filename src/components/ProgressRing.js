@@ -1,5 +1,5 @@
 import { appData } from '../core/state.js';
-import { isHabitCompleted } from '../home/schedule.js';
+import { isHabitCompleted } from '../features/home/schedule.js';
 
 export function calculateDailyProgress() {
   // Consider all habits that are not paused. A future refactor will

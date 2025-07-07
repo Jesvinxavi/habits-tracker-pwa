@@ -6,8 +6,9 @@
  * / new month / new year depending on the active group.
  */
 import { appData, mutate } from '../core/state.js';
-import { isSamePeriod } from '../utils/datetime.js';
-import { removeLoadingState } from '../utils/loader.js';
+import { isSamePeriod } from '../shared/datetime.js';
+import { removeLoadingState } from '../shared/loader.js';
+import { invalidatePillsCache } from '../components/HomeProgressPills.js';
 
 function alignSelected() {
   const now = new Date();
@@ -17,6 +18,8 @@ function alignSelected() {
     mutate((s) => {
       s.selectedDate = now.toISOString();
     });
+    // Invalidate pills cache when date changes due to period rollover
+    invalidatePillsCache();
   }
 }
 

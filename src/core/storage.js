@@ -1,6 +1,7 @@
 import { appData, subscribe, notify } from './state.js';
 import { ensureHolidayIntegrity } from './state.js';
-import { debounce, safeJsonParse, safeJsonStringify } from '../utils/common.js';
+import { debounce, safeJsonParse, safeJsonStringify } from '../shared/common.js';
+import { getLocalMidnightISOString } from '../shared/datetime.js';
 
 const STORAGE_KEY = 'healthyHabitsData';
 
@@ -106,12 +107,7 @@ export function loadDataFromLocalStorage() {
 
         // Always reset date fields to today on startup so the calendar defaults to current date
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Reset to local midnight to avoid timezone issues
-        // Use local date format to avoid timezone issues
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        const localTodayIso = `${year}-${month}-${day}T00:00:00.000Z`;
+        const localTodayIso = getLocalMidnightISOString(today);
         appData.selectedDate = localTodayIso;
         if (appData.currentDate) {
           appData.currentDate = localTodayIso;
@@ -122,7 +118,7 @@ export function loadDataFromLocalStorage() {
         ensureHolidayIntegrity(appData);
 
         // After state is populated, rebuild holiday caches so manualSingles matches stored dates.
-        import('../utils/holidays.js').then((m) => m.initializeHolidays());
+        import('../features/holidays/holidays.js').then((m) => m.initializeHolidays());
       } catch (error) {
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
           console.error('[storage] Error parsing stored data:', error);
@@ -130,7 +126,7 @@ export function loadDataFromLocalStorage() {
       }
     } else {
       // No stored data; still ensure holiday utilities have correct caches (empty but synced)
-      import('../utils/holidays.js').then((m) => m.initializeHolidays());
+      import('../features/holidays/holidays.js').then((m) => m.initializeHolidays());
     }
     // Mark load complete so subsequent state changes are persisted
     _hasLoaded = true;
@@ -147,12 +143,7 @@ export function loadDataFromLocalStorage() {
 
           // Apply the same date corrections as above to prevent timezone issues
           const today = new Date();
-          today.setHours(0, 0, 0, 0); // Reset to local midnight to avoid timezone issues
-          // Use local date format to avoid timezone issues
-          const year = today.getFullYear();
-          const month = String(today.getMonth() + 1).padStart(2, '0');
-          const day = String(today.getDate()).padStart(2, '0');
-          const localTodayIso = `${year}-${month}-${day}T00:00:00.000Z`;
+          const localTodayIso = getLocalMidnightISOString(today);
           appData.selectedDate = localTodayIso;
           if (appData.currentDate) {
             appData.currentDate = localTodayIso;

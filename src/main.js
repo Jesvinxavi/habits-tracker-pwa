@@ -2,14 +2,13 @@
 import { loadDataFromLocalStorage } from './core/storage.js';
 import { initializeTheme, toggleTheme, forceLightMode } from './core/theme.js';
 import { initializeNavigation } from './core/navigation.js';
-import { initializeHabitsForm } from './habits/modals/HabitFormModal.js';
+import { initializeHabitsForm } from './features/habits/modals/HabitFormModal.js';
 // import { initializeHome } from './features/home/home.js'; // Now lazy loaded via navigation
-import { initializeFitness } from './fitness/FitnessModule.js';
-import { initializeStats } from './features/stats/stats.js';
+import { initializeFitness } from './features/fitness/FitnessModule.js';
 import { initializeInstallPrompt } from './components/InstallPrompt.js';
 import { showUpdateBanner } from './components/UpdatePrompt.js';
-import { measurePerformance } from './utils/common.js';
-import performanceMonitor from './utils/performance.js';
+import { measurePerformance } from './shared/common.js';
+import performanceMonitor from './features/fitness/performance.js';
 import './features/autoToday.js';
 
 // Enable test mode if URL contains ?test=true
@@ -71,8 +70,11 @@ async function bootstrap() {
     await measurePerformance('Navigation Initialization', () => initializeNavigation());
     await measurePerformance('Habits Form Initialization', () => initializeHabitsForm());
     // await measurePerformance('Home Initialization', () => initializeHome()); // Now lazy loaded via navigation
+    // Debug logging removed for production
     await measurePerformance('Fitness Initialization', () => initializeFitness());
-    await measurePerformance('Stats Initialization', () => initializeStats());
+    await measurePerformance('Stats Initialization', () =>
+      import('./features/stats/stats.js').then((m) => m.initializeStats())
+    );
     await measurePerformance('Install Prompt Initialization', () => initializeInstallPrompt());
 
     // Theme toggle click handler
@@ -89,15 +91,7 @@ async function bootstrap() {
       timestamp: Date.now(),
     });
 
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      console.log(`🚀 App bootstrap completed in ${bootstrapTime.toFixed(2)}ms`);
-
-      // Log performance metrics summary
-      setTimeout(() => {
-        const metrics = performanceMonitor.getMetrics();
-        console.log('📊 Performance Summary:', metrics.summary);
-      }, 1000);
-    }
+    // Debug logging removed for production
   } catch (error) {
     console.error('[DEBUG] Bootstrap failed:', error);
 

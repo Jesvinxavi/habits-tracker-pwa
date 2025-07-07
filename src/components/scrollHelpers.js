@@ -3,22 +3,39 @@
  */
 
 /**
- * Smooth-scroll the parent horizontally so that `el` ends up centred.
- * @param {HTMLElement} el
+ * Centre a child element horizontally within its scrollable parent
+ * @param {HTMLElement} el         – child to centre
+ * @param {{instant?:boolean}=} o  – instant = true → no animation
  */
-export function centerHorizontally(el) {
+export function centerHorizontally(el, { instant = false } = {}) {
   if (!el) return;
-  const container = el.parentElement;
-  if (!container) return;
-  const containerRect = container.getBoundingClientRect();
-  const rect = el.getBoundingClientRect();
-  const offset = rect.left - containerRect.left - (containerRect.width / 2 - rect.width / 2);
-  let targetLeft = container.scrollLeft + offset;
-  if (targetLeft < 0) {
-    // Not enough items to the left – extend leading padding so we can still center
-    const currentPad = parseFloat(getComputedStyle(container).paddingLeft) || 0;
-    container.style.paddingLeft = `${currentPad + Math.abs(targetLeft)}px`;
-    targetLeft = 0;
-  }
-  container.scrollTo({ left: targetLeft, behavior: 'smooth' });
+  const parent = el.parentElement;
+
+  // Two rAFs ensure fonts & layout are finished (iOS A2HS needs this)
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const diff = el.offsetLeft - (parent.clientWidth - el.clientWidth) / 2;
+      const max = parent.scrollWidth - parent.clientWidth;
+
+      // Handle edge cases for first few tiles
+      let scrollLeft = Math.max(0, Math.min(diff, max));
+
+      // If the tile is one of the first few and we can't center it properly,
+      // scroll to the beginning but ensure the tile is still visible
+      if (diff < 0 && el.offsetLeft < parent.clientWidth / 2) {
+        // For first few tiles, ensure they're visible but don't try to center beyond what's possible
+        scrollLeft = 0;
+      }
+
+      parent.scrollTo({
+        left: scrollLeft,
+        behavior: instant ? 'auto' : 'smooth',
+      });
+    })
+  );
+}
+
+/** Convenience: centre first element matching selector */
+export function centerOnSelector(parent, selector, opts) {
+  centerHorizontally(parent.querySelector(selector), opts);
 }

@@ -1,5 +1,5 @@
 import { appData } from '../core/state.js';
-import { measurePerformance } from '../utils/common.js';
+import { measurePerformance } from '../shared/common.js';
 
 export function initializeNavigation() {
   const tabItems = document.querySelectorAll('.tab-item');
@@ -65,7 +65,6 @@ export function initializeNavigation() {
     if (moduleStates.home.loaded || moduleStates.home.loading) return;
 
     moduleStates.home.loading = true;
-    const startTime = performance.now();
 
     const homeView = document.getElementById('home-view');
     let spinner;
@@ -83,16 +82,14 @@ export function initializeNavigation() {
     }
 
     try {
-      // Load the new HomeModule that orchestrates everything
-      const { HomeModule } = await measurePerformance(
-        'HomeModule Import',
-        () => import('../home/HomeModule.js')
-      );
+      const { HomeModule } = await import('../features/home/HomeModule.js');
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        // Debug logging removed for production
+      }
 
       await measurePerformance('HomeModule Init', () => HomeModule.init());
 
       moduleStates.home.loaded = true;
-      const loadTime = performance.now() - startTime;
 
       if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         // Performance logging for development
@@ -110,7 +107,6 @@ export function initializeNavigation() {
     if (moduleStates.habits.loaded || moduleStates.habits.loading) return;
 
     moduleStates.habits.loading = true;
-    const startTime = performance.now();
 
     const habitsView = document.getElementById('habits-view');
     let spinner;
@@ -128,16 +124,14 @@ export function initializeNavigation() {
     }
 
     try {
-      // Load the new HabitsModule that orchestrates everything
-      const { HabitsModule } = await measurePerformance(
-        'HabitsModule Import',
-        () => import('../habits/HabitsModule.js')
-      );
+      const { HabitsModule } = await import('../features/habits/HabitsModule.js');
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        // Debug logging removed for production
+      }
 
       await measurePerformance('HabitsModule Init', () => HabitsModule.init());
 
       moduleStates.habits.loaded = true;
-      const loadTime = performance.now() - startTime;
 
       if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         // Performance logging for development
@@ -153,8 +147,6 @@ export function initializeNavigation() {
 
   // Enhanced view switching with performance monitoring
   async function setActiveView(viewId) {
-    const switchStart = performance.now();
-
     ensurePlaceholder(viewId);
 
     // Batch DOM updates for better performance
@@ -181,16 +173,27 @@ export function initializeNavigation() {
 
     localStorage.setItem('activeHabitTrackerTab', viewId);
 
-    // Ensure Fitness view always starts on today
-    if (viewId === 'fitness-view') {
+    // Ensure both Home and Fitness views always start on today
+    if (viewId === 'home-view' || viewId === 'fitness-view') {
       // Use local date to avoid timezone issues
       const today = new Date();
       today.setHours(0, 0, 0, 0); // Reset to local midnight
-      const { getLocalISODate } = await import('../utils/datetime.js');
-      const localToday = getLocalISODate(today) + 'T00:00:00.000Z';
-      appData.fitnessSelectedDate = localToday;
-      if (window.fitnessCalendarApi && typeof window.fitnessCalendarApi.refresh === 'function') {
-        window.fitnessCalendarApi.refresh();
+
+      if (viewId === 'home-view') {
+        // Set HH calendar date smoothly
+        const calEl = document.querySelector('#home-view hh-calendar[state-key="selectedDate"]');
+        calEl?.setDate?.(today, { smooth: true });
+
+        // Refresh UI components
+        window.HomeModule?.refresh?.();
+      } else if (viewId === 'fitness-view') {
+        // Set fitness calendar to today
+        const { getLocalMidnightISOString } = await import('../shared/datetime.js');
+        const localToday = getLocalMidnightISOString(today);
+        appData.fitnessSelectedDate = localToday;
+        document
+          .querySelector('#fitness-view hh-calendar[state-key="fitnessSelectedDate"]')
+          ?.refresh?.();
       }
     }
 
@@ -201,7 +204,6 @@ export function initializeNavigation() {
       loadHabitsModules();
     }
 
-    const switchTime = performance.now() - switchStart;
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       // Performance logging for development
     }
@@ -232,16 +234,12 @@ export function initializeNavigation() {
   });
 
   // Advanced prefetching with intersection observer
-  let _homePrefetched = false;
-  let _habitsPrefetched = false;
-  let _fitnessPrefetched = false;
-  let _statsPrefetched = false;
 
   function prefetchModule(moduleName) {
     const moduleMap = {
-      home: () => import('../home/HomeModule.js'),
-      habits: () => import('../habits/HabitsModule.js'),
-      fitness: () => import('../fitness/FitnessModule.js'),
+      home: () => import('../features/home/HomeModule.js'),
+      habits: () => import('../features/habits/HabitsModule.js'),
+      fitness: () => import('../features/fitness/FitnessModule.js'),
       stats: () => import('../features/stats/stats.js'),
     };
 
@@ -302,15 +300,14 @@ export function initializeNavigation() {
     // Monitor view switch performance
     let viewSwitchCount = 0;
     const originalSetActiveView = setActiveView;
-    setActiveView = async function (...args) {
+    const setActiveViewWithPerf = async function (...args) {
       viewSwitchCount++;
-      const start = performance.now();
       await originalSetActiveView.apply(this, args);
-      const duration = performance.now() - start;
-
       if (viewSwitchCount > 1) {
         // Skip first load - performance logging for development
       }
     };
+    // Optionally, you can assign setActiveViewWithPerf to window for debugging
+    window.setActiveViewWithPerf = setActiveViewWithPerf;
   }
 }

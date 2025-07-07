@@ -1,6 +1,6 @@
 // Enhanced State Management System with Immutable Updates and Actions
 
-import { deepClone } from '../utils/common.js';
+import { deepClone } from '../shared/common.js';
 
 // Helper to get local date without timezone issues
 function getLocalDateISO() {
@@ -37,6 +37,7 @@ const initialState = {
     { id: 'other', name: 'Other', color: '#EAB308', icon: '🎯' },
   ],
   recordedActivities: {}, // Map of date -> array of activity records
+  restDays: {}, // Map dateKey (YYYY-MM-DD) -> true
 };
 
 // Application state - mutable for backward compatibility
@@ -150,20 +151,6 @@ export function dispatch(action) {
 
     // Notify listeners
     notify();
-
-    // Development logging
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      // eslint-disable-next-line no-console
-      console.group(`Action: ${action.type}`);
-      // eslint-disable-next-line no-console
-      console.log('Payload:', action.payload);
-      // eslint-disable-next-line no-console
-      console.log('Previous State:', prevState);
-      // eslint-disable-next-line no-console
-      console.log('New State:', appData);
-      // eslint-disable-next-line no-console
-      console.groupEnd();
-    }
   } catch (error) {
     console.error('Error dispatching action:', action, error);
     // Restore previous state on error

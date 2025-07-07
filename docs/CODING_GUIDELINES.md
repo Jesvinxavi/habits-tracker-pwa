@@ -80,6 +80,44 @@ Whenever you (or the AI assistant) make a change **refer to this guide first** a
 5. **Accessibility**: Buttons need `aria-label`; colour-only indicators must have textual fallback.
 6. **Icons**: Always use the Google **Material Design Icons** font ( `<span class="material-icons">icon_name</span>` ). Avoid custom inline SVGs unless the required symbol is not available in the Material set.
 
+### Calendar Components
+
+Calendar components use the **CalendarController** API for consistent behavior:
+
+```javascript
+/**
+ * @typedef {Object} CalendarController
+ * @prop {Promise<void>} ready            Resolves after DOM & fonts ready
+ * @prop {(d:Date)=>void} setDate         Selects new date, re-renders
+ * @prop {(o?:{instant?:boolean})=>void} scrollToSelected
+ * @prop {()=>void} destroy
+ */
+```
+
+**Usage Pattern:**
+```javascript
+// Wait for calendar to be ready before centering
+await HomeCalendar.ready;
+HomeCalendar.scrollToSelected({ instant: true });
+
+// For user interactions, use smooth scrolling
+HomeCalendar.scrollToSelected(); // defaults to smooth
+```
+
+**Scroll Helper:**
+```javascript
+import { centerOnSelector } from '../components/scrollHelpers.js';
+
+// Center an element within its scrollable parent
+centerOnSelector(parent, '.day-item.current-day', { instant: false });
+```
+
+**Key Points:**
+- Always await `calendar.ready` before calling `scrollToSelected`
+- Use `{ instant: true }` for initial mount and programmatic changes
+- Use smooth scrolling (default) for user interactions
+- The double `requestAnimationFrame` pattern ensures iOS A2HS compatibility
+
 ---
 
 ## 6. Styling (Tailwind CSS)
