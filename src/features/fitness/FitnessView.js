@@ -9,7 +9,7 @@ import {
   adjustActivitiesContainerHeight,
   updateSearchSectionHeight,
   calculateAvailableHeight,
-} from './helpers/layout.js';
+} from './helpers/fitnessLayout.js';
 
 /**
  * Main FitnessView component that orchestrates all fitness sub-components

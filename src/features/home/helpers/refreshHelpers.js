@@ -22,7 +22,7 @@ import {
 } from '../../../components/HomeProgressPills.js';
 import { renderHabitsForHome } from '../components/HomeHabitsList.js';
 import { updateHolidayToggle } from '../components/HomeHeader.js';
-import { adjustHabitsContainerHeight } from './layoutHelpers.js';
+import { adjustHabitsContainerHeight } from './homeLayout.js';
 import { HomeCalendar } from '../calendar.js';
 
 // Global calendar API reference

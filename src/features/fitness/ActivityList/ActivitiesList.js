@@ -7,7 +7,7 @@ import {
 } from '../activities.js';
 import { isRestDay } from '../restDays.js';
 import { appData } from '../../../core/state.js';
-import { adjustActivitiesContainerHeight } from '../helpers/layout.js';
+import { adjustActivitiesContainerHeight } from '../helpers/fitnessLayout.js';
 import { CategoryGroup } from './CategoryGroup.js';
 
 /**

@@ -1,7 +1,7 @@
 // ActivityCard.js - Activity card component with swipe-to-delete functionality
 import { hexToRgba } from '../../../shared/color.js';
 import { makeCardSwipable } from '../../../components/swipeableCard.js';
-import { generateActivityPills } from '../helpers/pills.js';
+import { generateActivityPills } from '../helpers/activityPills.js';
 
 /**
  * ActivityCard component for individual activity records

@@ -17,7 +17,7 @@ import {
   bindActivityTileEvents,
   bindSearchKeyboardNavigation,
 } from './SearchPanel/ActivityTile.js';
-import { openCategoryColorPicker, updateSearchCategoryButton } from './SearchPanel/ColorPicker.js';
+import { openCategoryColorPicker, updateSearchCategoryButton } from './SearchPanel/CategoryColorPicker.js';
 
 // Import fitness utilities
 import {

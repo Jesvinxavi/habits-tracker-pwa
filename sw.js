@@ -15,7 +15,6 @@ const urlsToCache = [
   // Touch icons
   '/public/icons/apple-touch-icon.png',
   '/public/icons/apple-touch-icon-120x120.png',
-  '/public/icons/apple-touch-icon-120x120-precomposed.png',
   '/public/icons/favicon.svg',
 ];
 
