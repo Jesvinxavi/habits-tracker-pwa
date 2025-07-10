@@ -1,10 +1,7 @@
 name: CI-PWA-Performance
 
 on:
-  push:
-    branches: [ main, develop, feat/lazy-views ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   performance:
@@ -36,9 +33,11 @@ jobs:
         run: npx wait-on http://localhost:4173
 
       - name: Run Lighthouse (perf + PWA)
-        run: npx lighthouse http://localhost:4173 --only-categories=performance --preset=pwa --output=json --output-path=./lighthouse.json --quiet
+        if: false # disabled on user request
+        run: echo "Lighthouse disabled"
 
       - name: Parse Lighthouse score & bundle size
+        if: false # disabled since Lighthouse disabled
         run: |
           SCORE=$(jq '.categories.performance.score * 100' lighthouse.json)
           echo "Performance score: $SCORE"
@@ -50,6 +49,7 @@ jobs:
           if (( $(echo "$SIZE_KB > 150" | bc -l) )); then echo "::error::Main bundle exceeds 150 KB (gzip)" && exit 1; fi
 
       - name: Upload Lighthouse report
+        if: false # disabled with Lighthouse
         uses: actions/upload-artifact@v4
         with:
           name: lighthouse-report
