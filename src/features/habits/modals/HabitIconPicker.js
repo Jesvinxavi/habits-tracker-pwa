@@ -1,6 +1,8 @@
 // Icon Picker module – extracted from habits/form.js
 // ------------------------------------------------------
 
+import { openModal, closeModal } from '../../../components/Modal.js';
+
 export let selectedIcon = '📋';
 
 export function getSelectedIcon() {
@@ -91,7 +93,14 @@ let gridBuilt = false;
 function buildIconGrid(modal) {
   if (gridBuilt) return;
   const grid = modal.querySelector('#icon-grid');
-  if (!grid) return;
+  if (!grid) {
+    console.warn('Icon grid element not found in modal');
+    return;
+  }
+  
+  // Clear any existing content first
+  grid.innerHTML = '';
+  
   const fragment = document.createDocumentFragment();
   ICONS.forEach((icon) => {
     const btn = document.createElement('button');
@@ -120,13 +129,21 @@ export function initIconPicker() {
   }
 
   btn.addEventListener('click', () => {
+    // Ensure grid is built before opening modal
     buildIconGrid(modal);
-    modal.classList.remove('hidden');
+    
+    // Verify grid was successfully built
+    const grid = modal.querySelector('#icon-grid');
+    if (grid && grid.children.length > 0) {
+      openModal('icon-selection-modal');
+    } else {
+      console.error('Failed to build icon grid, cannot open modal');
+    }
   });
 
   // Close when clicking outside content
   modal.addEventListener('click', (e) => {
-    if (e.target === modal) modal.classList.add('hidden');
+    if (e.target === modal) closeModal('icon-selection-modal');
   });
 
   const selectBtn = document.getElementById('select-icon');
@@ -149,10 +166,10 @@ export function initIconPicker() {
 
   selectBtn?.addEventListener('click', () => {
     updateDisplay();
-    modal.classList.add('hidden');
+    closeModal('icon-selection-modal');
   });
 
-  cancelBtn?.addEventListener('click', () => modal.classList.add('hidden'));
+  cancelBtn?.addEventListener('click', () => closeModal('icon-selection-modal'));
 
   updateDisplay();
 }

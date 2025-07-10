@@ -1,9 +1,9 @@
 import { openModal, closeModal } from '../../../components/Modal.js';
 import { initializeTimePicker } from '../utils/HabitFormPickers.js';
-import { mutate } from '../../../core/state.js';
+import { dispatch, Actions } from '../../../core/state.js';
 import { generateUniqueId } from '../../../shared/common.js';
 import { renderHabitsList } from '../HabitsListModule.js';
-import { appData } from '../../../core/state.js';
+import { getState } from '../../../core/state.js';
 import { initIconPicker, getSelectedIcon, setSelectedIcon } from './HabitIconPicker.js';
 import {
   initFrequencySection,
@@ -42,7 +42,7 @@ export function closeAddHabitModal() {
 }
 
 export function openEditHabitModal(habitId) {
-  const habit = appData.habits.find((h) => h.id === habitId);
+  const habit = getState().habits.find((h) => h.id === habitId);
   if (!habit) return;
   editingHabitId = habitId;
   resetHabitFormUI();
@@ -427,38 +427,14 @@ function handleSaveHabit() {
   }
 
   if (editingHabitId) {
-    mutate((s) => {
-      const idx = s.habits.findIndex((h) => h.id === editingHabitId);
-      if (idx >= 0) {
-        const updated = { ...s.habits[idx], ...habitObj, id: editingHabitId };
-        updated.progress = s.habits[idx].progress;
-        updated.skippedDates = s.habits[idx].skippedDates;
-
-        if (includeTarget) {
-          // Remove schedule-specific properties left from previous version
-          delete updated.days;
-          delete updated.monthly;
-          delete updated.months;
-          delete updated.yearInterval;
-        } else {
-          delete updated.target;
-          delete updated.targetFrequency;
-          delete updated.targetUnit;
-          delete updated.defaultIncrement;
-        }
-
-        s.habits[idx] = updated;
-      }
-    });
+    dispatch(Actions.updateHabit(editingHabitId, habitObj));
   } else {
-    mutate((s) => s.habits.push(habitObj));
+    dispatch(Actions.addHabit(habitObj));
   }
 
   closeAddHabitModal();
   renderHabitsList();
 }
-
-// Frequency helper state & functions moved to frequencySection.js
 
 // Ensure delete button exists in modal footer
 function ensureDeleteBtn() {
@@ -482,9 +458,7 @@ function deleteHabit() {
     message: 'This habit will be permanently removed. This action cannot be undone.',
     okText: 'Delete',
     onOK: () => {
-      mutate((s) => {
-        s.habits = s.habits.filter((h) => h.id !== editingHabitId);
-      });
+      dispatch(Actions.deleteHabit(editingHabitId));
       closeAddHabitModal();
       renderHabitsList();
     },

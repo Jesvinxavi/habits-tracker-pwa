@@ -1,23 +1,25 @@
-import { mutate, appData } from '../../../core/state.js';
-import { getPeriodKey, setHabitCompleted } from '../schedule.js';
+import { dispatch, Actions } from '../../../core/state.js';
+import { getPeriodKey } from '../schedule.js';
 import { makeCardSwipable } from '../../../components/swipeableCard.js';
+import { updateSectionVisibility, sectionVisibility as visObj } from './coreHelpers.js';
+import { HomeHabitsList } from '../components/HomeHabitsList.js';
 
 /* -------------------------------------------------------------------------- */
 /*  SECTION VISIBILITY HELPERS                                                */
 /* -------------------------------------------------------------------------- */
 
-// Global sectionVisibility reference
-let globalSectionVisibility = { Completed: true, Skipped: true };
-
-export function setSectionVisibility(visibility) {
-  globalSectionVisibility = visibility;
+export function saveSectionVisibility(sectionVis) {
+  localStorage.setItem('homeSectionVisibility', JSON.stringify(sectionVis));
 }
 
-export function saveSectionVisibility(sectionVisibility) {
-  localStorage.setItem('homeSectionVisibility', JSON.stringify(sectionVisibility));
+export function setSectionVisibility(sectionVis) {
+  // Set global reference to sectionVisibility for component access
+  if (typeof window !== 'undefined') {
+    window.sectionVisibility = sectionVis;
+  }
 }
 
-export function updateDropdownText(sectionVisibility = globalSectionVisibility) {
+export function updateDropdownText(sectionVisibility = visObj) {
   const completedItem = document.querySelector('[data-action="toggle-completed"] span:last-child');
   const skippedItem = document.querySelector('[data-action="toggle-skipped"] span:last-child');
   const eye =
@@ -63,7 +65,7 @@ export function setupMenuToggle() {
     });
 
     // Handle dropdown menu item clicks
-    menuDropdown.addEventListener('click', (ev) => {
+    menuDropdown.addEventListener('click', async (ev) => {
       const menuItem = ev.target.closest('.dropdown-item');
       if (!menuItem) return;
 
@@ -83,16 +85,21 @@ export function setupMenuToggle() {
         case 'manage-holidays':
           import('../../../features/holidays/manage.js').then((m) => m.openHolidayModal());
           break;
-        case 'toggle-completed':
-          mutate((s) => {
-            s.settings.hideCompleted = !s.settings.hideCompleted;
-          });
+        case 'toggle-completed': {
+          updateSectionVisibility(!visObj.Completed, visObj.Skipped);
+          saveSectionVisibility(visObj);
+          updateDropdownText();
+          // Immediately refresh list without relying on global HomeView reference
+          HomeHabitsList.render?.();
           break;
-        case 'toggle-skipped':
-          mutate((s) => {
-            s.settings.hideSkipped = !s.settings.hideSkipped;
-          });
+        }
+        case 'toggle-skipped': {
+          updateSectionVisibility(visObj.Completed, !visObj.Skipped);
+          saveSectionVisibility(visObj);
+          updateDropdownText();
+          HomeHabitsList.render?.();
           break;
+        }
       }
     });
   }
@@ -103,16 +110,18 @@ export function setupMenuToggle() {
 /* -------------------------------------------------------------------------- */
 
 export function adjustProgress(habitId, max, delta) {
-  mutate((s) => {
-    const h = s.habits.find((hh) => hh.id === habitId);
-    if (!h) return;
-    const key = getPeriodKey(h, new Date(appData.selectedDate));
-    if (typeof h.progress !== 'object' || h.progress === null) h.progress = {};
-    const cur = h.progress[key] || 0;
-    let next = cur + delta;
+  dispatch((dispatch, getState) => {
+    const state = getState();
+    const habit = state.habits.find((h) => h.id === habitId);
+    if (!habit) return;
+    
+    const key = getPeriodKey(habit, new Date(state.selectedDate));
+    const currentProgress = habit.progress?.[key] || 0;
+    let next = currentProgress + delta;
     if (next < 0) next = 0;
     if (next > max) next = max;
-    h.progress[key] = next;
+    
+    dispatch(Actions.setHabitProgress(habitId, key, next));
   });
 }
 
@@ -123,13 +132,18 @@ export function adjustProgress(habitId, max, delta) {
 export function attachSwipeBehaviour(swipeContainer, slideEl, habit) {
   makeCardSwipable(swipeContainer, slideEl, habit, {
     onRestore: () => {
-      mutate((s) => {
-        const h = s.habits.find((hh) => hh.id === habit.id);
-        if (!h) return;
-        setHabitCompleted(h, new Date(appData.selectedDate), false);
-        if (h.target) {
-          const key = getPeriodKey(h, new Date(appData.selectedDate));
-          if (h.progress) delete h.progress[key];
+      dispatch((dispatch, getState) => {
+        const state = getState();
+        const habitState = state.habits.find((h) => h.id === habit.id);
+        if (!habitState) return;
+        
+        // Toggle completion to false
+        dispatch(Actions.toggleHabitCompleted(habit.id, getPeriodKey(habit, new Date(state.selectedDate))));
+        
+        // Clear progress if it's a target habit
+        if (habitState.target) {
+          const key = getPeriodKey(habitState, new Date(state.selectedDate));
+          dispatch(Actions.setHabitProgress(habit.id, key, 0));
         }
       });
     },

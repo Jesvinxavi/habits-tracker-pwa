@@ -5,26 +5,28 @@
  * blue "selected" highlight moves automatically at midnight / new week
  * / new month / new year depending on the active group.
  */
-import { appData, mutate } from '../core/state.js';
-import { isSamePeriod } from '../shared/datetime.js';
-import { removeLoadingState } from '../shared/loader.js';
-import { invalidatePillsCache } from '../components/HomeProgressPills.js';
+import { getState, dispatch, Actions } from '../core/state.js';
+import { isSamePeriod, getNextPeriodStart } from '../shared/datetime.js';
+import { invalidatePillsCache } from './home/components/HomeProgressPills.js';
 
-function alignSelected() {
+function alignSelectedAndScheduleNext() {
+  const state = getState();
   const now = new Date();
-  const group = appData.selectedGroup || 'daily';
-  const sel = new Date(appData.selectedDate);
+  const group = state.selectedGroup || 'daily';
+  const sel = new Date(state.selectedDate);
+
+  // Align date if it's out of the current period
   if (!isSamePeriod(now, sel, group)) {
-    mutate((s) => {
-      s.selectedDate = now.toISOString();
-    });
-    // Invalidate pills cache when date changes due to period rollover
+    dispatch(Actions.setSelectedDate(now.toISOString()));
     invalidatePillsCache();
   }
+
+  // Schedule the next check
+  const nextPeriodStart = getNextPeriodStart(now, group);
+  const timeUntilNextPeriod = nextPeriodStart.getTime() - now.getTime() + 1000; // Add a 1s buffer
+
+  setTimeout(alignSelectedAndScheduleNext, timeUntilNextPeriod);
 }
 
-// Run immediately and then once every hour (1 h = 3 600 000 ms)
-alignSelected();
-setInterval(alignSelected, 60 * 60 * 1000);
-
-removeLoadingState();
+// Run the initial alignment and schedule the next one
+alignSelectedAndScheduleNext();

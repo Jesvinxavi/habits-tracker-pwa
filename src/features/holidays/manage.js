@@ -3,8 +3,8 @@
  * Relies on utils/holidays.js for data mutations.
  */
 
-import { appData, mutate } from '../../core/state.js';
-import { addPeriod, deletePeriod, deleteAllPeriods, recalcHolidayDates } from './holidays.js';
+import { getState } from '../../core/state.js';
+import { addPeriod, deletePeriod, updatePeriod, deleteAllPeriods } from './holidays.js';
 import { openModal, closeModal } from '../../components/Modal.js';
 import { showConfirm } from '../../components/ConfirmDialog.js';
 import { formatDate } from '../../shared/datetime.js';
@@ -88,15 +88,12 @@ function initPeriodFormModal() {
     if (saveBtn.disabled) return;
     if (editingPeriodId) {
       // update existing
-      mutate((s) => {
-        const tgt = s.holidayPeriods.find((p) => p.id === editingPeriodId);
-        if (tgt) {
-          tgt.label = labelInput.value.trim();
-          tgt.startISO = startInput.value;
-          tgt.endISO = endInput.value;
-        }
+      updatePeriod({
+        id: editingPeriodId,
+        label: labelInput.value.trim(),
+        startISO: startInput.value,
+        endISO: endInput.value,
       });
-      recalcHolidayDates();
     } else {
       addPeriod({
         label: labelInput.value.trim(),
@@ -128,7 +125,7 @@ function refreshPeriodList() {
   if (!wrap) return;
   wrap.innerHTML = '';
 
-  if (appData.holidayPeriods.length === 0) {
+  if (getState().holidayPeriods.length === 0) {
     wrap.insertAdjacentHTML(
       'beforeend',
       '<p class="text-center text-gray-500 dark:text-gray-400 text-sm">No holiday periods yet.</p>'
@@ -136,7 +133,7 @@ function refreshPeriodList() {
     return;
   }
 
-  appData.holidayPeriods.forEach((p) => {
+  getState().holidayPeriods.forEach((p) => {
     const row = document.createElement('div');
     row.className =
       'flex justify-between items-center p-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg';

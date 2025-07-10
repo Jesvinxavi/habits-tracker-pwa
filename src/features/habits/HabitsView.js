@@ -1,6 +1,6 @@
 // HabitsView.js - Main HabitsView component that orchestrates all sub-components
-import { mountHeaderBar } from '../../components/HeaderBar.js';
-import { mountActionButtons } from '../../components/ActionButtons.js';
+import { mountHeaderBar } from '../../shared/HeaderBar.js';
+import { mountActionButtons } from '../../shared/ActionButtons.js';
 import { mountSearchPanel, initializeSearch } from './HabitsSearchModule.js';
 import { mountHabitsList, renderHabitsList } from './HabitsListModule.js';
 
@@ -72,7 +72,7 @@ export const HabitsView = {
    * Updates the reorder button state
    */
   updateReorderButton() {
-    // This will be implemented when we extract the reorder functionality
+    
   },
 
   /**

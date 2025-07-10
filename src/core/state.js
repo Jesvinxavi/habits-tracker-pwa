@@ -1,6 +1,6 @@
 // Enhanced State Management System with Immutable Updates and Actions
 
-import { deepClone } from '../shared/common.js';
+import { deepClone, generateUniqueId } from '../shared/common.js';
 
 // Helper to get local date without timezone issues
 function getLocalDateISO() {
@@ -40,12 +40,17 @@ const initialState = {
   restDays: {}, // Map dateKey (YYYY-MM-DD) -> true
 };
 
-// Application state - mutable for backward compatibility
-export const appData = deepClone(initialState);
+// Application state - private for immutability
+const _appData = deepClone(initialState);
 
 // For quick dev inspection in DevTools.
 if (typeof window !== 'undefined') {
-  window.appData = appData;
+  window.appData = _appData;
+}
+
+// Public immutable state access
+export function getState() {
+  return deepClone(_appData);
 }
 
 // Observer pattern for state changes
@@ -57,7 +62,7 @@ export function subscribe(fn) {
 }
 
 export function notify() {
-  listeners.forEach((fn) => fn(appData));
+  listeners.forEach((fn) => fn(_appData));
 }
 
 // Action Types - Centralized action constants
@@ -70,6 +75,7 @@ export const ActionTypes = {
   SET_HABIT_PROGRESS: 'SET_HABIT_PROGRESS',
   SKIP_HABIT: 'SKIP_HABIT',
   REORDER_HABITS: 'REORDER_HABITS',
+  REORDER_CATEGORIES: 'REORDER_CATEGORIES',
 
   // Category actions
   ADD_CATEGORY: 'ADD_CATEGORY',
@@ -84,22 +90,32 @@ export const ActionTypes = {
   // Holiday actions
   ADD_HOLIDAY_PERIOD: 'ADD_HOLIDAY_PERIOD',
   DELETE_HOLIDAY_PERIOD: 'DELETE_HOLIDAY_PERIOD',
+  DELETE_ALL_HOLIDAY_PERIODS: 'DELETE_ALL_HOLIDAY_PERIODS',
   TOGGLE_SINGLE_HOLIDAY: 'TOGGLE_SINGLE_HOLIDAY',
   SET_HOLIDAY_DATES: 'SET_HOLIDAY_DATES',
+  UPDATE_HOLIDAY_PERIOD: 'UPDATE_HOLIDAY_PERIOD',
 
   // Activity actions
   ADD_ACTIVITY: 'ADD_ACTIVITY',
   UPDATE_ACTIVITY: 'UPDATE_ACTIVITY',
   DELETE_ACTIVITY: 'DELETE_ACTIVITY',
   RECORD_ACTIVITY: 'RECORD_ACTIVITY',
+  UPDATE_ACTIVITY_CATEGORY_COLOR: 'UPDATE_ACTIVITY_CATEGORY_COLOR',
 
   // Settings actions
   UPDATE_SETTINGS: 'UPDATE_SETTINGS',
+  SET_DARK_MODE: 'SET_DARK_MODE',
   TOGGLE_DARK_MODE: 'TOGGLE_DARK_MODE',
+  TOGGLE_COMPLETED: 'TOGGLE_COMPLETED',
+  TOGGLE_SKIPPED: 'TOGGLE_SKIPPED',
 
   // Bulk actions
   RESET_STATE: 'RESET_STATE',
   IMPORT_DATA: 'IMPORT_DATA',
+
+  // New actions
+  // UPDATE_HABIT_PROGRESS: 'UPDATE_HABIT_PROGRESS',
+  // UPDATE_HABIT_SKIPPED_DATES: 'UPDATE_HABIT_SKIPPED_DATES',
 };
 
 // Action Creators - Functions that create action objects
@@ -118,6 +134,18 @@ export const Actions = {
     type: ActionTypes.SET_HABIT_PROGRESS,
     payload: { habitId, date, progress },
   }),
+  skipHabit: (habitId, date) => ({
+    type: ActionTypes.SKIP_HABIT,
+    payload: { habitId, date },
+  }),
+  reorderHabits: (habitIds) => ({
+    type: ActionTypes.REORDER_HABITS,
+    payload: habitIds,
+  }),
+  reorderCategories: (categoryIds) => ({
+    type: ActionTypes.REORDER_CATEGORIES,
+    payload: categoryIds,
+  }),
 
   addCategory: (category) => ({ type: ActionTypes.ADD_CATEGORY, payload: category }),
   updateCategory: (categoryId, updates) => ({
@@ -128,33 +156,95 @@ export const Actions = {
 
   setSelectedDate: (date) => ({ type: ActionTypes.SET_SELECTED_DATE, payload: date }),
   setSelectedGroup: (group) => ({ type: ActionTypes.SET_SELECTED_GROUP, payload: group }),
+  setFitnessSelectedDate: (date) => ({
+    type: ActionTypes.SET_FITNESS_SELECTED_DATE,
+    payload: date,
+  }),
+
+  addHolidayPeriod: (period) => ({
+    type: ActionTypes.ADD_HOLIDAY_PERIOD,
+    payload: period,
+  }),
+  deleteHolidayPeriod: (periodId) => ({
+    type: ActionTypes.DELETE_HOLIDAY_PERIOD,
+    payload: periodId,
+  }),
+  deleteAllHolidayPeriods: () => ({ type: ActionTypes.DELETE_ALL_HOLIDAY_PERIODS }),
+  updateHolidayPeriod: (period) => ({
+    type: ActionTypes.UPDATE_HOLIDAY_PERIOD,
+    payload: period,
+  }),
+  toggleSingleHoliday: (date) => ({
+    type: ActionTypes.TOGGLE_SINGLE_HOLIDAY,
+    payload: date,
+  }),
+  setHolidayDates: (dates) => ({
+    type: ActionTypes.SET_HOLIDAY_DATES,
+    payload: dates,
+  }),
+
+  addActivity: (activity) => ({
+    type: ActionTypes.ADD_ACTIVITY,
+    payload: activity,
+  }),
+  updateActivity: (activityId, updates) => ({
+    type: ActionTypes.UPDATE_ACTIVITY,
+    payload: { activityId, updates },
+  }),
+  deleteActivity: (activityId) => ({
+    type: ActionTypes.DELETE_ACTIVITY,
+    payload: activityId,
+  }),
+  recordActivity: (activityId, date, data) => ({
+    type: ActionTypes.RECORD_ACTIVITY,
+    payload: { activityId, date, data },
+  }),
+  updateActivityCategoryColor: (categoryId, newColor) => ({
+    type: ActionTypes.UPDATE_ACTIVITY_CATEGORY_COLOR,
+    payload: { categoryId, newColor },
+  }),
 
   updateSettings: (settings) => ({ type: ActionTypes.UPDATE_SETTINGS, payload: settings }),
+  setDarkMode: (isDark) => ({ type: ActionTypes.SET_DARK_MODE, payload: isDark }),
   toggleDarkMode: () => ({ type: ActionTypes.TOGGLE_DARK_MODE }),
+  toggleCompleted: () => ({ type: ActionTypes.TOGGLE_COMPLETED }),
+  toggleSkipped: () => ({ type: ActionTypes.TOGGLE_SKIPPED }),
+
+  resetState: () => ({ type: ActionTypes.RESET_STATE }),
+  importData: (data) => ({ type: ActionTypes.IMPORT_DATA, payload: data }),
+
+  // updateHabitProgress: ({ habitId, progress }) => ({
+  //   type: ActionTypes.UPDATE_HABIT_PROGRESS,
+  //   payload: { habitId, progress },
+  // }),
+  // updateHabitSkippedDates: ({ habitId, skippedDates }) => ({
+  //   type: ActionTypes.UPDATE_HABIT_SKIPPED_DATES,
+  //   payload: { habitId, skippedDates },
+  // }),
 };
 
 // Enhanced dispatch function with immutable updates
 export function dispatch(action) {
   if (typeof action === 'function') {
     // Support for thunk-style actions
-    return action(dispatch, () => appData);
+    return action(dispatch, () => _appData);
   }
 
-  const prevState = deepClone(appData);
+  const prevState = deepClone(_appData);
 
   try {
     // Apply the action to create new state
     const newState = reducer(prevState, action);
 
-    // Update appData with new state
-    Object.assign(appData, newState);
+    // Update _appData with new state
+    Object.assign(_appData, newState);
 
     // Notify listeners
     notify();
   } catch (error) {
     console.error('Error dispatching action:', action, error);
     // Restore previous state on error
-    Object.assign(appData, prevState);
+    Object.assign(_appData, prevState);
   }
 }
 
@@ -162,9 +252,11 @@ export function dispatch(action) {
 function reducer(state, action) {
   switch (action.type) {
     case ActionTypes.ADD_HABIT:
+      const newHabit = action.payload;
+      ensureHabitIntegrity(newHabit);
       return {
         ...state,
-        habits: [...state.habits, action.payload],
+        habits: [...state.habits, newHabit],
       };
 
     case ActionTypes.UPDATE_HABIT:
@@ -197,6 +289,65 @@ function reducer(state, action) {
         ),
       };
 
+    case ActionTypes.TOGGLE_HABIT_COMPLETED:
+      return {
+        ...state,
+        habits: state.habits.map((habit) => {
+          if (habit.id !== action.payload.habitId) return habit;
+
+          const dateKey = action.payload.date; // Expect ISO date string (YYYY-MM-DD)
+
+          // Ensure habit.completed is an object
+          const completedObj =
+            typeof habit.completed === 'object' && habit.completed !== null
+              ? { ...habit.completed }
+              : {};
+
+          const isCompleted = completedObj[dateKey] === true;
+          completedObj[dateKey] = !isCompleted;
+
+          return {
+            ...habit,
+            completed: completedObj,
+          };
+        }),
+      };
+
+    case ActionTypes.SKIP_HABIT:
+      return {
+        ...state,
+        habits: state.habits.map((habit) => {
+          if (habit.id !== action.payload.habitId) return habit;
+          
+          const dateKey = action.payload.date;
+          const skippedDates = habit.skippedDates || [];
+          const isSkipped = skippedDates.includes(dateKey);
+          
+          return {
+            ...habit,
+            skippedDates: isSkipped
+              ? skippedDates.filter(d => d !== dateKey)
+              : [...skippedDates, dateKey]
+          };
+        }),
+      };
+
+    case ActionTypes.REORDER_HABITS:
+      return {
+        ...state,
+        habits: action.payload.map(habitId => 
+          state.habits.find(h => h.id === habitId)
+        ).filter(Boolean),
+      };
+
+    case ActionTypes.REORDER_CATEGORIES:
+      return {
+        ...state,
+        categories: action.payload.map(categoryId => 
+          state.categories.find(c => c.id === categoryId)
+        ).filter(Boolean),
+      };
+
     case ActionTypes.ADD_CATEGORY:
       return {
         ...state,
@@ -217,6 +368,7 @@ function reducer(state, action) {
       return {
         ...state,
         categories: state.categories.filter((category) => category.id !== action.payload),
+        habits: state.habits.filter((habit) => habit.categoryId !== action.payload),
       };
 
     case ActionTypes.SET_SELECTED_DATE:
@@ -255,16 +407,171 @@ function reducer(state, action) {
         holidayPeriods: state.holidayPeriods.filter((period) => period.id !== action.payload),
       };
 
+    case ActionTypes.DELETE_ALL_HOLIDAY_PERIODS:
+      return {
+        ...state,
+        holidayPeriods: [],
+      };
+
+    case ActionTypes.UPDATE_HOLIDAY_PERIOD:
+      return {
+        ...state,
+        holidayPeriods: state.holidayPeriods.map((period) =>
+          period.id === action.payload.id
+            ? { ...period, ...action.payload }
+            : period
+        ),
+      };
+
+    case ActionTypes.TOGGLE_SINGLE_HOLIDAY:
+      const dateKey = action.payload;
+      const currentHolidayDates = state.holidayDates || [];
+      const isHoliday = currentHolidayDates.includes(dateKey);
+      
+      return {
+        ...state,
+        holidayDates: isHoliday
+          ? currentHolidayDates.filter(d => d !== dateKey)
+          : [...currentHolidayDates, dateKey],
+      };
+
+    case ActionTypes.ADD_ACTIVITY:
+      return {
+        ...state,
+        activities: [...state.activities, action.payload],
+      };
+
+    case ActionTypes.UPDATE_ACTIVITY:
+      const { activityId: updId, updates } = action.payload;
+      
+      // Update the activities array
+      const updatedActivities = state.activities.map((activity) =>
+        activity.id === updId
+          ? { ...activity, ...updates, updatedAt: new Date().toISOString() }
+          : activity
+      );
+
+      // If name or categoryId was not updated, no need to patch recorded activities
+      if (!updates || (!updates.name && !updates.categoryId)) {
+        return { ...state, activities: updatedActivities };
+      }
+      
+      // Efficiently patch recorded activities
+      const recordedActivitiesPatched = Object.entries(state.recordedActivities).reduce(
+        (acc, [dateKey, records]) => {
+          // Check if any record in this date needs patching
+          if (records.some(rec => rec.activityId === updId)) {
+            acc[dateKey] = records.map(rec => 
+              rec.activityId === updId 
+                ? {
+                    ...rec,
+                    activityName: updates.name !== undefined ? updates.name : rec.activityName,
+                    categoryId: updates.categoryId !== undefined ? updates.categoryId : rec.categoryId,
+                  } 
+                : rec
+            );
+          } else {
+            // No change, keep original array
+            acc[dateKey] = records;
+          }
+          return acc;
+        }, {});
+
+      return {
+        ...state,
+        activities: updatedActivities,
+        recordedActivities: recordedActivitiesPatched,
+      };
+
+    case ActionTypes.DELETE_ACTIVITY:
+      const activityId = action.payload;
+      const updatedRecordedActivities = { ...state.recordedActivities };
+      
+      // Remove recorded activities for this activity
+      Object.keys(updatedRecordedActivities).forEach((date) => {
+        updatedRecordedActivities[date] = updatedRecordedActivities[date].filter(
+          (record) => record.activityId !== activityId
+        );
+        if (updatedRecordedActivities[date].length === 0) {
+          delete updatedRecordedActivities[date];
+        }
+      });
+      
+      return {
+        ...state,
+        activities: state.activities.filter((activity) => activity.id !== activityId),
+        recordedActivities: updatedRecordedActivities,
+      };
+
+    case ActionTypes.RECORD_ACTIVITY:
+      const { activityId: recordActivityId, date, data } = action.payload;
+      const isoDate = date.slice(0, 10); // Ensure YYYY-MM-DD format
+      const activity = state.activities.find((a) => a.id === recordActivityId);
+      
+      if (!activity) return state;
+      
+      const record = {
+        id: generateUniqueId(),
+        activityId: recordActivityId,
+        activityName: activity.name,
+        categoryId: activity.categoryId,
+        date: isoDate,
+        timestamp: new Date().toISOString(),
+        duration: data.duration || null,
+        intensity: data.intensity || null,
+        notes: data.notes || '',
+        ...data,
+      };
+      
+      const currentRecordedActivities = state.recordedActivities || {};
+      const dateRecords = currentRecordedActivities[isoDate] || [];
+      
+      return {
+        ...state,
+        recordedActivities: {
+          ...currentRecordedActivities,
+          [isoDate]: [...dateRecords, record],
+        },
+      };
+
+    case ActionTypes.UPDATE_ACTIVITY_CATEGORY_COLOR:
+      return {
+        ...state,
+        activityCategories: state.activityCategories.map((category) =>
+          category.id === action.payload.categoryId
+            ? { ...category, color: action.payload.newColor }
+            : category
+        ),
+      };
+
     case ActionTypes.UPDATE_SETTINGS:
       return {
         ...state,
         settings: { ...state.settings, ...action.payload },
       };
 
+    case ActionTypes.SET_DARK_MODE:
+      return {
+        ...state,
+        settings: { ...state.settings, darkMode: action.payload },
+      };
+
     case ActionTypes.TOGGLE_DARK_MODE:
       return {
         ...state,
         settings: { ...state.settings, darkMode: !state.settings.darkMode },
+      };
+
+    case ActionTypes.TOGGLE_COMPLETED:
+      return {
+        ...state,
+        settings: { ...state.settings, hideCompleted: !state.settings.hideCompleted },
+      };
+
+    case ActionTypes.TOGGLE_SKIPPED:
+      return {
+        ...state,
+        settings: { ...state.settings, hideSkipped: !state.settings.hideSkipped },
       };
 
     case ActionTypes.IMPORT_DATA:
@@ -281,56 +588,22 @@ function reducer(state, action) {
 // Selectors - Functions to compute derived state
 export const Selectors = {
   // Habit selectors
-  getHabits: (state = appData) => state.habits,
-  getHabitById: (state = appData, habitId) => state.habits.find((h) => h.id === habitId),
-  getHabitsByCategory: (state = appData, categoryId) =>
-    state.habits.filter((h) => h.category === categoryId),
-  getActiveHabits: (state = appData) => state.habits.filter((h) => !h.paused),
-  getCompletedHabitsForDate: (state = appData, date) =>
-    state.habits.filter((h) => h.completedDates?.includes(date)),
+  getHabits: (state = _appData) => state.habits,
+  getHabitById: (state = _appData, habitId) => state.habits.find((h) => h.id === habitId),
 
   // Category selectors
-  getCategories: (state = appData) => state.categories,
-  getCategoryById: (state = appData, categoryId) =>
-    state.categories.find((c) => c.id === categoryId),
-  getCategoriesWithHabits: (state = appData) =>
-    state.categories.filter((c) => state.habits.some((h) => h.category === c.id)),
+  getCategories: (state = _appData) => state.categories,
 
   // Date selectors
-  getSelectedDate: (state = appData) => state.selectedDate,
-  getSelectedGroup: (state = appData) => state.selectedGroup,
-  getFitnessSelectedDate: (state = appData) => state.fitnessSelectedDate,
-
-  // Holiday selectors
-  getHolidayDates: (state = appData) => state.holidayDates,
-  getHolidayPeriods: (state = appData) => state.holidayPeriods,
-  isHolidayDate: (state = appData, date) => state.holidayDates.includes(date),
+  getSelectedDate: (state = _appData) => state.selectedDate,
+  getSelectedGroup: (state = _appData) => state.selectedGroup,
 
   // Settings selectors
-  getSettings: (state = appData) => state.settings,
-  isDarkMode: (state = appData) => state.settings.darkMode,
-  shouldHideCompleted: (state = appData) => state.settings.hideCompleted,
-  shouldHideSkipped: (state = appData) => state.settings.hideSkipped,
+  getSettings: (state = _appData) => state.settings,
+  isDarkMode: (state = _appData) => state.settings.darkMode,
 
   // Activity selectors
-  getActivities: (state = appData) => state.activities,
-  getActivityCategories: (state = appData) => state.activityCategories,
-  getRecordedActivities: (state = appData) => state.recordedActivities,
-  getRecordedActivitiesForDate: (state = appData, date) => state.recordedActivities[date] || [],
 };
-
-// Legacy mutate function for backward compatibility
-export function mutate(mutator) {
-  const prevState = deepClone(appData);
-  try {
-    mutator(appData);
-    notify();
-  } catch (error) {
-    console.error('Error in mutate function:', error);
-    // Restore previous state on error
-    Object.assign(appData, prevState);
-  }
-}
 
 // --- Integrity helper ---
 // Ensures that when data is loaded (or a habit is added) it contains
@@ -346,15 +619,15 @@ export function ensureHabitIntegrity(habit) {
 }
 
 // Patch existing habits right away (in case data was loaded before introduce)
-appData.habits.forEach(ensureHabitIntegrity);
+_appData.habits.forEach(ensureHabitIntegrity);
 
-export function ensureHolidayIntegrity(state = appData) {
+export function ensureHolidayIntegrity(state = _appData) {
   if (!Array.isArray(state.holidayDates)) state.holidayDates = [];
   if (!Array.isArray(state.holidayPeriods)) state.holidayPeriods = [];
 }
 
 // Ensure defaults exist immediately
-ensureHolidayIntegrity(appData);
+ensureHolidayIntegrity(_appData);
 
 // Export enhanced state management utilities
 export { initialState, reducer };

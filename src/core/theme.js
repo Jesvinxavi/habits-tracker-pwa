@@ -1,38 +1,36 @@
-import { appData } from '../core/state.js';
+import { getState, dispatch, Actions } from '../core/state.js';
 
 export function forceLightMode() {
-  appData.settings.darkMode = false;
-  localStorage.removeItem('theme');
+  dispatch(Actions.setDarkMode(false));
   localStorage.setItem('theme', 'light');
   applyTheme();
 }
 
 export function initializeTheme() {
   const savedTheme = localStorage.getItem('theme');
+  const isDark = savedTheme === 'dark';
+  dispatch(Actions.setDarkMode(isDark));
   if (savedTheme === null) {
-    appData.settings.darkMode = false;
     localStorage.setItem('theme', 'light');
-  } else {
-    appData.settings.darkMode = savedTheme === 'dark';
   }
   applyTheme();
 }
 
 export function toggleTheme() {
-  appData.settings.darkMode = !appData.settings.darkMode;
+  dispatch(Actions.toggleDarkMode(!getState().settings.darkMode));
   applyTheme();
-  localStorage.setItem('theme', appData.settings.darkMode ? 'dark' : 'light');
+  localStorage.setItem('theme', getState().settings.darkMode ? 'dark' : 'light');
 }
 
 export function applyTheme() {
-  const theme = appData.settings.darkMode ? 'dark' : 'light';
+  const theme = getState().settings.darkMode ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', theme);
   // Update theme toggle icon if present
   const themeToggle = document.getElementById('theme-toggle');
   if (themeToggle) {
     const icon = themeToggle.querySelector('svg');
     if (!icon) return;
-    if (appData.settings.darkMode) {
+    if (getState().settings.darkMode) {
       // Moon icon
       icon.innerHTML =
         '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" fill="none"/>';

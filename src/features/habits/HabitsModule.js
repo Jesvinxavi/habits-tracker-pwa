@@ -62,7 +62,6 @@ export const HabitsModule = {
    */
   _handleSearch() {
     // Search is handled by the search module internally
-    // Debug logging removed for production
   },
 
   /**
@@ -70,7 +69,6 @@ export const HabitsModule = {
    */
   _handleHabitClick() {
     // This will be handled by the list module
-    // Debug logging removed for production
   },
 
   /**

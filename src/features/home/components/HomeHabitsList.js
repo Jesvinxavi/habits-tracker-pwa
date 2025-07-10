@@ -1,10 +1,11 @@
 // HomeHabitsList.js - Habits list component for the home view
 import * as scheduleUtils from '../schedule.js';
-import { appData, mutate } from '../../../core/state.js';
+import { getState, dispatch, Actions } from '../../../core/state.js';
 import { makeCardSwipable } from '../../../components/swipeableCard.js';
 import { hexToRgba, tintedLinearGradient } from '../../../shared/color.js';
 import { dateToKey } from '../../../shared/datetime.js';
 import { sectionVisibility } from '../helpers/coreHelpers.js';
+import { getPeriodKey } from '../schedule.js';
 
 // Local aliases for schedule helpers
 const {
@@ -12,13 +13,10 @@ const {
   isHabitScheduledOnDate,
   isHabitCompleted,
   isHabitSkippedToday,
-  getPeriodKey,
-  setHabitCompleted,
-  toggleHabitCompleted,
 } = scheduleUtils;
 
 // Import cache invalidation function
-import { invalidatePillsCache } from '../../../components/HomeProgressPills.js';
+import { invalidatePillsCache } from './HomeProgressPills.js';
 
 // Track collapse state for Completed & Skipped sections so it persists across re-renders
 const sectionCollapseState = {
@@ -30,7 +28,6 @@ const sectionCollapseState = {
  * HomeHabitsList component that manages habit rendering
  */
 export const HomeHabitsList = {
-  // Add a simple test function
   test() {
     return true;
   },
@@ -73,14 +70,13 @@ export const HomeHabitsList = {
     // Clear previous dynamic content
     this.container.innerHTML = '';
 
-    // Debug: Check if we have habits data
-    // Debug logging removed for production
 
-    const date = new Date(appData.selectedDate);
-    const group = appData.selectedGroup;
+
+    const date = new Date(getState().selectedDate);
+    const group = getState().selectedGroup;
 
     // Filter habits
-    const habits = appData.habits.filter(
+    const habits = getState().habits.filter(
       (h) => belongsToSelectedGroup(h, group) && isHabitScheduledOnDate(h, date)
     );
 
@@ -115,6 +111,30 @@ export const HomeHabitsList = {
     if (skippedSection) frag.appendChild(skippedSection);
 
     this.container.appendChild(frag);
+
+    // Adjust container height after rendering
+    this._adjustContainerHeight();
+  },
+
+  /**
+   * Adjusts the habits container height for mobile
+   */
+  _adjustContainerHeight() {
+    if (typeof window === 'undefined') return;
+
+    const rect = this.container.getBoundingClientRect();
+    // Subtract bottom padding (e.g. from pb-20 on .content-area) so last items are fully visible
+    let bottomPadding = 0;
+    const content = this.container.closest('.content-area');
+    if (content) {
+      const cs = window.getComputedStyle(content);
+      bottomPadding = parseFloat(cs.paddingBottom) || 0;
+    }
+    const available = window.innerHeight - rect.top - bottomPadding;
+    if (available > 0) {
+      this.container.style.maxHeight = available + 'px';
+      this.container.style.overflowY = 'auto';
+    }
   },
 
   /**
@@ -196,7 +216,7 @@ export const HomeHabitsList = {
       const card = this._buildHabitCard(habit);
       if (card) {
         // Determine if we need swipe functionality
-        const date = new Date(appData.selectedDate);
+        const date = new Date(getState().selectedDate);
         let cardToAdd = card;
 
         if (isHabitCompleted(habit, date) || isHabitSkippedToday(habit, date)) {
@@ -236,9 +256,9 @@ export const HomeHabitsList = {
    * Builds a single habit card
    */
   _buildHabitCard(habit) {
-    const date = new Date(appData.selectedDate);
+    const date = new Date(getState().selectedDate);
     const hasTarget = typeof habit.target === 'number' && habit.target > 0;
-    const cat = appData.categories.find((c) => c.id === habit.categoryId) || {
+    const cat = getState().categories.find((c) => c.id === habit.categoryId) || {
       color: '#888',
       name: '',
     };
@@ -253,10 +273,7 @@ export const HomeHabitsList = {
     const periodKey = getPeriodKey(habit, date);
     let curProgress = hasTarget && habit.progress ? habit.progress[periodKey] || 0 : 0;
 
-    // Debug logging for target habits
-    if (hasTarget) {
-      // Debug logging removed for production
-    }
+
 
     // Build card content
     const left = `<div class="habit-icon w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center mr-1 text-xl" style="border:2px solid ${cat.color}; color:${cat.color}">${
@@ -501,19 +518,13 @@ export const HomeHabitsList = {
           if (habitContentNodeBack) habitContentNodeBack.style.display = '';
           rightWrap.style.display = '';
 
-          // Save the final progress state using proper mutate
-          mutate((s) => {
-            const h = s.habits.find((hh) => hh.id === habit.id);
-            if (!h) return;
-            const key = getPeriodKey(h, new Date(appData.selectedDate));
-            if (typeof h.progress !== 'object' || h.progress === null) h.progress = {};
-            h.progress[key] = curProgress;
+          // Save the final progress state using proper dispatch
+          dispatch(Actions.setHabitProgress(habit.id, periodKey, curProgress));
 
-            // Auto-complete when progress hits target
-            if (h.target && curProgress >= h.target) {
-              setHabitCompleted(h, new Date(appData.selectedDate), true);
-            }
-          });
+          // Auto-complete when progress hits target
+          if (habit.target && curProgress >= habit.target) {
+            dispatch(Actions.toggleHabitCompleted(habit.id, getPeriodKey(habit, date)));
+          }
 
           // Trigger UI refresh only when exiting edit mode
           if (this.callbacks.onHabitComplete) {
@@ -568,11 +579,7 @@ export const HomeHabitsList = {
       if (toggleBtn) {
         toggleBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          mutate((s) => {
-            const h = s.habits.find((hh) => hh.id === habit.id);
-            if (!h) return;
-            toggleHabitCompleted(h, new Date(appData.selectedDate));
-          });
+          dispatch(Actions.toggleHabitCompleted(habit.id, getPeriodKey(habit, date)));
 
           // Invalidate pills cache when habit completion changes
           invalidatePillsCache();
@@ -704,7 +711,7 @@ export const HomeHabitsList = {
     slideEl.appendChild(card);
 
     // Determine the restore action based on habit state
-    const date = new Date(appData.selectedDate);
+    const date = new Date(getState().selectedDate);
     const isCompleted = isHabitCompleted(habit, date);
     const isSkipped = isHabitSkippedToday(habit, date);
 
@@ -712,31 +719,45 @@ export const HomeHabitsList = {
       // For completed habits: set completion to false and clear progress
       makeCardSwipable(swipeContainer, slideEl, habit, {
         onRestore: () => {
-          mutate((s) => {
-            const h = s.habits.find((hh) => hh.id === habit.id);
-            if (!h) return;
-            setHabitCompleted(h, new Date(appData.selectedDate), false);
-            if (h.target) {
-              const key = getPeriodKey(h, new Date(appData.selectedDate));
-              if (h.progress) delete h.progress[key];
-            }
-          });
+          // Mark as not completed
+          dispatch(
+            Actions.toggleHabitCompleted(
+              habit.id,
+              getPeriodKey(habit, new Date(getState().selectedDate))
+            )
+          );
+          // Reset period progress to 0 (needed for target habits)
+          const key = getPeriodKey(habit, new Date(getState().selectedDate));
+          dispatch(
+            Actions.updateHabit(habit.id, {
+              progress: { [key]: 0 }
+            })
+          );
           // Invalidate pills cache when habit is restored
           invalidatePillsCache();
         },
       });
     } else if (isSkipped) {
-      // For skipped habits: remove from skippedDates array
+      // For skipped habits: set up swipe-to-restore action
       makeCardSwipable(swipeContainer, slideEl, habit, {
         onRestore: () => {
-          const dayKey = dateToKey(new Date(appData.selectedDate));
-          mutate((s) => {
-            const h = s.habits.find((hh) => hh.id === habit.id);
-            if (!h) return;
-            if (Array.isArray(h.skippedDates)) {
-              h.skippedDates = h.skippedDates.filter((d) => d !== dayKey);
-            }
-          });
+          const dayKey = dateToKey(new Date(getState().selectedDate));
+          dispatch(
+            Actions.updateHabit(habit.id, {
+              skippedDates: getState().habits
+                .find((h) => h.id === habit.id)
+                .skippedDates.filter((d) => d !== dayKey)
+            })
+          );
+
+          // Reset period progress to 0 (needed for target habits)
+          const key = getPeriodKey(habit, new Date(getState().selectedDate));
+          dispatch(
+            Actions.updateHabit(habit.id, {
+              progress: { [key]: 0 }
+            })
+          );
+
           // Invalidate pills cache when habit is restored
           invalidatePillsCache();
         },
@@ -780,13 +801,10 @@ export const HomeHabitsList = {
 
     // Skip action
     skipBtn.addEventListener('click', () => {
-      const dayKey = dateToKey(new Date(appData.selectedDate));
-      mutate((s) => {
-        const h = s.habits.find((hh) => hh.id === habit.id);
-        if (!h) return;
-        if (!Array.isArray(h.skippedDates)) h.skippedDates = [];
-        if (!h.skippedDates.includes(dayKey)) h.skippedDates.push(dayKey);
-      });
+      const dayKey = dateToKey(new Date(getState().selectedDate));
+      dispatch(Actions.updateHabit(habit.id, {
+        skippedDates: [...getState().habits.find((h) => h.id === habit.id).skippedDates, dayKey]
+      }));
       // Invalidate pills cache when habit is skipped
       invalidatePillsCache();
     });
@@ -810,32 +828,32 @@ export const HomeHabitsList = {
   _adjustProgress(habitId, max, delta) {
     // Prevent UI refresh during edit mode
     if (this.isInEditMode) {
-      // Use a silent mutate that doesn't trigger UI refresh
-      const currentState = appData;
-      const h = currentState.habits.find((hh) => hh.id === habitId);
-      if (!h) return;
-      const key = getPeriodKey(h, new Date(currentState.selectedDate));
-      if (typeof h.progress !== 'object' || h.progress === null) h.progress = {};
-      const cur = h.progress[key] || 0;
+      const currentState = getState();
+      const habit = currentState.habits.find((hh) => hh.id === habitId);
+      if (!habit) return;
+      const key = getPeriodKey(habit, new Date(currentState.selectedDate));
+      if (typeof habit.progress !== 'object' || habit.progress === null) habit.progress = {};
+      const cur = habit.progress[key] || 0;
       let next = cur + delta;
       if (next < 0) next = 0;
       if (next > max) next = max;
-      h.progress[key] = next;
+      habit.progress[key] = next;
       return;
     }
 
-    // Normal mutate for non-edit mode
-    mutate((s) => {
-      const h = s.habits.find((hh) => hh.id === habitId);
-      if (!h) return;
-      const key = getPeriodKey(h, new Date(appData.selectedDate));
-      if (typeof h.progress !== 'object' || h.progress === null) h.progress = {};
-      const cur = h.progress[key] || 0;
-      let next = cur + delta;
-      if (next < 0) next = 0;
-      if (next > max) next = max;
-      h.progress[key] = next;
-    });
+    // Normal dispatch for non-edit mode
+    const habit = getState().habits.find((h) => h.id === habitId);
+    if (!habit) return;
+    const key = getPeriodKey(habit, new Date(getState().selectedDate));
+    const cur = habit.progress?.[key] || 0;
+    let next = cur + delta;
+    if (next < 0) next = 0;
+    if (next > max) next = max;
+    dispatch(Actions.updateHabit(habit.id, {
+      progress: {
+        [key]: next,
+      },
+    }));
   },
 };
 

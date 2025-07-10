@@ -1,9 +1,9 @@
 // FitnessView.js - Main FitnessView component that orchestrates all sub-components
-import { mountHeaderBar } from '../../components/HeaderBar.js';
-import { mountActionButtons } from '../../components/ActionButtons.js';
+import { mountHeaderBar } from '../../shared/HeaderBar.js';
+import { mountActionButtons } from '../../shared/ActionButtons.js';
 import { mountSearchPanel } from './SearchPanelModule.js';
 import { mountFitnessCalendar } from './FitnessCalendar.js';
-import { mountActivityList, renderActivityList } from './ActivityListModule.js';
+import { mountActivitiesList as mountActivityList, renderActivitiesList as renderActivityList } from './ActivityList/ActivitiesList.js';
 import { Timer } from './TimerModule.js';
 import {
   adjustActivitiesContainerHeight,
@@ -22,8 +22,6 @@ export const FitnessView = {
    * @returns {HTMLElement} The complete fitness view
    */
   async mount(container, callbacks = {}) {
-    // Debug logging removed for production
-
     if (!container) return null;
 
     // Clear any existing content
@@ -95,7 +93,7 @@ export const FitnessView = {
   },
 
   /**
-   * Builds the calendar wrapper (temporary - should be extracted to component)
+   * Builds the calendar wrapper
    * @param {Function} onDateChange - Callback when date changes
    * @returns {HTMLElement} The calendar wrapper element
    */

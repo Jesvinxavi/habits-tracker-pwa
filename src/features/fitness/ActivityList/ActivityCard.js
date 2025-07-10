@@ -20,6 +20,10 @@ export const ActivityCard = {
       minute: '2-digit',
     });
 
+    // Get the activity to access its individual icon
+    const activity = callbacks.getActivity ? callbacks.getActivity(record.activityId) : null;
+    const activityIcon = activity?.icon || category.icon;
+
     // Generate activity pills based on tracking type
     const pillsMarkup = generateActivityPills(record, category);
 
@@ -31,7 +35,7 @@ export const ActivityCard = {
         <div class="swipe-slide transition-transform bg-white dark:bg-gray-800 rounded-xl w-full relative z-1 touch-pan-y">
           <div class="activity-card relative flex items-start px-3 py-2 rounded-xl w-full mb-0" style="border: 3px solid ${category.color}; background-color: ${hexToRgba(category.color, 0.05)};">
             <div class="activity-icon w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center mr-3 text-xl" style="border: 2px solid ${category.color}; color: ${category.color};" aria-hidden="true">
-              ${category.icon}
+              ${activityIcon}
             </div>
             <div class="activity-content flex-grow text-left">
               <div class="activity-name font-semibold leading-tight text-gray-900 dark:text-white mb-1">${record.activityName}</div>

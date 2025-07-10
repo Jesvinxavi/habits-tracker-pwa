@@ -55,14 +55,9 @@ export const HomeView = {
     });
 
     // Mount calendar
-    const calendarApi = HomeCalendar.mount(this.calendarContainer, {
+    HomeCalendar.mount(this.calendarContainer, {
       onDateChange: this.callbacks.onDateChange,
     });
-
-    // Set calendar API reference for refresh coordination
-    if (window.HomeModule) {
-      window.HomeModule.setCalendarApi(calendarApi);
-    }
 
     // Mount progress
     HomeProgress.mount(this.progressContainer);

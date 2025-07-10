@@ -13,11 +13,7 @@ function getAnchorDate(habit) {
     const d = new Date(habit.createdAt);
     if (!isNaN(d)) return d;
   }
-  // TODO: remove id-prefix heuristic after data migration (legacy support)
-  if (typeof habit.id === 'string' && /^[0-9]{13}/.test(habit.id)) {
-    const ts = parseInt(habit.id.slice(0, 13), 10);
-    if (!Number.isNaN(ts)) return new Date(ts);
-  }
+
   return new Date(0); // epoch fallback
 }
 

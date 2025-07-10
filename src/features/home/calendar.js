@@ -1,7 +1,4 @@
-/* eslint-disable no-unused-vars */
-
-import { appData } from '../../core/state.js';
-import { mutate } from '../../core/state.js';
+import { getState, dispatch, Actions } from '../../core/state.js';
 import { isHoliday } from '../../features/holidays/holidays.js';
 import {
   getISOWeekNumber,
@@ -25,8 +22,6 @@ import { isRestDay } from '../../features/fitness/restDays.js';
 
 // Near top or after helper declarations (after getPeriodStart)
 // Group anchors are now per-instance to avoid conflicts between home and fitness calendars
-
-// Old calendar system removed - using mountCalendar instead
 
 // ---------------------------------------------------------------------------
 //  REUSABLE CALENDAR MOUNTER
@@ -61,18 +56,16 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
   });
 
   function getStateDate() {
-    return new Date(appData[stateKey]);
+    return new Date(getState()[stateKey]);
   }
 
   function setStateDate(dateObj) {
-    mutate((s) => {
-      // For fitness calendar, use centralised helper to build local midnight ISO
-      if (stateKey === 'fitnessSelectedDate') {
-        s[stateKey] = getLocalMidnightISOString(dateObj);
-      } else {
-        s[stateKey] = dateObj.toISOString();
-      }
-    });
+    // For fitness calendar, use centralised helper to build local midnight ISO
+    if (stateKey === 'fitnessSelectedDate') {
+      dispatch(Actions.setFitnessSelectedDate(getLocalMidnightISOString(dateObj)));
+    } else {
+      dispatch(Actions.setSelectedDate(dateObj.toISOString()));
+    }
     if (typeof onDateChange === 'function') onDateChange(dateObj);
   }
 
@@ -103,33 +96,42 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
     weekDays.innerHTML = '';
     const baseDate = getStateDate();
     // For fitness calendar, always use 'daily' group for proper day-by-day navigation
-    const group = stateKey === 'fitnessSelectedDate' ? 'daily' : appData.selectedGroup || 'daily';
+    const group = stateKey === 'fitnessSelectedDate' ? 'daily' : getState().selectedGroup || 'daily';
 
-    if (!_groupAnchors[group]) {
-      _groupAnchors[group] = getPeriodStart(baseDate, group);
+    // Determine earliest period for calendar generation
+    function getEarliestDate() {
+      // For fitness calendar, use the currently selected fitness date as the anchor –
+      // this is effectively the "first" day (installation day).
+      // No days before this will be generated, matching Home calendars.
+      const sel = getStateDate();
+      if (sel && !isNaN(sel)) {
+        return new Date(sel);
+      }
+      // Fallback to today if somehow invalid
+      return new Date();
     }
+
+    const earliestDate = getEarliestDate();
+    const earliestPeriodStart = getPeriodStart(earliestDate, group);
+
+    // Always reset anchor to earliest period each time build runs (prevents drift when switching groups)
+    _groupAnchors[group] = new Date(earliestPeriodStart);
+
     const start = new Date(_groupAnchors[group]);
 
-    // We will render from current period (start) onward – no earlier tiles
-    // Determine stepping logic based on group
+    // Generate a fixed number of periods for each group for consistent UX
+    const periodCounts = {
+      daily: stateKey === 'fitnessSelectedDate' ? 270 : 180, // 9 months for fitness, 6 months for habits
+      weekly: 156, // 3 years
+      monthly: 36, // 3 years
+      yearly: 40, // 40 years
+    };
+
+    const periodsToGenerate = periodCounts[group] || 180;
+
     let date = new Date(start);
-    const end = new Date(start);
-    // show 1 year worth of periods after start for smooth scrolling
-    if (group === 'yearly') end.setFullYear(end.getFullYear() + 15);
-    else if (group === 'monthly') end.setMonth(end.getMonth() + 24);
-    else if (group === 'weekly') end.setDate(end.getDate() + 730);
-    else end.setDate(end.getDate() + 730);
 
-    const advance = (d) => advanceDate(d, group, +1);
-
-    // If current selection precedes stored anchor, extend anchor backwards once.
-    const selStart = getPeriodStart(baseDate, group);
-    if (selStart < _groupAnchors[group]) {
-      _groupAnchors[group] = new Date(selStart);
-      date = new Date(_groupAnchors[group]);
-    }
-
-    while (date <= end) {
+    for (let i = 0; i < periodsToGenerate; i++) {
       // For fitness calendar, always use daily labels regardless of selectedGroup
       const lbl =
         stateKey === 'fitnessSelectedDate'
@@ -197,7 +199,7 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
       weekDays.appendChild(el);
 
       // advance to next period
-      advance(date);
+      advanceDate(date, group, +1);
     }
     // Reset scroll position so leading padding works as intended
     weekDays.scrollLeft = 0;
@@ -219,7 +221,7 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
 
   function updateClasses() {
     // For fitness calendar, always use 'daily' for selection logic
-    const group = stateKey === 'fitnessSelectedDate' ? 'daily' : appData.selectedGroup || 'daily';
+    const group = stateKey === 'fitnessSelectedDate' ? 'daily' : getState().selectedGroup || 'daily';
     weekDays.querySelectorAll('.day-item').forEach((el) => {
       const d = new Date(el.dataset.date);
       const isSel = isSamePeriod(d, getStateDate(), group);
@@ -335,7 +337,7 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
     arrow.addEventListener('click', () => {
       let cur = getStateDate();
       // For fitness calendar, always use 'daily' group for proper day-by-day navigation
-      const grp = stateKey === 'fitnessSelectedDate' ? 'daily' : appData.selectedGroup || 'daily';
+      const grp = stateKey === 'fitnessSelectedDate' ? 'daily' : getState().selectedGroup || 'daily';
       const isPrev = arrow.classList.contains('prev-week');
       const isNext = arrow.classList.contains('next-week');
 
@@ -397,7 +399,7 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
   }
 
   // For fitness calendar, always track 'daily' as the last group reference
-  let lastGroupRef = stateKey === 'fitnessSelectedDate' ? 'daily' : appData.selectedGroup;
+  let lastGroupRef = stateKey === 'fitnessSelectedDate' ? 'daily' : getState().selectedGroup;
 
   // Visibility guard
   document.addEventListener('visibilitychange', () => {
@@ -413,7 +415,6 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
       // Cleanup if needed
       weekDays.removeEventListener('click', handleClick);
     },
-    // Legacy refresh method for backward compatibility
     refresh: () => {
       // For fitness calendar, don't rebuild when selectedGroup changes
       if (stateKey === 'fitnessSelectedDate') {
@@ -426,8 +427,19 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
         const selEl = weekDays.querySelector('.day-item.current-day');
         if (selEl) center(selEl);
       } else {
-        const currentGroup = appData.selectedGroup;
+        const currentGroup = getState().selectedGroup;
         if (currentGroup !== lastGroupRef) {
+          // reset anchor for new group to earliest period
+          const earliestDate = (getState().habits || []).reduce((acc, h) => {
+            let d = null;
+            if (h.createdAt) d = new Date(h.createdAt);
+            else if (typeof h.id === 'string' && /^\d{13}/.test(h.id)) {
+              const ts = parseInt(h.id.slice(0, 13), 10);
+              if (!Number.isNaN(ts)) d = new Date(ts);
+            }
+            return !acc || (d && d < acc) ? d : acc;
+          }, null) || new Date();
+          _groupAnchors[currentGroup] = getPeriodStart(earliestDate, currentGroup);
           buildDays();
           lastGroupRef = currentGroup;
         }
@@ -446,7 +458,7 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
  * .day-month) but may hide some of them by returning an empty string.
  */
 function getCalendarLabels(date, forceGroup = null) {
-  const group = forceGroup || appData.selectedGroup || 'daily';
+  const group = forceGroup || getState().selectedGroup || 'daily';
   const yearFull = date.getFullYear();
   const yearShort = String(yearFull).slice(-2);
   const monthAbbr = MONTHS[date.getMonth()];
@@ -484,7 +496,7 @@ function getCalendarLabels(date, forceGroup = null) {
 }
 
 // Return the first date representing the current period for the given group
-function getPeriodStart(date, group = appData.selectedGroup || 'daily') {
+function getPeriodStart(date, group = getState().selectedGroup || 'daily') {
   const d = new Date(date);
   switch (group) {
     case 'weekly': {
@@ -536,23 +548,7 @@ function fixTilePadding(el, group, isSel = false) {
   }
 }
 
-// Debug function to monitor fitness calendar DOM
-function monitorFitnessCalendarDOM() {
-  const fitnessCalendar = document.getElementById('fitness-calendar');
-  if (!fitnessCalendar) {
-    return;
-  }
 
-  // Debug logging removed for production
-}
-
-// Global debugging function for browser console
-if (typeof window !== 'undefined') {
-  window.debugFitnessCalendar = () => {
-    // Debug logging removed for production
-    monitorFitnessCalendarDOM();
-  };
-}
 
 // ---------------------------------------------------------------------------
 //  HOME CALENDAR EXPORT

@@ -3,7 +3,7 @@
 // Phase 4 – Calendar 2.0 step 4.1/4.2.
 
 import { mountCalendar } from '../features/home/calendar.js';
-import { appData } from '../core/state.js';
+import { getState, dispatch, Actions } from '../core/state.js';
 
 export class HHCalendar extends HTMLElement {
   constructor() {
@@ -59,7 +59,6 @@ export class HHCalendar extends HTMLElement {
   }
 
   _addNavigation() {
-    // Avoid duplicate nav
     if (this.querySelector('.calendar-nav')) return;
 
     const weekDays = this.querySelector('.week-days');
@@ -82,9 +81,9 @@ export class HHCalendar extends HTMLElement {
     navContainer.querySelectorAll('.nav-arrow').forEach((arrow) => {
       arrow.addEventListener('click', async () => {
         const stateKey = this.getAttribute('state-key') || 'currentDate';
-        let cur = new Date(appData[stateKey]);
+        let cur = new Date(getState()[stateKey]);
         const group =
-          stateKey === 'fitnessSelectedDate' ? 'daily' : appData.selectedGroup || 'daily';
+          stateKey === 'fitnessSelectedDate' ? 'daily' : getState().selectedGroup || 'daily';
         const isPrev = arrow.classList.contains('prev-week');
         const isNext = arrow.classList.contains('next-week');
 
@@ -120,12 +119,12 @@ export class HHCalendar extends HTMLElement {
           }
         }
 
-        // Manually update state without triggering internal instant scroll
+        // Update global state via dispatched action so other views update too
         if (stateKey === 'fitnessSelectedDate') {
           const { getLocalMidnightISOString } = await import('../shared/datetime.js');
-          appData[stateKey] = getLocalMidnightISOString(cur);
+          dispatch(Actions.setFitnessSelectedDate(getLocalMidnightISOString(cur)));
         } else {
-          appData[stateKey] = cur.toISOString();
+          dispatch(Actions.setSelectedDate(cur.toISOString()));
         }
         // Refresh tiles to reflect new selection colour immediately
         this._api?.refresh?.();
@@ -153,13 +152,23 @@ export class HHCalendar extends HTMLElement {
     if (!weekDays) return;
 
     const stateKey = this.getAttribute('state-key') || 'currentDate';
-    const centerDate = new Date(appData[stateKey]);
+    const centerDate = new Date(getState()[stateKey]);
     if (isNaN(centerDate)) return;
 
+    const group = stateKey === 'fitnessSelectedDate' ? 'daily' : getState().selectedGroup || 'daily';
+
+    const rangeMap = {
+      daily: 90,
+      weekly: 540, // ~18 months
+      monthly: 3650, // ~10 years
+      yearly: 36500, // ~100 years
+    };
+    const spanDays = rangeMap[group] || 365;
+
     const windowStart = new Date(centerDate);
-    windowStart.setDate(windowStart.getDate() - 90);
+    windowStart.setDate(windowStart.getDate() - spanDays);
     const windowEnd = new Date(centerDate);
-    windowEnd.setDate(windowEnd.getDate() + 90);
+    windowEnd.setDate(windowEnd.getDate() + spanDays);
 
     weekDays.querySelectorAll('.day-item').forEach((el) => {
       const d = new Date(el.dataset.date);
@@ -195,9 +204,9 @@ export class HHCalendar extends HTMLElement {
     const stateKey = this.getAttribute('state-key') || 'currentDate';
     if (stateKey === 'fitnessSelectedDate') {
       const { getLocalMidnightISOString } = await import('../shared/datetime.js');
-      appData[stateKey] = getLocalMidnightISOString(date);
+      dispatch(Actions.setFitnessSelectedDate(getLocalMidnightISOString(date)));
     } else {
-      appData[stateKey] = date.toISOString();
+      dispatch(Actions.setSelectedDate(date.toISOString()));
     }
     this._api?.refresh?.();
     this._applyVirtualWindow();

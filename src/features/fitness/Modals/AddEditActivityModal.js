@@ -1,6 +1,6 @@
 // AddEditActivityModal.js - Add/Edit Activity Modal component
 import { openModal, closeModal } from '../../../components/Modal.js';
-import { appData } from '../../../core/state.js';
+import { getState } from '../../../core/state.js';
 import { addActivity, updateActivity, deleteActivity, getActivity } from '../activities.js';
 
 /**
@@ -39,8 +39,9 @@ export const AddEditActivityModal = {
       delete modal.dataset.editMode;
     }
 
-    // Reset icon selection to default running icon
-    this._setSelectedActivityIcon('🏃‍♂️');
+    // Reset icon selection to default running icon and reset manual selection flag
+    this._setSelectedActivityIcon('🏃‍♂️', false);
+    this._userManuallySelectedIcon = false;
     let iconDisplay = document.getElementById('activity-selected-icon-display');
     if (iconDisplay) iconDisplay.textContent = this._getSelectedActivityIcon();
 
@@ -61,7 +62,7 @@ export const AddEditActivityModal = {
     if (categorySelect) {
       categorySelect.innerHTML =
         '<option value="" disabled selected>Select a category</option>' +
-        appData.activityCategories
+        getState().activityCategories
           .map((cat) => `<option value="${cat.id}">${cat.icon} ${cat.name}</option>`)
           .join('');
     }
@@ -107,7 +108,7 @@ export const AddEditActivityModal = {
     if (categorySelect) {
       categorySelect.innerHTML =
         '<option value="" disabled>Select a category</option>' +
-        appData.activityCategories
+        getState().activityCategories
           .map(
             (cat) =>
               `<option value="${cat.id}" ${cat.id === activity.categoryId ? 'selected' : ''}>${cat.icon} ${cat.name}</option>`
@@ -123,8 +124,17 @@ export const AddEditActivityModal = {
       if (muscleGroupSection) muscleGroupSection.classList.add('hidden');
     }
 
-    // Set icon
-    this._setSelectedActivityIcon(activity.icon || '🏃‍♂️');
+    // Set icon and check if it's a custom icon
+    const activityIcon = activity.icon || '🏃‍♂️';
+    
+    // Check if this icon differs from the category default
+    const activityCategories = getState().activityCategories;
+    const selectedCategory = activityCategories.find(cat => cat.id === activity.categoryId);
+    const isCustomIcon = selectedCategory && activityIcon !== selectedCategory.icon;
+    
+    this._setSelectedActivityIcon(activityIcon, isCustomIcon);
+    this._userManuallySelectedIcon = isCustomIcon;
+    
     const iconDisplay = document.getElementById('activity-selected-icon-display');
     if (iconDisplay) iconDisplay.textContent = this._getSelectedActivityIcon();
 
@@ -263,7 +273,7 @@ export const AddEditActivityModal = {
       const opt = e.target.closest('.icon-option');
       if (!opt) return;
       const chosen = opt.dataset.icon || '🏃‍♂️';
-      this._setSelectedActivityIcon(chosen);
+      this._setSelectedActivityIcon(chosen, true); // Mark as manual selection
       iconDisplay.textContent = chosen; // Update immediately for instant feedback
       clearIconHighlights();
       opt.classList.add('ring', 'ring-ios-blue', 'ring-2');
@@ -396,13 +406,17 @@ export const AddEditActivityModal = {
   // Helper methods for icon and tracking type management
   _selectedActivityIcon: '🏃‍♂️',
   _selectedTrackingType: 'time',
+  _userManuallySelectedIcon: false, // Track if user manually picked an icon
 
   _getSelectedActivityIcon() {
     return this._selectedActivityIcon;
   },
 
-  _setSelectedActivityIcon(icon) {
+  _setSelectedActivityIcon(icon, isManualSelection = false) {
     this._selectedActivityIcon = icon;
+    if (isManualSelection) {
+      this._userManuallySelectedIcon = true;
+    }
   },
 
   _getSelectedTrackingType() {
@@ -413,15 +427,66 @@ export const AddEditActivityModal = {
     this._selectedTrackingType = type;
   },
 
-  // Placeholder methods that would need full implementation
+
   _buildActivityIconGrid(modal) {
-    // This would contain the icon grid building logic
-    // TODO: Implement icon grid building logic
+    const iconList = [
+      '💪', '🏃', '🚴', '🏊', '🧘', '⚖️', '🍎', '🥗', '💧', '☕', '🥛', '🍊',
+      '📚', '📖', '✏️', '🎓', '💡', '🧠', '💼', '💻', '📱', '📊', '📝', '📋',
+      '😴', '🛏️', '🌙', '⏰', '🕐', '⏱️', '🎵', '🎸', '🎨', '📷', '🎮', '🎯',
+      '🌱', '🌳', '🌸', '🌞', '🌍', '♻️', '👥', '👪', '❤️', '🤝', '📞', '💬',
+      '🧼', '🪥', '🚿', '💊', '🧴', '🎯', '✈️', '🚗', '🚶', '🗺️', '🎒', '📍',
+      '💰', '💳', '💎', '📈', '🏦', '💸', '⭐', '🎉', '🔥', '⚡', '✨', '🚀'
+    ];
+
+    const grid = modal.querySelector('#activity-icon-grid');
+    if (!grid) return;
+
+    // Clear existing content
+    grid.innerHTML = '';
+
+    // Create icon buttons
+    iconList.forEach((icon) => {
+      const btn = document.createElement('button');
+      btn.className = 'icon-option w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xl hover:bg-ios-blue hover:text-white transition-all duration-200 hover:scale-105';
+      btn.dataset.icon = icon;
+      btn.textContent = icon;
+      
+      // Add click handler to set selected icon
+      btn.addEventListener('click', () => {
+        this._setSelectedActivityIcon(icon, true); // Mark as manual selection
+        // Update the display
+        const iconDisplay = document.getElementById('activity-selected-icon-display');
+        if (iconDisplay) iconDisplay.textContent = icon;
+      });
+      
+      grid.appendChild(btn);
+    });
   },
 
   _updateActivityIconFromCategory() {
-    // This would update the icon based on selected category
-    // TODO: Implement icon update logic
+    const categorySelect = document.getElementById('activity-category-select');
+    if (!categorySelect || !categorySelect.value) return;
+
+    // Only auto-set icon if user hasn't manually selected a custom icon
+    if (!this._userManuallySelectedIcon) {
+      // Get the selected category's icon from the state
+      const categoryId = categorySelect.value;
+      import('../../../core/state.js').then(({ getState }) => {
+        const activityCategories = getState().activityCategories;
+        const selectedCategory = activityCategories.find(cat => cat.id === categoryId);
+        
+        if (selectedCategory && selectedCategory.icon) {
+          // Set the category's default icon (not a manual selection)
+          this._setSelectedActivityIcon(selectedCategory.icon, false);
+          
+          // Update the display immediately
+          const iconDisplay = document.getElementById('activity-selected-icon-display');
+          if (iconDisplay) {
+            iconDisplay.textContent = selectedCategory.icon;
+          }
+        }
+      });
+    }
   },
 
   _initializeTrackingTypeToggles() {
@@ -444,6 +509,14 @@ export const AddEditActivityModal = {
         timeToggle.disabled = true;
         setsRepsToggle.classList.add('opacity-50', 'cursor-not-allowed');
         timeToggle.classList.add('opacity-50', 'cursor-not-allowed');
+      } 
+      // Strength category should default to sets/reps when first selected
+      else if (selectedCategory === 'strength' && currentTrackingType === 'time') {
+        this._setSelectedTrackingType('sets-reps');
+        setsRepsToggle.disabled = false;
+        timeToggle.disabled = false;
+        setsRepsToggle.classList.remove('opacity-50', 'cursor-not-allowed');
+        timeToggle.classList.remove('opacity-50', 'cursor-not-allowed');
       } else {
         setsRepsToggle.disabled = false;
         timeToggle.disabled = false;

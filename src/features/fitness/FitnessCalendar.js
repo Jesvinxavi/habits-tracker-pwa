@@ -64,7 +64,6 @@ export function mountFitnessCalendar(options = {}) {
 
   setFitnessCalendarApi(calendarWrapper);
 
-  // Keep window reference for backward compatibility
   window.fitnessCalendarApi = calendarWrapper;
 
   // Trigger initial refresh after element is ready

@@ -1,41 +1,12 @@
-import { appData } from '../core/state.js';
-import { measurePerformance } from '../shared/common.js';
+import { dispatch, Actions } from '../core/state.js';
 
 export function initializeNavigation() {
   const tabItems = document.querySelectorAll('.tab-item');
   const views = document.querySelectorAll('.view');
 
-  // Lazy-load static placeholder markup for empty views
-  const PLACEHOLDERS = {
-    'fitness-view': `
-      <header class="app-header flex justify-between items-center h-11 px-4 sm:px-6 lg:px-8 border-b border-gray-200 dark:border-gray-700 w-full">
-        <button class="back-btn text-ios-blue text-lg lg:text-xl">←</button>
-        <h1 class="app-title text-lg font-semibold lg:text-xl">Fitness</h1>
-        <button class="add-btn text-ios-blue text-2xl lg:text-3xl">+</button>
-      </header>
-      <div class="placeholder-content text-center py-16 px-4 sm:px-6 lg:px-8 text-gray-500">
-        <div class="w-16 h-16 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center lg:w-20 lg:h-20">
-          <svg class="w-8 h-8 lg:w-10 lg:h-10" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
-          </svg>
-        </div>
-        <p class="text-lg font-medium lg:text-xl">Fitness tracking will be built here</p>
-      </div>`,
-    'stats-view': `
-      <header class="app-header flex justify-between items-center h-11 px-4 sm:px-6 lg:px-8 border-b border-gray-200 dark:border-gray-700 w-full">
-        <button class="back-btn text-ios-blue text-lg lg:text-xl">←</button>
-        <h1 class="app-title text-lg font-semibold lg:text-xl">Statistics</h1>
-        <button class="add-btn text-ios-blue text-2xl lg:text-3xl">+</button>
-      </header>
-      <div class="placeholder-content text-center py-16 px-4 sm:px-6 lg:px-8 text-gray-500">
-        <div class="w-16 h-16 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center lg:w-20 lg:h-20">
-          <svg class="w-8 h-8 lg:w-10 lg:h-10" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/>
-            <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"/>
-          </svg>
-        </div>
-        <p class="text-lg font-medium lg:text-xl">Statistics and analytics will be built here</p>
-      </div>`,
+  const PLACEHOLDER_TEMPLATES = {
+    'fitness-view': 'fitness-view-placeholder',
+    'stats-view': 'stats-view-placeholder',
   };
 
   // Module loading state tracking
@@ -49,98 +20,79 @@ export function initializeNavigation() {
   function ensurePlaceholder(viewId) {
     let el = document.getElementById(viewId);
     if (!el) {
-      // Create container lazily when it wasn't present in initial HTML
       el = document.createElement('div');
       el.id = viewId;
       el.className = 'view w-full h-full flex flex-col overflow-hidden';
       document.querySelector('main.content-area')?.appendChild(el);
     }
-    if (el.childElementCount === 0 && PLACEHOLDERS[viewId]) {
-      el.insertAdjacentHTML('beforeend', PLACEHOLDERS[viewId]);
+    if (el.childElementCount === 0 && PLACEHOLDER_TEMPLATES[viewId]) {
+      const template = document.getElementById(PLACEHOLDER_TEMPLATES[viewId]);
+      if (template) {
+        el.appendChild(template.content.cloneNode(true));
+      }
     }
   }
 
-  // Advanced lazy loading with performance monitoring
-  async function loadHomeModules() {
-    if (moduleStates.home.loaded || moduleStates.home.loading) return;
-
-    moduleStates.home.loading = true;
-
-    const homeView = document.getElementById('home-view');
+  // Generic module loader
+  async function loadModule(moduleName) {
+    if (moduleStates[moduleName].loaded || moduleStates[moduleName].loading) return;
+    moduleStates[moduleName].loading = true;
+    let viewId, spinnerId, templateId, importPath, moduleExport, initFn;
+    switch (moduleName) {
+      case 'home':
+        viewId = 'home-view';
+        spinnerId = 'home-loading';
+        templateId = 'home-loading-spinner';
+        importPath = '../features/home/HomeModule.js';
+        moduleExport = 'HomeModule';
+        initFn = 'init';
+        break;
+      case 'habits':
+        viewId = 'habits-view';
+        spinnerId = 'habits-loading';
+        templateId = 'habits-loading-spinner';
+        importPath = '../features/habits/HabitsModule.js';
+        moduleExport = 'HabitsModule';
+        initFn = 'init';
+        break;
+      case 'fitness':
+        viewId = 'fitness-view';
+        spinnerId = null; // No spinner template for fitness yet
+        templateId = null;
+        importPath = '../features/fitness/FitnessModule.js';
+        moduleExport = 'FitnessModule';
+        initFn = 'init';
+        break;
+      case 'stats':
+        viewId = 'stats-view';
+        spinnerId = null; // No spinner template for stats yet
+        templateId = null;
+        importPath = '../features/stats/stats.js';
+        moduleExport = 'StatsModule';
+        initFn = 'initializeStats';
+        break;
+      default:
+        return;
+    }
+    const view = document.getElementById(viewId);
     let spinner;
-    if (homeView && !homeView.querySelector('#home-loading')) {
-      spinner = document.createElement('div');
-      spinner.id = 'home-loading';
-      spinner.className = 'flex flex-col items-center justify-center flex-grow py-10 text-gray-400';
-      spinner.innerHTML = `
-        <svg class="animate-spin w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-        </svg>
-        <p class="text-sm">Loading Home...</p>`;
-      homeView.appendChild(spinner);
+    if (view && spinnerId && !view.querySelector(`#${spinnerId}`) && templateId) {
+      const template = document.getElementById(templateId);
+      if (template) {
+        spinner = template.content.cloneNode(true).firstElementChild;
+        view.appendChild(spinner);
+      }
     }
-
     try {
-      const { HomeModule } = await import('../features/home/HomeModule.js');
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        // Debug logging removed for production
-      }
+      const mod = await import(importPath);
 
-      await measurePerformance('HomeModule Init', () => HomeModule.init());
-
-      moduleStates.home.loaded = true;
-
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        // Performance logging for development
-      }
+      await mod[moduleExport][initFn]();
+      moduleStates[moduleName].loaded = true;
     } catch (error) {
-      console.error('Error loading home modules:', error);
-      moduleStates.home.error = error;
+      console.error(`Error loading ${moduleName} modules:`, error);
+      moduleStates[moduleName].error = error;
     } finally {
-      moduleStates.home.loading = false;
-      spinner?.remove();
-    }
-  }
-
-  async function loadHabitsModules() {
-    if (moduleStates.habits.loaded || moduleStates.habits.loading) return;
-
-    moduleStates.habits.loading = true;
-
-    const habitsView = document.getElementById('habits-view');
-    let spinner;
-    if (habitsView && !habitsView.querySelector('#habits-loading')) {
-      spinner = document.createElement('div');
-      spinner.id = 'habits-loading';
-      spinner.className = 'flex flex-col items-center justify-center flex-grow py-10 text-gray-400';
-      spinner.innerHTML = `
-        <svg class="animate-spin w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-        </svg>
-        <p class="text-sm">Loading Habits...</p>`;
-      habitsView.appendChild(spinner);
-    }
-
-    try {
-      const { HabitsModule } = await import('../features/habits/HabitsModule.js');
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        // Debug logging removed for production
-      }
-
-      await measurePerformance('HabitsModule Init', () => HabitsModule.init());
-
-      moduleStates.habits.loaded = true;
-
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        // Performance logging for development
-      }
-    } catch (error) {
-      console.error('Error loading habits modules:', error);
-      moduleStates.habits.error = error;
-    } finally {
-      moduleStates.habits.loading = false;
+      moduleStates[moduleName].loading = false;
       spinner?.remove();
     }
   }
@@ -148,8 +100,6 @@ export function initializeNavigation() {
   // Enhanced view switching with performance monitoring
   async function setActiveView(viewId) {
     ensurePlaceholder(viewId);
-
-    // Batch DOM updates for better performance
     const updateViews = () => {
       views.forEach((view) => {
         if (view.id === viewId) {
@@ -162,62 +112,43 @@ export function initializeNavigation() {
           view.classList.remove('block');
         }
       });
-
       tabItems.forEach((item) => {
         item.classList.toggle('active', item.dataset.view === viewId);
       });
     };
-
-    // Use requestAnimationFrame for smooth transitions
     requestAnimationFrame(updateViews);
-
     localStorage.setItem('activeHabitTrackerTab', viewId);
-
-    // Ensure both Home and Fitness views always start on today
     if (viewId === 'home-view' || viewId === 'fitness-view') {
-      // Use local date to avoid timezone issues
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Reset to local midnight
-
+      today.setHours(0, 0, 0, 0);
       if (viewId === 'home-view') {
-        // Set HH calendar date smoothly
         const calEl = document.querySelector('#home-view hh-calendar[state-key="selectedDate"]');
         calEl?.setDate?.(today, { smooth: true });
-
-        // Refresh UI components
         window.HomeModule?.refresh?.();
       } else if (viewId === 'fitness-view') {
-        // Set fitness calendar to today
         const { getLocalMidnightISOString } = await import('../shared/datetime.js');
         const localToday = getLocalMidnightISOString(today);
-        appData.fitnessSelectedDate = localToday;
+        dispatch(Actions.setFitnessSelectedDate(localToday));
         document
           .querySelector('#fitness-view hh-calendar[state-key="fitnessSelectedDate"]')
           ?.refresh?.();
       }
     }
-
-    // Trigger lazy load when views become active
+    // Use generic loader for all modules
     if (viewId === 'home-view') {
-      loadHomeModules();
+      await loadModule('home');
     } else if (viewId === 'habits-view') {
-      loadHabitsModules();
-    }
-
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      // Performance logging for development
+      await loadModule('habits');
+    } else if (viewId === 'fitness-view') {
+      await loadModule('fitness');
+    } else if (viewId === 'stats-view') {
+      await loadModule('stats');
     }
   }
 
   // Default view
   const savedView = localStorage.getItem('activeHabitTrackerTab') || 'home-view';
-
   setActiveView(savedView);
-
-  // If home view is the default, ensure home modules are loaded
-  if (savedView === 'home-view') {
-    loadHomeModules();
-  }
 
   tabItems.forEach((item) => {
     item.addEventListener('click', async (e) => {
@@ -256,23 +187,12 @@ export function initializeNavigation() {
   }
 
   // Prefetch when tabs are hovered
-  const homeTab = document.querySelector('.tab-item[data-view="home-view"]');
-  const habitsTab = document.querySelector('.tab-item[data-view="habits-view"]');
-  const fitnessTab = document.querySelector('.tab-item[data-view="fitness-view"]');
-  const statsTab = document.querySelector('.tab-item[data-view="stats-view"]');
-
-  if (homeTab) {
-    homeTab.addEventListener('pointerenter', () => prefetchModule('home'), { once: true });
-  }
-  if (habitsTab) {
-    habitsTab.addEventListener('pointerenter', () => prefetchModule('habits'), { once: true });
-  }
-  if (fitnessTab) {
-    fitnessTab.addEventListener('pointerenter', () => prefetchModule('fitness'), { once: true });
-  }
-  if (statsTab) {
-    statsTab.addEventListener('pointerenter', () => prefetchModule('stats'), { once: true });
-  }
+  document.querySelectorAll('.tab-item[data-view]').forEach(tab => {
+    const moduleName = tab.dataset.view.replace('-view', '');
+    if (moduleName) {
+      tab.addEventListener('pointerenter', () => prefetchModule(moduleName), { once: true });
+    }
+  });
 
   // Prefetch when page becomes hidden (user likely to come back soon)
   window.addEventListener('visibilitychange', () => {
@@ -293,21 +213,5 @@ export function initializeNavigation() {
       },
       { timeout: 2000 }
     );
-  }
-
-  // Performance monitoring
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    // Monitor view switch performance
-    let viewSwitchCount = 0;
-    const originalSetActiveView = setActiveView;
-    const setActiveViewWithPerf = async function (...args) {
-      viewSwitchCount++;
-      await originalSetActiveView.apply(this, args);
-      if (viewSwitchCount > 1) {
-        // Skip first load - performance logging for development
-      }
-    };
-    // Optionally, you can assign setActiveViewWithPerf to window for debugging
-    window.setActiveViewWithPerf = setActiveViewWithPerf;
   }
 }

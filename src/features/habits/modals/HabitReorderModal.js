@@ -8,10 +8,8 @@
 // 3. While in "reorder mode" we add CSS class .dragging to give visual cues.
 // 4. Tapping the button again (now labelled "Done") destroys sortables
 //    and persists the new order via state.mutate.
-//
-// NOTE: Persistence to appData is TODO – we only emit console logs so far.
 
-import { mutate } from '../../../core/state.js';
+import { dispatch, Actions } from '../../../core/state.js';
 
 let SortableLib = null;
 let sortables = [];
@@ -176,14 +174,8 @@ function persistOrderToState() {
 
   if (!newCategoriesOrder.length && !newHabitsOrder.length) return;
 
-  mutate((state) => {
-    // reorder categories
-    state.categories.sort(
-      (a, b) => newCategoriesOrder.indexOf(a.id) - newCategoriesOrder.indexOf(b.id)
-    );
-    // reorder habits
-    state.habits.sort((a, b) => newHabitsOrder.indexOf(a.id) - newHabitsOrder.indexOf(b.id));
-  });
+  dispatch(Actions.reorderCategories(newCategoriesOrder));
+  dispatch(Actions.reorderHabits(newHabitsOrder));
 
   import('../HabitsListModule.js').then((m) => m.renderHabitsList());
 }

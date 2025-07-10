@@ -12,12 +12,8 @@
     "build:prod": "vite build --mode production",
     "build:dev": "vite build --mode development",
     "serve": "npx serve dist -l 8100",
-    "test": "echo \"No tests specified\" && exit 0",
     "lint": "eslint src --ext .js",
-    "format": "prettier --write src/**/*.js",
     "clean": "rm -rf dist node_modules/.vite",
-    "size": "npm run build && npx vite-bundle-analyzer dist/assets",
-    "performance": "npm run build && npx lighthouse http://localhost:8100 --output=json --output-path=./lighthouse-report.json",
     "audit": "npm audit && npm run lint && npm run build"
   },
   "dependencies": {
@@ -25,21 +21,7 @@
     "vite-plugin-pwa": "^0.19.0"
   },
   "devDependencies": {
-    "@babel/eslint-parser": "^7.28.0",
-    "@tailwindcss/postcss": "^4.1.11",
-    "autoprefixer": "^10.4.21",
-    "depcheck": "^1.4.7",
-    "eslint": "^8.57.1",
-    "eslint-config-prettier": "^9.0.0",
-    "eslint-plugin-prettier": "^5.0.0",
-    "eslint-plugin-unused-imports": "^4.1.4",
-    "husky": "^9.0.11",
-    "jest": "^30.0.4",
-    "lighthouse": "^11.0.0",
-    "postcss": "^8.5.6",
-    "prettier": "^3.0.0",
-    "tailwindcss": "^4.1.11",
-    "vite-bundle-analyzer": "^0.7.0"
+    "eslint": "^8.57.1"
   },
   "engines": {
     "node": ">=18.0.0",

@@ -1,6 +1,6 @@
 // HomeHeader.js - Header component for the home view
 import * as scheduleUtils from '../schedule.js';
-import { appData, mutate } from '../../../core/state.js';
+import { getState, dispatch, Actions } from '../../../core/state.js';
 import { capitalize } from '../../../shared/common.js';
 import { dateToKey } from '../../../shared/datetime.js';
 
@@ -62,8 +62,8 @@ export const HomeHeader = {
     this.titleContainer.style.justifyContent = 'center';
 
     pill.innerHTML = `
-      <span id="group-icon" class="material-icons text-xl">${GROUP_ICONS[appData.selectedGroup]}</span>
-      <span id="group-title" class="text-xl font-bold">${capitalize(appData.selectedGroup)} Habits</span>
+      <span id="group-icon" class="material-icons text-xl">${GROUP_ICONS[getState().selectedGroup]}</span>
+      <span id="group-title" class="text-xl font-bold">${capitalize(getState().selectedGroup)} Habits</span>
     `;
 
     this.titleContainer.appendChild(pill);
@@ -105,7 +105,7 @@ export const HomeHeader = {
     if (!toggle) return;
 
     import('../../../features/holidays/holidays.js').then(({ isHoliday }) => {
-      const group = appData.selectedGroup || 'daily';
+      const group = getState().selectedGroup || 'daily';
 
       // Show toggle only in Daily group – hide in Weekly and all others
       if (group !== 'daily') {
@@ -114,7 +114,7 @@ export const HomeHeader = {
       }
 
       toggle.style.display = '';
-      const refISO = dateToKey(new Date(appData.selectedDate));
+      const refISO = dateToKey(new Date(getState().selectedDate));
       const isOn = isHoliday(refISO);
 
       toggle.classList.toggle('bg-ios-orange', isOn);
@@ -172,13 +172,13 @@ export const HomeHeader = {
    * Handles holiday toggle click
    */
   _handleHolidayToggle() {
-    const targetISO = dateToKey(new Date(appData.selectedDate));
+    const targetISO = dateToKey(new Date(getState().selectedDate));
     Promise.all([
       import('../../../features/holidays/holidays.js'),
       import('../../../components/ConfirmDialog.js'),
     ]).then(([hol, { showConfirm }]) => {
       const { toggleSingleHoliday } = hol;
-      const inPeriod = appData.holidayPeriods.some(
+      const inPeriod = getState().holidayPeriods.some(
         (p) => targetISO >= p.startISO && targetISO <= p.endISO
       );
 
@@ -246,45 +246,43 @@ export const HomeHeader = {
       // Only trigger group change if we actually moved and exceeded threshold
       if (hasMoved && Math.abs(delta) >= 40) {
         const dir = delta < 0 ? +1 : -1; // left swipe -> next (+1)
-        const nextGroup = this._findNextGroupWithHabits(appData.selectedGroup, dir);
+        const nextGroup = this._findNextGroupWithHabits(getState().selectedGroup, dir);
 
-        mutate((s) => {
-          s.selectedGroup = nextGroup;
-          // Set selectedDate to the start of the current period for the new group
-          // This ensures weekly/monthly/yearly groups show the current week/month/year
-          const today = new Date();
-          let periodStart;
+        dispatch(Actions.setSelectedGroup(nextGroup));
+        // Set selectedDate to the start of the current period for the new group
+        // This ensures weekly/monthly/yearly groups show the current week/month/year
+        const today = new Date();
+        let periodStart;
 
-          switch (nextGroup) {
-            case 'weekly': {
-              // Monday as first day of week
-              const day = today.getDay();
-              const diff = (day + 6) % 7; // 0 (Sun)->6, 1 (Mon)->0 ...
-              periodStart = new Date(today);
-              periodStart.setDate(today.getDate() - diff);
-              periodStart.setHours(0, 0, 0, 0);
-              break;
-            }
-            case 'monthly': {
-              periodStart = new Date(today.getFullYear(), today.getMonth(), 1);
-              periodStart.setHours(0, 0, 0, 0);
-              break;
-            }
-            case 'yearly': {
-              periodStart = new Date(today.getFullYear(), 0, 1);
-              periodStart.setHours(0, 0, 0, 0);
-              break;
-            }
-            case 'daily':
-            default: {
-              periodStart = new Date(today);
-              periodStart.setHours(0, 0, 0, 0);
-              break;
-            }
+        switch (nextGroup) {
+          case 'weekly': {
+            // Monday as first day of week
+            const day = today.getDay();
+            const diff = (day + 6) % 7; // 0 (Sun)->6, 1 (Mon)->0 ...
+            periodStart = new Date(today);
+            periodStart.setDate(today.getDate() - diff);
+            periodStart.setHours(0, 0, 0, 0);
+            break;
           }
+          case 'monthly': {
+            periodStart = new Date(today.getFullYear(), today.getMonth(), 1);
+            periodStart.setHours(0, 0, 0, 0);
+            break;
+          }
+          case 'yearly': {
+            periodStart = new Date(today.getFullYear(), 0, 1);
+            periodStart.setHours(0, 0, 0, 0);
+            break;
+          }
+          case 'daily':
+          default: {
+            periodStart = new Date(today);
+            periodStart.setHours(0, 0, 0, 0);
+            break;
+          }
+        }
 
-          s.selectedDate = periodStart.toISOString();
-        });
+        dispatch(Actions.setSelectedDate(periodStart.toISOString()));
 
         if (this.callbacks.onGroupChange) {
           this.callbacks.onGroupChange(nextGroup);
@@ -326,7 +324,7 @@ export const HomeHeader = {
       const hasAny =
         g === 'daily'
           ? true
-          : appData.habits.some((h) => scheduleUtils.belongsToSelectedGroup(h, g) && !h.paused);
+          : getState().habits.some((h) => scheduleUtils.belongsToSelectedGroup(h, g) && !h.paused);
 
       if (hasAny) return g;
     }
@@ -335,7 +333,7 @@ export const HomeHeader = {
   },
 
   /**
-   * Renders the header
+   * Renders the header component
    */
   render() {
     this._updateGroupPill();
@@ -343,18 +341,20 @@ export const HomeHeader = {
   },
 
   /**
-   * Updates the group pill
+   * Updates the group pill display
    */
   _updateGroupPill() {
-    const iconEl = document.getElementById('group-icon');
     const titleEl = document.getElementById('group-title');
-
-    if (iconEl) {
-      iconEl.textContent = GROUP_ICONS[appData.selectedGroup];
-    }
-
+    const iconEl = document.getElementById('group-icon');
+    
     if (titleEl) {
-      titleEl.textContent = `${capitalize(appData.selectedGroup)} Habits`;
+      titleEl.textContent = `${capitalize(getState().selectedGroup)} Habits`;
+    }
+    
+    if (iconEl) {
+      // Ensure class present in case this element was created before patch
+      iconEl.classList.add('material-icons');
+      iconEl.textContent = GROUP_ICONS[getState().selectedGroup];
     }
   },
 

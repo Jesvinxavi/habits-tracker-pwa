@@ -1,12 +1,4 @@
 // Swipeable Card helper
-// Extracted from ui/home.js so it can be reused by other lists without
-// duplicating logic.
-//
-// Usage:
-//   import { makeCardSwipable } from '../components/swipeableCard.js';
-//   makeCardSwipable(containerEl, slideElement, habitObject, {
-//      onRestore: ()=>{ ... }
-//   });
 //
 // The caller is responsible for providing a container that wraps the list item
 // and includes a `.restore-btn` element that triggers the restore action.

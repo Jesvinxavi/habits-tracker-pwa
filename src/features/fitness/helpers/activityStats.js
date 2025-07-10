@@ -5,7 +5,7 @@
  * Extracted from src/ui/fitness.js for better modularity
  */
 
-import { appData } from '../../../core/state.js';
+import { getState } from '../../../core/state.js';
 import { getActivity, getActivityCategory } from '../activities.js';
 import { formatDuration, formatLastPerformed } from '../../../shared/datetime.js';
 
@@ -20,7 +20,7 @@ export function calculateActivityStatistics(activityId) {
 
   // Get all records for this activity across all dates
   const allRecords = [];
-  Object.values(appData.recordedActivities || {}).forEach((dayRecords) => {
+  Object.values(getState().recordedActivities || {}).forEach((dayRecords) => {
     dayRecords.forEach((record) => {
       if (record.activityId === activityId) {
         allRecords.push(record);

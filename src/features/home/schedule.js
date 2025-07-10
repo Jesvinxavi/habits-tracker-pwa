@@ -8,11 +8,8 @@ import {
   weeksBetween,
   getISOWeekNumber,
   dateToKey,
-  getPeriodBounds,
-  eachDayInRange,
 } from '../../shared/datetime.js';
 import { ScheduleEngine } from '../../shared/ScheduleEngine.js';
-import { appData } from '../../core/state.js';
 
 /**
  * Return the first date that should be treated as this habit's "anchor" – the
@@ -144,7 +141,7 @@ export function getPeriodKey(habit, dateObj) {
 
 // -------------------- Completion helpers --------------------
 export function isHabitCompleted(habit, dateObj) {
-  if (habit.completed === true) return true; // legacy boolean
+  if (habit.completed === true) return true;
   if (typeof habit.completed !== 'object' || habit.completed === null) return false;
   const key = getPeriodKey(habit, dateObj);
   return habit.completed[key] === true;
@@ -174,169 +171,6 @@ export function isHabitSkippedToday(habit, date = new Date()) {
   return Array.isArray(habit.skippedDates) && habit.skippedDates.includes(key);
 }
 
-// -------------------- Progress calculation helpers --------------------
 
-/**
- * Calculate progress for a single habit over a specific date range.
- * Handles both target-based and schedule-only habits correctly.
- * @param {object} habit - The habit object
- * @param {Date} start - Start date of the period (inclusive)
- * @param {Date} end - End date of the period (inclusive)
- * @returns {{completed: number, active: number}} - Progress counts
- */
-export function getHabitProgressForPeriod(habit, { start, end }) {
-  // For target-based habits: whole period is one unit
-  const isTarget = typeof habit.target === 'number' && habit.target > 0;
 
-  if (isTarget) {
-    // Target habits: check if they should be active for this period
-    // For target habits, we need to check if they're scheduled and not skipped for the period
 
-    // Check if habit is scheduled for any day in the period and not skipped
-    let hasActiveDays = false;
-    let completed = 0;
-
-    for (const dayKey of eachDayInRange(start, end)) {
-      const dayDate = new Date(dayKey);
-
-      // Check if habit is scheduled and not skipped for this day
-      if (isHabitScheduledOnDate(habit, dayDate) && !isHabitSkippedToday(habit, dayDate)) {
-        hasActiveDays = true;
-        if (isHabitCompleted(habit, dayDate)) {
-          completed = 1;
-          break; // Early exit - once completed, always completed for the period
-        }
-      }
-    }
-
-    // Only count as active if there are days where the habit is not skipped
-    return { completed, active: hasActiveDays ? 1 : 0 };
-  }
-
-  // Schedule-only habits: count each scheduled day
-  let completed = 0;
-  let active = 0;
-
-  for (const dayKey of eachDayInRange(start, end)) {
-    const dayDate = new Date(dayKey);
-
-    // Check if habit is scheduled and not skipped
-    if (isHabitScheduledOnDate(habit, dayDate) && !isHabitSkippedToday(habit, dayDate)) {
-      active++;
-      if (isHabitCompleted(habit, dayDate)) {
-        completed++;
-      }
-    }
-
-    // Performance optimization: if we've reached 100%, we can stop
-    if (active > 0 && completed === active) {
-      break;
-    }
-  }
-
-  return { completed, active };
-}
-
-/**
- * Calculate progress for a specific group (daily/weekly/monthly/yearly) for the current period.
- * @param {'daily'|'weekly'|'monthly'|'yearly'} group - The group to calculate progress for
- * @param {Date} date - The date to determine the period for (defaults to today)
- * @returns {{percentage: number, completed: number, active: number}} - Progress data
- */
-export function getGroupProgress(group, date = new Date()) {
-  // Map group to period type
-  const groupToPeriod = {
-    daily: 'day',
-    weekly: 'week',
-    monthly: 'month',
-    yearly: 'year',
-  };
-
-  const period = groupToPeriod[group];
-  if (!period) {
-    throw new Error(`Unknown group: ${group}`);
-  }
-
-  // Get period bounds for the given date
-  const bounds = getPeriodBounds(period, date);
-
-  // Get habits that belong to this group
-  const groupHabits = appData.habits.filter((h) => belongsToSelectedGroup(h, group));
-
-  // Calculate total progress across all habits
-  let totalCompleted = 0;
-  let totalActive = 0;
-
-  for (const habit of groupHabits) {
-    const { completed, active } = getHabitProgressForPeriod(habit, bounds);
-    totalCompleted += completed;
-    totalActive += active;
-
-    // Debug logging for target-based habits
-    if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test') {
-      const isTarget = typeof habit.target === 'number' && habit.target > 0;
-      if (isTarget) {
-        console.log(`Target habit "${habit.name}": active=${active}, completed=${completed}`);
-      }
-    }
-  }
-
-  // Calculate percentage
-  const percentage = totalActive > 0 ? Math.round((totalCompleted / totalActive) * 100) : 0;
-
-  return {
-    percentage,
-    completed: totalCompleted,
-    active: totalActive,
-  };
-}
-
-// -------------------- Self-tests (development only) --------------------
-
-if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test') {
-  // Test getPeriodBounds
-  const testDate = new Date('2025-01-15'); // Wednesday in week 3 of 2025
-
-  // Test day bounds
-  const dayBounds = getPeriodBounds('day', testDate);
-  console.assert(
-    dayBounds.start.toDateString() === testDate.toDateString(),
-    'Day bounds should be same day'
-  );
-  console.assert(
-    dayBounds.end.toDateString() === testDate.toDateString(),
-    'Day bounds should be same day'
-  );
-
-  // Test week bounds (Monday to Sunday)
-  const weekBounds = getPeriodBounds('week', testDate);
-  console.assert(weekBounds.start.getDay() === 1, 'Week should start on Monday');
-  console.assert(weekBounds.end.getDay() === 0, 'Week should end on Sunday');
-
-  // Test month bounds
-  const monthBounds = getPeriodBounds('month', testDate);
-  console.assert(monthBounds.start.getDate() === 1, 'Month should start on day 1');
-  console.assert(monthBounds.start.getMonth() === 0, 'Month should be January');
-
-  // Test year bounds
-  const yearBounds = getPeriodBounds('year', testDate);
-  console.assert(yearBounds.start.getDate() === 1, 'Year should start on January 1');
-  console.assert(yearBounds.start.getMonth() === 0, 'Year should start in January');
-  console.assert(yearBounds.end.getDate() === 31, 'Year should end on December 31');
-  console.assert(yearBounds.end.getMonth() === 11, 'Year should end in December');
-
-  // Test target habit skip logic
-  const mockTargetHabit = {
-    name: 'Test Target Habit',
-    target: 5,
-    targetFrequency: 'daily',
-    skippedDates: ['2025-01-15'], // Skip today
-    completed: {},
-  };
-
-  const testBounds = getPeriodBounds('day', testDate);
-  const targetProgress = getHabitProgressForPeriod(mockTargetHabit, testBounds);
-  console.assert(targetProgress.active === 0, 'Target habit should be inactive when skipped');
-
-  console.log('✅ schedule.js self-tests passed');
-}

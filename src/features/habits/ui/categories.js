@@ -1,4 +1,4 @@
-import { appData, mutate } from '../../../core/state.js';
+import { getState, dispatch, Actions } from '../../../core/state.js';
 import { openModal, closeModal } from '../../../components/Modal.js';
 import { generateUniqueId } from '../../../shared/common.js';
 import { showConfirm } from '../../../components/ConfirmDialog.js';
@@ -46,14 +46,14 @@ export function populateCategoryDropdown() {
 
   select.innerHTML = '<option value="" disabled selected>Select Category</option>';
 
-  appData.categories.forEach((c) => {
+  getState().categories.forEach((c) => {
     const opt = document.createElement('option');
     opt.value = c.id;
     opt.textContent = c.name;
     select.appendChild(opt);
   });
 
-  const hasCats = appData.categories.length > 0;
+  const hasCats = getState().categories.length > 0;
   select.classList.toggle('hidden', !hasCats);
   // Hide dropdown chevron SVG (assumed next sibling) when select is hidden
   const chevron = select.nextElementSibling;
@@ -77,7 +77,7 @@ export function closeAddCategoryModal() {
 
 function openEditCategoryModal(catId) {
   buildColorGrids();
-  const category = appData.categories.find((c) => c.id === catId);
+  const category = getState().categories.find((c) => c.id === catId);
   if (!category) return;
   const nameInput = document.getElementById('edit-category-name-input');
   if (nameInput) nameInput.value = category.name;
@@ -104,7 +104,7 @@ function addNewCategory() {
     name: nameInput.value.trim(),
     color: selectedBtn.dataset.color,
   };
-  mutate((s) => s.categories.push(newCat));
+  dispatch(Actions.addCategory(newCat));
   // Remember this category for preselection
   window._preselectCategoryId = newCat.id;
   closeAddCategoryModal();
@@ -124,12 +124,10 @@ function updateCategory() {
   const nameInput = document.getElementById('edit-category-name-input');
   const selectedBtn = document.querySelector('.edit-color-option.ring-2');
   if (!nameInput || !selectedBtn) return;
-  mutate((s) => {
-    const cat = s.categories.find((c) => c.id === catId);
-    if (!cat) return;
-    cat.name = nameInput.value.trim();
-    cat.color = selectedBtn.dataset.color;
-  });
+  dispatch(Actions.updateCategory(catId, { 
+    name: nameInput.value.trim(), 
+    color: selectedBtn.dataset.color 
+  }));
   closeEditCategoryModal();
   populateCategoryDropdown();
   import('../HabitsListModule.js').then((m) => m.renderHabitsList());
@@ -146,10 +144,7 @@ function deleteCategory() {
       'Deleting this category will also remove all habits it contains. This action cannot be undone.',
     okText: 'Delete',
     onOK: () => {
-      mutate((s) => {
-        s.categories = s.categories.filter((c) => c.id !== catId);
-        s.habits = s.habits.filter((h) => h.categoryId !== catId);
-      });
+      dispatch(Actions.deleteCategory(catId));
       closeEditCategoryModal();
       populateCategoryDropdown();
       import('../HabitsListModule.js').then((m) => m.renderHabitsList());

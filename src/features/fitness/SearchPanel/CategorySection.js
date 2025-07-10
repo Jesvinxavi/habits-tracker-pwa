@@ -1,5 +1,6 @@
 // CategorySection.js - Category section with expand/collapse functionality
-import { formatMuscleName } from '../../../shared/common.js';
+import { buildMuscleGroupHeader } from '../helpers/muscleHelpers.js';
+import { hexToRgba } from '../../../shared/color.js';
 
 /**
  * Builds a category section with collapsible header and activities
@@ -37,7 +38,7 @@ export function buildCategorySection(category, activities = null, muscleGroups =
       .map(
         ([mg, list]) => `
       <div class="muscle-group mb-2">
-        <div class="muscle-header pl-3 py-1 text-sm font-semibold text-gray-700 dark:text-gray-300">${formatMuscleName(mg)}</div>
+        ${buildMuscleGroupHeader(mg)}
         <div class="category-activities pl-6">
           ${list.map((activity) => buildActivityTile(activity, category)).join('')}
         </div>
@@ -80,14 +81,6 @@ export function buildCategorySection(category, activities = null, muscleGroups =
  * @returns {string} HTML string for the activity tile
  */
 function buildActivityTile(activity, category) {
-  // Import hexToRgba from utils
-  const hexToRgba = (hex, alpha) => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
-
   return `
     <div style="margin-bottom: 0.25rem;">
       <div class="search-activity-item activity-card flex items-center px-3 py-2 rounded-xl w-full transition-colors focus:outline-none focus:ring-2 focus:ring-ios-blue focus:ring-offset-2 dark:focus:ring-offset-gray-800" style="border: 3px solid ${category.color}; background-color: ${hexToRgba(category.color, 0.05)};" data-activity-id="${activity.id}">

@@ -1025,6 +1025,57 @@
       </div>
     </div>
 
+    <!-- Templates for dynamic placeholders and spinners -->
+    <template id="fitness-view-placeholder">
+      <header class="app-header flex justify-between items-center h-11 px-4 sm:px-6 lg:px-8 border-b border-gray-200 dark:border-gray-700 w-full">
+        <button class="back-btn text-ios-blue text-lg lg:text-xl">←</button>
+        <h1 class="app-title text-lg font-semibold lg:text-xl">Fitness</h1>
+        <button class="add-btn text-ios-blue text-2xl lg:text-3xl">+</button>
+      </header>
+      <div class="placeholder-content text-center py-16 px-4 sm:px-6 lg:px-8 text-gray-500">
+        <div class="w-16 h-16 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center lg:w-20 lg:h-20">
+          <svg class="w-8 h-8 lg:w-10 lg:h-10" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+          </svg>
+        </div>
+        <p class="text-lg font-medium lg:text-xl">Fitness tracking will be built here</p>
+      </div>
+    </template>
+    <template id="stats-view-placeholder">
+      <header class="app-header flex justify-between items-center h-11 px-4 sm:px-6 lg:px-8 border-b border-gray-200 dark:border-gray-700 w-full">
+        <button class="back-btn text-ios-blue text-lg lg:text-xl">←</button>
+        <h1 class="app-title text-lg font-semibold lg:text-xl">Statistics</h1>
+        <button class="add-btn text-ios-blue text-2xl lg:text-3xl">+</button>
+      </header>
+      <div class="placeholder-content text-center py-16 px-4 sm:px-6 lg:px-8 text-gray-500">
+        <div class="w-16 h-16 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center lg:w-20 lg:h-20">
+          <svg class="w-8 h-8 lg:w-10 lg:h-10" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/>
+            <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"/>
+          </svg>
+        </div>
+        <p class="text-lg font-medium lg:text-xl">Statistics and analytics will be built here</p>
+      </div>
+    </template>
+    <template id="home-loading-spinner">
+      <div id="home-loading" class="flex flex-col items-center justify-center flex-grow py-10 text-gray-400">
+        <svg class="animate-spin w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+        <p class="text-sm">Loading Home...</p>
+      </div>
+    </template>
+    <template id="habits-loading-spinner">
+      <div id="habits-loading" class="flex flex-col items-center justify-center flex-grow py-10 text-gray-400">
+        <svg class="animate-spin w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+        <p class="text-sm">Loading Habits...</p>
+      </div>
+    </template>
+
     <script type="module" src="src/main.js"></script>
 </body>
 </html> 

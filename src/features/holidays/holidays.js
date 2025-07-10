@@ -5,7 +5,7 @@
  * Dates are stored/compared as ISO strings in YYYY-MM-DD format (UTC portion ignored).
  */
 
-import { appData, mutate } from '../../core/state.js';
+import { getState, dispatch, Actions } from '../../core/state.js';
 import { generateUniqueId } from '../../shared/common.js';
 import { dateToKey } from '../../shared/datetime.js';
 
@@ -15,8 +15,8 @@ const manualSingles = new Set();
 /** Sync internal manualSingles cache with appData.holidayDates (used on startup). */
 export function syncSinglesFromState() {
   manualSingles.clear();
-  if (Array.isArray(appData.holidayDates)) {
-    appData.holidayDates.forEach((d) => manualSingles.add(d));
+  if (Array.isArray(getState().holidayDates)) {
+    getState().holidayDates.forEach((d) => manualSingles.add(d));
   }
 }
 
@@ -37,7 +37,7 @@ export function recalcHolidayDates() {
   const union = new Set(manualSingles);
 
   // Expand each period (inclusive range)
-  appData.holidayPeriods.forEach((p) => {
+  getState().holidayPeriods.forEach((p) => {
     const cur = new Date(p.startISO);
     const end = new Date(p.endISO);
     while (cur <= end) {
@@ -46,9 +46,7 @@ export function recalcHolidayDates() {
     }
   });
 
-  mutate((s) => {
-    s.holidayDates = Array.from(union);
-  });
+  dispatch(Actions.setHolidayDates(Array.from(union)));
 }
 
 /**
@@ -57,10 +55,10 @@ export function recalcHolidayDates() {
 export function isHoliday(dateISO) {
   const key = dateToKey(dateISO);
   // Quick lookup in cached list first
-  if (appData.holidayDates.includes(key)) return true;
+  if (getState().holidayDates.includes(key)) return true;
 
   // Fallback (should be rare): compute against periods
-  return appData.holidayPeriods.some((p) => key >= p.startISO && key <= p.endISO);
+  return getState().holidayPeriods.some((p) => key >= p.startISO && key <= p.endISO);
 }
 
 /**
@@ -82,31 +80,29 @@ export function toggleSingleHoliday(dateISO) {
 export function addPeriod({ startISO, endISO, label = 'Holiday' }) {
   if (!startISO || !endISO) return;
   if (endISO < startISO) [startISO, endISO] = [endISO, startISO];
-  mutate((s) => {
-    s.holidayPeriods.push({
-      id: generateUniqueId(),
-      startISO: dateToKey(startISO),
-      endISO: dateToKey(endISO),
-      label,
-    });
-  });
+  dispatch(Actions.addHolidayPeriod({
+    id: generateUniqueId(),
+    startISO: dateToKey(startISO),
+    endISO: dateToKey(endISO),
+    label,
+  }));
   recalcHolidayDates();
 }
 
 /** Remove a period by id */
 export function deletePeriod(id) {
-  mutate((s) => {
-    s.holidayPeriods = s.holidayPeriods.filter((p) => p.id !== id);
-  });
+  dispatch(Actions.deleteHolidayPeriod(id));
+  recalcHolidayDates();
+}
+
+/** Update a period by id */
+export function updatePeriod(period) {
+  dispatch(Actions.updateHolidayPeriod(period));
   recalcHolidayDates();
 }
 
 /** Delete all periods */
 export function deleteAllPeriods() {
-  mutate((s) => {
-    s.holidayPeriods = [];
-  });
+  dispatch(Actions.deleteAllHolidayPeriods());
   recalcHolidayDates();
 }
-
-// dateToKey function moved to datetime.js for centralization

@@ -3,20 +3,22 @@
  * the main state JSON/IndexedDB and included in export/import flows.
  */
 
-import { appData, mutate } from '../../core/state.js';
+import { getState, dispatch, Actions } from '../../core/state.js';
 
-// Legacy migration: pull old array from localStorage once and then delete it.
+
 const LEGACY_KEY = 'fitnessRestDays';
 try {
   const legacy = localStorage.getItem(LEGACY_KEY);
   if (legacy && typeof legacy === 'string') {
     const arr = JSON.parse(legacy);
     if (Array.isArray(arr)) {
-      mutate((s) => {
-        if (!s.restDays) s.restDays = {};
+      dispatch((dispatch, getState) => {
+        const state = getState();
+        const restDays = { ...state.restDays };
         arr.forEach((k) => {
-          s.restDays[k] = true;
+          restDays[k] = true;
         });
+        dispatch(Actions.importData({ restDays }));
       });
     }
     localStorage.removeItem(LEGACY_KEY);
@@ -28,13 +30,15 @@ try {
 /*********** API ***********/
 
 export function isRestDay(iso) {
-  return !!appData.restDays?.[iso];
+  return !!getState().restDays?.[iso];
 }
 
 export function toggleRestDay(iso) {
-  mutate((s) => {
-    if (!s.restDays) s.restDays = {};
-    if (s.restDays[iso]) delete s.restDays[iso];
-    else s.restDays[iso] = true;
+  dispatch((dispatch, getState) => {
+    const state = getState();
+    const restDays = { ...state.restDays };
+    if (restDays[iso]) delete restDays[iso];
+    else restDays[iso] = true;
+    dispatch(Actions.importData({ restDays }));
   });
 }

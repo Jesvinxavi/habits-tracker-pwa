@@ -1,4 +1,4 @@
-import { appData } from '../../../core/state.js';
+import { getState } from '../../../core/state.js';
 import {
   isHabitCompleted,
   isHabitSkippedToday,
@@ -11,12 +11,12 @@ import {
 /* -------------------------------------------------------------------------- */
 
 export function calculateProgressForCurrentContext() {
-  const dateObj = new Date(appData.selectedDate);
+  const dateObj = new Date(getState().selectedDate);
 
   // 1) Habits that belong to the currently selected group
   // 2) Are actually scheduled for the selected date (takes holiday mode into account)
-  const scheduledHabits = appData.habits.filter(
-    (h) => belongsToSelectedGroup(h, appData.selectedGroup) && isHabitScheduledOnDate(h, dateObj)
+  const scheduledHabits = getState().habits.filter(
+    (h) => belongsToSelectedGroup(h, getState().selectedGroup) && isHabitScheduledOnDate(h, dateObj)
   );
 
   // 3) Remove any that the user explicitly skipped
@@ -44,7 +44,7 @@ export function findNextGroupWithHabits(current, dir) {
     const nextGroup = groups[nextIndex];
 
     // Check if this group has any habits
-    const hasHabits = appData.habits.some((h) => belongsToSelectedGroup(h, nextGroup));
+    const hasHabits = getState().habits.some((h) => belongsToSelectedGroup(h, nextGroup));
     if (hasHabits) {
       return nextGroup;
     }

@@ -1,10 +1,6 @@
 // Time-picker helpers for the Habits form
 // Extracted and refactored from the legacy app.js so they can be reused by the modern ES modules.
 //
-// Usage:
-//   import { initializeTimePicker } from './form-pickers.js';
-//   initializeTimePicker();
-//
 // The markup structure (ids, classes) is expected to match the template currently
 // residing in index.html (time-picker-btn, time-picker-popup, etc.).
 // If the template changes, update the selectors here accordingly.
@@ -25,7 +21,7 @@ export function initializeTimePicker() {
     return; // Nothing to wire up
   }
 
-  // Temporary state while the popup is open
+
   let tempHour = hourSelect ? hourSelect.value : '09';
   let tempMinute = minuteSelect ? minuteSelect.value : '00';
 

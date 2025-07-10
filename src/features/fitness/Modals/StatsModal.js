@@ -1,6 +1,7 @@
 // StatsModal.js - Statistics modal for displaying activity statistics
 import { getActivityCategory } from '../activities.js';
 import { calculateActivityStatistics, buildStatsContent } from '../helpers/activityStats.js';
+import { getState } from '../../../core/state.js';
 
 export const StatsModal = {
   /**
@@ -25,7 +26,7 @@ export const StatsModal = {
    */
   _getActivity(activityId) {
     // This should use a proper selector from the state management
-    return window.appData?.activities?.find((a) => a.id === activityId);
+    return getState().activities?.find((a) => a.id === activityId);
   },
 
   /**

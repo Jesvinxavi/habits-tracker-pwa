@@ -38,6 +38,36 @@ export const HomeCalendar = {
    */
   render() {
     this.calendarEl?.refresh?.();
+    this._updateSelectedDay();
+  },
+
+  /**
+   * Updates the selected day highlighting
+   */
+  _updateSelectedDay() {
+    if (!this.calendarEl) return;
+
+    // Import datetime utility for date comparison
+    import('../../../shared/datetime.js').then(({ isSameDay }) => {
+      import('../../../core/state.js').then(({ getState }) => {
+        const dayItems = this.calendarEl.querySelectorAll('.day-item');
+        dayItems.forEach((el) => {
+          const match = isSameDay(new Date(el.dataset.date), new Date(getState().selectedDate));
+          el.classList.toggle('current-day', match);
+
+          const isToday = isSameDay(new Date(el.dataset.date), new Date());
+          el.classList.toggle('today', isToday && !match);
+        });
+
+        // Center selected day using calendar API
+        if (this.calendarEl.scrollToSelected) {
+          // Small delay to ensure DOM updates are complete
+          setTimeout(() => {
+            this.calendarEl.scrollToSelected();
+          }, 10);
+        }
+      });
+    });
   },
 
   /**

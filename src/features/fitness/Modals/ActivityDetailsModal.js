@@ -6,7 +6,7 @@ import {
   recordActivity,
   updateRecordedActivity,
 } from '../activities.js';
-import { appData } from '../../../core/state.js';
+import { getState } from '../../../core/state.js';
 
 export const ActivityDetailsModal = {
   /**
@@ -279,7 +279,7 @@ export const ActivityDetailsModal = {
 
     // Get the selected fitness date from state instead of using today
     import('../../../shared/datetime.js').then(({ getLocalISODate }) => {
-      const selectedDate = appData.fitnessSelectedDate || new Date().toISOString();
+      const selectedDate = getState().fitnessSelectedDate || new Date().toISOString();
       const dateString = getLocalISODate(selectedDate); // Use consistent date conversion
 
       if (isEdit && recordId) {

@@ -1,11 +1,7 @@
-import { appData, mutate } from '../../core/state.js';
+import { getState, dispatch, Actions } from '../../core/state.js';
 import { generateUniqueId } from '../../shared/common.js';
 
-// Add a global marker for debugging
-if (typeof window !== 'undefined') {
-  window.__FITNESS_ACTIVITIES_DEBUG__ = 'activities.js loaded';
-  // Debug logging removed for production
-}
+
 
 /**
  * Add a new activity to the activities list
@@ -17,15 +13,13 @@ export function addActivity(activityData) {
     categoryId: activityData.categoryId,
     icon:
       activityData.icon ||
-      appData.activityCategories.find((c) => c.id === activityData.categoryId)?.icon ||
+      getState().activityCategories.find((c) => c.id === activityData.categoryId)?.icon ||
       '🎯',
     createdAt: new Date().toISOString(),
     ...activityData,
   };
 
-  mutate((state) => {
-    state.activities.push(newActivity);
-  });
+  dispatch(Actions.addActivity(newActivity));
 
   return newActivity;
 }
@@ -34,7 +28,7 @@ export function addActivity(activityData) {
  * Record an activity for a specific date
  */
 export function recordActivity(activityId, date, data = {}) {
-  const activity = appData.activities.find((a) => a.id === activityId);
+  const activity = getState().activities.find((a) => a.id === activityId);
   if (!activity) return null;
 
   const isoDate = date.slice(0, 10); // Ensure YYYY-MM-DD format
@@ -51,12 +45,7 @@ export function recordActivity(activityId, date, data = {}) {
     ...data,
   };
 
-  mutate((state) => {
-    if (!state.recordedActivities[isoDate]) {
-      state.recordedActivities[isoDate] = [];
-    }
-    state.recordedActivities[isoDate].push(record);
-  });
+  dispatch(Actions.recordActivity(activityId, date, data));
 
   return record;
 }
@@ -66,13 +55,7 @@ export function recordActivity(activityId, date, data = {}) {
  */
 export function getActivitiesForDate(date) {
   const isoDate = date.slice(0, 10);
-  // Debug logging to help identify issues (always log for now)
-  if (typeof window !== 'undefined') {
-    // Debug logging removed for production
-    // Debug logging removed for production
-    // Debug logging removed for production
-  }
-  return appData.recordedActivities[isoDate] || [];
+  return getState().recordedActivities[isoDate] || [];
 }
 
 /**
@@ -81,10 +64,10 @@ export function getActivitiesForDate(date) {
 export function getActivitiesByCategory() {
   const grouped = {};
 
-  appData.activityCategories.forEach((category) => {
+  getState().activityCategories.forEach((category) => {
     grouped[category.id] = {
       category,
-      activities: appData.activities.filter((activity) => activity.categoryId === category.id),
+      activities: getState().activities.filter((activity) => activity.categoryId === category.id),
     };
   });
 
@@ -96,11 +79,11 @@ export function getActivitiesByCategory() {
  */
 export function searchActivities(query) {
   if (!query || query.trim() === '') {
-    return appData.activities;
+    return getState().activities;
   }
 
   const searchTerm = query.toLowerCase().trim();
-  return appData.activities.filter((activity) => activity.name.toLowerCase().includes(searchTerm));
+  return getState().activities.filter((activity) => activity.name.toLowerCase().includes(searchTerm));
 }
 
 /**
@@ -109,17 +92,23 @@ export function searchActivities(query) {
 export function deleteRecordedActivity(recordId, date) {
   const isoDate = date.slice(0, 10);
 
-  mutate((state) => {
-    if (state.recordedActivities[isoDate]) {
-      state.recordedActivities[isoDate] = state.recordedActivities[isoDate].filter(
+  // Use a thunk-style action since we don't have a specific action for this
+  dispatch((dispatch, getState) => {
+    const state = getState();
+    const updatedRecordedActivities = { ...state.recordedActivities };
+    
+    if (updatedRecordedActivities[isoDate]) {
+      updatedRecordedActivities[isoDate] = updatedRecordedActivities[isoDate].filter(
         (record) => record.id !== recordId
       );
 
       // Remove empty date entries
-      if (state.recordedActivities[isoDate].length === 0) {
-        delete state.recordedActivities[isoDate];
+      if (updatedRecordedActivities[isoDate].length === 0) {
+        delete updatedRecordedActivities[isoDate];
       }
     }
+    
+    dispatch(Actions.importData({ recordedActivities: updatedRecordedActivities }));
   });
 }
 
@@ -129,19 +118,25 @@ export function deleteRecordedActivity(recordId, date) {
 export function updateRecordedActivity(recordId, date, data = {}) {
   const isoDate = date.slice(0, 10);
 
-  mutate((state) => {
-    if (state.recordedActivities[isoDate]) {
-      const recordIndex = state.recordedActivities[isoDate].findIndex(
+  // Use a thunk-style action since we don't have a specific action for this
+  dispatch((dispatch, getState) => {
+    const state = getState();
+    const updatedRecordedActivities = { ...state.recordedActivities };
+    
+    if (updatedRecordedActivities[isoDate]) {
+      const recordIndex = updatedRecordedActivities[isoDate].findIndex(
         (record) => record.id === recordId
       );
       if (recordIndex !== -1) {
         // Update the existing record with new data while preserving ID and timestamp
-        state.recordedActivities[isoDate][recordIndex] = {
-          ...state.recordedActivities[isoDate][recordIndex],
+        updatedRecordedActivities[isoDate][recordIndex] = {
+          ...updatedRecordedActivities[isoDate][recordIndex],
           ...data,
         };
       }
     }
+    
+    dispatch(Actions.importData({ recordedActivities: updatedRecordedActivities }));
   });
 }
 
@@ -149,19 +144,18 @@ export function updateRecordedActivity(recordId, date, data = {}) {
  * Get activity category by ID
  */
 export function getActivityCategory(categoryId) {
-  return appData.activityCategories.find((cat) => cat.id === categoryId);
+  return getState().activityCategories.find((cat) => cat.id === categoryId);
 }
 
 /**
  * Get activity by ID
  */
 export function getActivity(activityId) {
-  return appData.activities.find((activity) => activity.id === activityId);
+  return getState().activities.find((activity) => activity.id === activityId);
 }
 
 /**
  * Group activities by muscle group (for strength training)
- * Moved from fitness.js for reusability
  * @param {Array} items - Array of activities or records
  * @returns {Object} Activities grouped by muscle group
  */
@@ -185,34 +179,12 @@ export function groupActivitiesByMuscleGroup(items) {
  * Delete an activity and all its recorded instances
  */
 export function deleteActivity(activityId) {
-  mutate((state) => {
-    // Remove from activities array
-    state.activities = state.activities?.filter((a) => a.id !== activityId) || [];
-
-    // Remove any recorded activities with this activity ID
-    Object.keys(state.recordedActivities || {}).forEach((date) => {
-      state.recordedActivities[date] = state.recordedActivities[date].filter(
-        (record) => record.activityId !== activityId
-      );
-      if (state.recordedActivities[date].length === 0) {
-        delete state.recordedActivities[date];
-      }
-    });
-  });
+  dispatch(Actions.deleteActivity(activityId));
 }
 
 /**
  * Update an existing activity
  */
 export function updateActivity(activityId, updates) {
-  mutate((state) => {
-    const activityIndex = state.activities.findIndex((a) => a.id === activityId);
-    if (activityIndex !== -1) {
-      state.activities[activityIndex] = {
-        ...state.activities[activityIndex],
-        ...updates,
-        updatedAt: new Date().toISOString(),
-      };
-    }
-  });
+  dispatch(Actions.updateActivity(activityId, updates));
 }

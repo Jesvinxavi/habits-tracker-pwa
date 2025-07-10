@@ -1,7 +1,6 @@
 // HomeModule.js - Main module orchestrator for the home view
 import { HomeView } from './HomeView.js';
 import { subscribe } from '../../core/state.js';
-import { refreshUI, setCalendarApi } from './helpers/refreshHelpers.js';
 import { bindControls } from './helpers/controlHelpers.js';
 import { setupMenuToggle, updateDropdownText, setSectionVisibility } from './helpers/uiHelpers.js';
 import { sectionVisibility } from './helpers/coreHelpers.js';
@@ -14,8 +13,6 @@ export const HomeModule = {
    * Initializes the home module
    */
   async init() {
-    // Debug logging removed for production
-
     const homeView = document.getElementById('home-view');
     if (!homeView) {
       console.error('Home view container not found');
@@ -55,32 +52,22 @@ export const HomeModule = {
     // Initial render
     this._handleStateChange();
 
-    // Expose debug functions
-    this._exposeDebugFunctions();
 
-    // Debug logging removed for production
   },
 
-  /**
-   * Sets the calendar API reference for refresh coordination
-   */
-  setCalendarApi(api) {
-    setCalendarApi(api);
-  },
+
 
   /**
    * Handles habit completion
    */
   _handleHabitComplete() {
-    // Debug logging removed for production
-    refreshUI();
+    // State change will trigger HomeView.render() via subscription
   },
 
   /**
    * Handles habit editing
    */
   _handleHabitEdit() {
-    // Debug logging removed for production
     // This will be handled by the home view internally
   },
 
@@ -88,37 +75,33 @@ export const HomeModule = {
    * Handles group change
    */
   _handleGroupChange() {
-    // Debug logging removed for production
-    refreshUI();
+    // State change will trigger HomeView.render() via subscription
   },
 
   /**
    * Handles date change
    */
   _handleDateChange() {
-    // Debug logging removed for production
-    refreshUI();
+    // State change will trigger HomeView.render() via subscription
   },
 
   /**
    * Handles holiday toggle
    */
   _handleHolidayToggle() {
-    // Debug logging removed for production
-    refreshUI();
+    // State change will trigger HomeView.render() via subscription
   },
 
   /**
    * Handles section toggle (Completed/Skipped)
    */
   _handleSectionToggle(section, collapsed) {
-    // Debug logging removed for production
     if (section === 'completed') {
       sectionVisibility.Completed = !collapsed;
     } else if (section === 'skipped') {
       sectionVisibility.Skipped = !collapsed;
     }
-    refreshUI();
+    // State change will trigger HomeView.render() via subscription
     updateDropdownText();
   },
 
@@ -128,40 +111,9 @@ export const HomeModule = {
   _handleStateChange() {
     // Re-render the home view when state changes
     HomeView.render();
-    refreshUI();
   },
 
-  /**
-   * Exposes refreshUI for external use
-   */
-  refresh() {
-    refreshUI();
-  },
 
-  /**
-   * Exposes functions for console debugging
-   */
-  _exposeDebugFunctions() {
-    if (typeof window !== 'undefined') {
-      window.renderHabitsForHome = () => {
-        if (window.HomeView) {
-          window.HomeView.render();
-        }
-      };
-      // Note: These functions are available from schedule.js but we'll expose them
-      // through the HomeModule for debugging purposes
-      window.belongsToSelectedGroup = () => {
-        // This will be available after the module loads
-        // Debug logging removed for production
-        return true; // Fallback
-      };
-      window.isHabitScheduledOnDate = () => {
-        // This will be available after the module loads
-        // Debug logging removed for production
-        return true; // Fallback
-      };
-    }
-  },
 };
 
 /**

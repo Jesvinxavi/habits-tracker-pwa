@@ -37,5 +37,5 @@ export const Timer = {
   },
 };
 
-// Re-export individual components for convenience
+
 export { TimerButton, TimerModal, TimerControls, LapList };

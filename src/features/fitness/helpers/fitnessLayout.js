@@ -2,7 +2,6 @@
  * Layout Helper Functions
  *
  * Pure functions for calculating layout dimensions and heights
- * Extracted from src/ui/fitness.js for better modularity
  */
 
 /**

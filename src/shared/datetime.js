@@ -1,7 +1,6 @@
 /**
  * Date-time utilities (framework-agnostic, no DOM).
  * -------------------------------------------------
- * Centralized datetime utilities to avoid duplication across files.
  * All date/time formatting, conversion, and calculation functions.
  */
 
@@ -222,7 +221,6 @@ export function formatDuration(minutes) {
 
 /**
  * Format elapsed time in seconds to MM:SS format
- * Moved from timer.js to centralize time formatting
  * @param {number} seconds - Total seconds elapsed
  * @returns {string} Formatted time string (MM:SS)
  */
@@ -286,4 +284,23 @@ export function fromKey(key) {
   const [y, m, d] = key.split('-').map((s) => parseInt(s, 10));
   if (!y || !m || !d) return new Date(NaN);
   return new Date(y, m - 1, d, 0, 0, 0, 0);
+}
+
+/**
+ * Get the start of the next period.
+ */
+export function getNextPeriodStart(date, group) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+
+    if (group === 'daily') {
+        d.setDate(d.getDate() + 1);
+    } else if (group === 'weekly') {
+        d.setDate(d.getDate() - d.getDay() + 8); // Go to the next Sunday
+    } else if (group === 'monthly') {
+        d.setMonth(d.getMonth() + 1, 1); // Go to the first day of the next month
+    } else if (group === 'yearly') {
+        d.setFullYear(d.getFullYear() + 1, 0, 1); // Go to Jan 1 of next year
+    }
+    return d;
 }

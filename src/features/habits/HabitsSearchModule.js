@@ -19,10 +19,7 @@ export function mountSearchPanel(callbacks = {}) {
     </div>
   `;
 
-  // Note: search initialization must be triggered **after** this element is
-  // appended to the live DOM tree so that querySelector can find the input.
-  // The caller (e.g. HabitsView) is responsible for invoking `initializeSearch()`
-  // once `searchContainer` is attached.
+
 
   return searchContainer;
 }

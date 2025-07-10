@@ -18,15 +18,13 @@ import {
   bindSearchKeyboardNavigation,
 } from './SearchPanel/ActivityTile.js';
 import { openCategoryColorPicker, updateSearchCategoryButton } from './SearchPanel/CategoryColorPicker.js';
-
-// Import fitness utilities
 import {
   getActivitiesByCategory,
   searchActivities,
   getActivityCategory,
   groupActivitiesByMuscleGroup,
 } from './activities.js';
-import { mutate } from '../../core/state.js';
+import { dispatch, Actions, subscribe } from '../../core/state.js';
 
 /**
  * Mounts the complete search panel with input and results
@@ -58,6 +56,17 @@ export function mountSearchPanel(callbacks = {}) {
 
   // Store callbacks for later use
   container._callbacks = callbacks;
+
+  // Automatically refresh search panel when the fitness data updates
+  const unsubscribe = subscribe(() => {
+    if (isSearchExpanded()) {
+      const q = getSearchQuery();
+      populateSearchSectionContent(q);
+    }
+  });
+
+  // Keep reference for future cleanup (if needed)
+  container._unsubscribe = unsubscribe;
 
   // Listen for activity deletion events to refresh the search panel
   document.addEventListener('ActivityDeleted', () => {
@@ -226,13 +235,7 @@ function handleCategoryColorChange(button) {
  */
 function updateCategoryColor(categoryId, newColor) {
   // Update fitness activity categories (not habits categories)
-  mutate((state) => {
-    const activityCategories = state.activityCategories || [];
-    const category = activityCategories.find((cat) => cat.id === categoryId);
-    if (category) {
-      category.color = newColor;
-    }
-  });
+  dispatch(Actions.updateActivityCategoryColor(categoryId, newColor));
 
   // Trigger refresh of the search section to show updated color
   if (isSearchExpanded()) {

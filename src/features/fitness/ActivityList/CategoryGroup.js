@@ -1,5 +1,5 @@
 // CategoryGroup.js - Category group component with muscle group support
-import { formatMuscleName } from '../../../shared/common.js';
+import { buildMuscleGroupHeader } from '../helpers/muscleHelpers.js';
 import { groupActivitiesByMuscleGroup } from '../activities.js';
 import { ActivityCard } from './ActivityCard.js';
 
@@ -32,7 +32,7 @@ export const CategoryGroup = {
             .map(
               ([mg, list]) => `
             <div class="muscle-group mb-2">
-              <div class="muscle-header pl-3 py-1 text-sm font-semibold text-gray-700 dark:text-gray-300">${formatMuscleName(mg)}</div>
+              ${buildMuscleGroupHeader(mg)}
               <div class="category-activities pl-6">
                 ${list.map((record) => ActivityCard.build(record, category, callbacks)).join('')}
               </div>

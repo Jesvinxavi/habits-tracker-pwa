@@ -3,10 +3,11 @@ import { getLocalISODate } from '../../../shared/datetime.js';
 import {
   getActivitiesForDate,
   getActivityCategory,
+  getActivity,
   deleteRecordedActivity,
 } from '../activities.js';
 import { isRestDay } from '../restDays.js';
-import { appData } from '../../../core/state.js';
+import { getState } from '../../../core/state.js';
 import { adjustActivitiesContainerHeight } from '../helpers/fitnessLayout.js';
 import { CategoryGroup } from './CategoryGroup.js';
 
@@ -35,7 +36,7 @@ export function renderActivitiesList(onActivityClick) {
   const activitiesContainer = document.getElementById('activities-list');
   if (!activitiesContainer) return;
 
-  const selectedDate = appData.fitnessSelectedDate || new Date().toISOString();
+  const selectedDate = getState().fitnessSelectedDate || new Date().toISOString();
   const iso = getLocalISODate(selectedDate);
   const isRestDayActive = isRestDay(iso);
   const activities = getActivitiesForDate(iso);
@@ -87,6 +88,7 @@ export function renderActivitiesList(onActivityClick) {
         deleteRecordedActivity(recordId, iso);
         renderActivitiesList(onActivityClick || activitiesContainer._onActivityClick);
       },
+      getActivity: getActivity,
     });
   });
 
@@ -99,6 +101,7 @@ export function renderActivitiesList(onActivityClick) {
       deleteRecordedActivity(recordId, iso);
       renderActivitiesList(onActivityClick || activitiesContainer._onActivityClick);
     },
+    getActivity: getActivity,
   });
 
   // Recalculate scrollable area height after any UI change

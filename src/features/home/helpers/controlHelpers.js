@@ -1,8 +1,5 @@
-import { mutate, appData } from '../../../core/state.js';
+import { getState, dispatch, Actions } from '../../../core/state.js';
 import { findNextGroupWithHabits } from './coreHelpers.js';
-import { refreshUI } from './refreshHelpers.js';
-import { updateDropdownText, saveSectionVisibility } from './uiHelpers.js';
-import { sectionVisibility } from './coreHelpers.js';
 
 /* -------------------------------------------------------------------------- */
 /*  CONTROL BINDING                                                           */
@@ -35,12 +32,9 @@ function handleGroupPillEnd(e, startX, startY, isSwiping) {
 
   if (Math.abs(deltaX) > 50) {
     const direction = deltaX > 0 ? -1 : 1;
-    const nextGroup = findNextGroupWithHabits(appData.selectedGroup, direction);
-    if (nextGroup !== appData.selectedGroup) {
-      mutate((s) => {
-        s.selectedGroup = nextGroup;
-      });
-      refreshUI();
+    const nextGroup = findNextGroupWithHabits(getState().selectedGroup, direction);
+    if (nextGroup !== getState().selectedGroup) {
+      dispatch(Actions.setSelectedGroup(nextGroup));
     }
   }
 
@@ -71,22 +65,5 @@ export function bindControls() {
     groupPill.addEventListener('mouseleave', handleEnd);
   }
 
-  // Section visibility dropdown
-  document.addEventListener('click', (e) => {
-    const action = e.target.closest('[data-action]')?.dataset.action;
-    if (!action) return;
-
-    if (action === 'toggle-completed') {
-      sectionVisibility.Completed = !sectionVisibility.Completed;
-      saveSectionVisibility(sectionVisibility);
-      refreshUI();
-      updateDropdownText();
-    }
-    if (action === 'toggle-skipped') {
-      sectionVisibility.Skipped = !sectionVisibility.Skipped;
-      saveSectionVisibility(sectionVisibility);
-      refreshUI();
-      updateDropdownText();
-    }
-  });
+  // Section visibility toggle is now handled within uiHelpers.setupMenuToggle()
 }

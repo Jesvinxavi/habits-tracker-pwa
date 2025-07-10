@@ -2,15 +2,24 @@
 import { FitnessView } from './FitnessView.js';
 import { Modals } from './FitnessModals.js';
 import { Timer } from './TimerModule.js';
-import { mutate, subscribe, appData } from '../../core/state.js';
+import { getState, dispatch, Actions, subscribe } from '../../core/state.js';
 import { getLocalMidnightISOString } from '../../shared/datetime.js';
 import { FitnessCalendar } from './FitnessCalendar.js';
+
+// Flag to prevent double-initialisation when the module is imported twice (eagerly at boot and lazily via navigation)
+let _initialized = false;
 
 /**
  * Initializes the fitness view with all its modular components
  * This replaces the legacy initializeFitness function from src/ui/fitness.js
  */
 export async function initializeFitness() {
+  // Skip if we've already mounted everything
+  if (_initialized) {
+    return;
+  }
+  _initialized = true;
+
   // Clean up any fitness categories that accidentally got mixed into habits categories
   cleanupFitnessFromHabitsCategories();
 
@@ -24,9 +33,7 @@ export async function initializeFitness() {
   // Create local ISO string to avoid timezone conversion issues
   const localToday = getLocalMidnightISOString(today);
 
-  mutate((s) => {
-    s.fitnessSelectedDate = localToday;
-  });
+  dispatch(Actions.setFitnessSelectedDate(localToday));
 
   // Get the fitness view container
   const fitnessView = document.getElementById('fitness-view');
@@ -42,9 +49,7 @@ export async function initializeFitness() {
     onEditClick: (activityId) => Modals.openEditActivity(activityId),
     onActivityClick: (activityId) => Modals.openActivityDetails(activityId),
     onDateChange: (date) => {
-      mutate((s) => {
-        s.fitnessSelectedDate = date.toISOString();
-      });
+      dispatch(Actions.setFitnessSelectedDate(date.toISOString()));
       // Refresh the calendar and rest toggle after date change
       if (FitnessCalendar.ready && FitnessCalendar.scrollToSelected) {
         FitnessCalendar.ready.then(() => {
@@ -54,7 +59,6 @@ export async function initializeFitness() {
       FitnessView.updateRestToggle();
     },
     onRestToggle: () => {
-      // The rest day toggle functionality is already handled in RestToggle.js
       // We just need to refresh the calendar and activity list to reflect the changes
 
       // Refresh the calendar to show/hide rest day styling
@@ -82,7 +86,7 @@ export async function initializeFitness() {
   }
 
   // Subscribe to state changes for reactive updates
-  let lastFitnessDate = appData.fitnessSelectedDate;
+  let lastFitnessDate = getState().fitnessSelectedDate;
   subscribe(() => {
     FitnessView.renderActivities((activityId, record) => {
       if (record) {
@@ -93,8 +97,8 @@ export async function initializeFitness() {
     });
     FitnessView.updateTimerButton();
     // Only update rest toggle if the selected date changed
-    if (appData.fitnessSelectedDate !== lastFitnessDate) {
-      lastFitnessDate = appData.fitnessSelectedDate;
+    if (getState().fitnessSelectedDate !== lastFitnessDate) {
+      lastFitnessDate = getState().fitnessSelectedDate;
       FitnessView.updateRestToggle();
     }
   });
@@ -130,33 +134,55 @@ export async function initializeFitness() {
  * Cleans up any fitness categories that accidentally got mixed into habits categories
  */
 function cleanupFitnessFromHabitsCategories() {
-  mutate((s) => {
-    // Remove any fitness-related categories from habits categories
-    s.categories = s.categories.filter((cat) => !cat.id.startsWith('fitness-'));
-
-    // Ensure activity categories exist
-    if (!s.activityCategories) {
-      s.activityCategories = [
-        { id: 'cardio', name: 'Cardio', icon: '❤️', color: '#ef4444' },
-        { id: 'strength', name: 'Strength', icon: '💪', color: '#3b82f6' },
-        { id: 'stretching', name: 'Stretching', icon: '🧘‍♀️', color: '#10b981' },
-        { id: 'sports', name: 'Sports', icon: '⚽', color: '#f59e0b' },
-        { id: 'yoga', name: 'Yoga', icon: '🧘', color: '#8b5cf6' },
-        { id: 'swimming', name: 'Swimming', icon: '🏊‍♂️', color: '#06b6d4' },
-      ];
-    }
+  if (localStorage.getItem('habitsAppFitnessMigrationV1') === 'true') {
+    return;
+  }
+  
+  dispatch((dispatch, getState) => {
+    const state = getState();
+    const categories = state.categories.filter((cat) => !cat.id.startsWith('fitness-'));
+    
+    const activityCategories = [
+      { id: 'cardio', name: 'Cardio', icon: '❤️', color: '#ef4444' },
+      { id: 'strength', name: 'Strength', icon: '💪', color: '#3b82f6' },
+      { id: 'stretching', name: 'Stretching', icon: '🧘‍♀️', color: '#10b981' },
+      { id: 'sports', name: 'Sports', icon: '⚽', color: '#f59e0b' },
+      { id: 'other', name: 'Other', icon: '🎯', color: '#eab308' },
+    ];
+    
+    dispatch(Actions.importData({ categories, activityCategories }));
   });
+  
+  localStorage.setItem('habitsAppFitnessMigrationV1', 'true');
 }
 
 /**
  * Clears only system-generated sample activities while preserving user-created activities
  */
 function clearExistingActivities() {
+  if (localStorage.getItem('habitsAppFitnessMigrationV1') === 'true') {
+    return;
+  }
+  
   // List of known sample activity names that should be removed
   const sampleActivityNames = ['Running', 'Push-ups', 'Squats', 'Yoga', 'Basketball', 'Swimming'];
 
-  mutate((s) => {
-    // Filter out only the sample activities, keep user-created ones
-    s.activities = s.activities.filter((activity) => !sampleActivityNames.includes(activity.name));
+  dispatch((dispatch, getState) => {
+    const state = getState();
+    const activities = state.activities.filter((activity) => !sampleActivityNames.includes(activity.name));
+    dispatch(Actions.importData({ activities }));
   });
+  
+  localStorage.setItem('habitsAppFitnessMigrationV1', 'true');
 }
+
+/**
+ * Standard init function expected by navigation.js
+ */
+export async function init() {
+  await initializeFitness();
+}
+
+export const FitnessModule = {
+  init,
+};

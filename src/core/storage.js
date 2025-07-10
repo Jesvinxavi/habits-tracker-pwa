@@ -1,5 +1,4 @@
-import { appData, subscribe, notify } from './state.js';
-import { ensureHolidayIntegrity } from './state.js';
+import { getState, subscribe, dispatch, Actions } from './state.js';
 import { debounce, safeJsonParse, safeJsonStringify } from '../shared/common.js';
 import { getLocalMidnightISOString } from '../shared/datetime.js';
 
@@ -37,13 +36,6 @@ const memoryStorage = (() => {
 })();
 
 const storageBackend = isLocalStorageAvailable() ? localStorage : memoryStorage;
-
-// Debounce helper moved to utils/common.js for centralization
-
-// ----------------------------- Migration helpers -----------------------------
-function migrateDataIfNeeded(data) {
-  return data;
-}
 
 // ----------------------- IndexedDB fallback ---------------------------------
 const IDB_DB_NAME = 'healthyHabitsDB';
@@ -97,36 +89,24 @@ export function loadDataFromLocalStorage() {
 
     if (storedRaw) {
       try {
-        const parsedData = migrateDataIfNeeded(safeJsonParse(storedRaw, {}));
+        const parsedData = safeJsonParse(storedRaw, {});
 
-        Object.assign(appData, parsedData);
-
-        // Preserve theme setting - don't let storage override it
-        const currentTheme = appData.settings.darkMode;
-        appData.settings.darkMode = currentTheme;
+        // Use dispatch to import data
+        dispatch(Actions.importData(parsedData));
 
         // Always reset date fields to today on startup so the calendar defaults to current date
         const today = new Date();
         const localTodayIso = getLocalMidnightISOString(today);
-        appData.selectedDate = localTodayIso;
-        if (appData.currentDate) {
-          appData.currentDate = localTodayIso;
-        }
-        appData.fitnessSelectedDate = localTodayIso;
-        // Always default to Daily group on startup for consistency
-        appData.selectedGroup = 'daily';
-        ensureHolidayIntegrity(appData);
+        dispatch(Actions.setSelectedDate(localTodayIso));
+        dispatch(Actions.setFitnessSelectedDate(localTodayIso));
+        dispatch(Actions.setSelectedGroup('daily'));
 
         // After state is populated, rebuild holiday caches so manualSingles matches stored dates.
-        import('../features/holidays/holidays.js').then((m) => m.initializeHolidays());
       } catch (error) {
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-          console.error('[storage] Error parsing stored data:', error);
-        }
+        console.error('[storage] Error parsing stored data:', error);
       }
     } else {
       // No stored data; still ensure holiday utilities have correct caches (empty but synced)
-      import('../features/holidays/holidays.js').then((m) => m.initializeHolidays());
     }
     // Mark load complete so subsequent state changes are persisted
     _hasLoaded = true;
@@ -135,24 +115,14 @@ export function loadDataFromLocalStorage() {
     idbGet('appData')
       .then((data) => {
         if (data && typeof data === 'object') {
-          Object.assign(appData, data);
-
-          // Preserve theme setting - don't let IndexedDB override it
-          const currentTheme = appData.settings.darkMode;
-          appData.settings.darkMode = currentTheme;
+          dispatch(Actions.importData(data));
 
           // Apply the same date corrections as above to prevent timezone issues
           const today = new Date();
           const localTodayIso = getLocalMidnightISOString(today);
-          appData.selectedDate = localTodayIso;
-          if (appData.currentDate) {
-            appData.currentDate = localTodayIso;
-          }
-          appData.fitnessSelectedDate = localTodayIso;
-          // Always default to Daily group on startup for consistency
-          appData.selectedGroup = 'daily';
-
-          notify();
+          dispatch(Actions.setSelectedDate(localTodayIso));
+          dispatch(Actions.setFitnessSelectedDate(localTodayIso));
+          dispatch(Actions.setSelectedGroup('daily'));
         }
         resolve(); // Resolve after IndexedDB check completes
       })
@@ -164,13 +134,11 @@ export function loadDataFromLocalStorage() {
 
 function rawSave() {
   try {
-    const payload = safeJsonStringify(appData, '{}');
+    const payload = safeJsonStringify(getState(), '{}');
     storageBackend.setItem(STORAGE_KEY, payload);
-    idbSet('appData', appData);
+    idbSet('appData', getState());
   } catch (error) {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      console.error('[storage] Error saving data to localStorage:', error);
-    }
+    console.error('[storage] Error saving data to localStorage:', error);
   }
 }
 
@@ -191,8 +159,7 @@ if (typeof window !== 'undefined' && isLocalStorageAvailable()) {
   window.addEventListener('storage', (evt) => {
     if (evt.key === STORAGE_KEY && evt.newValue && _hasLoaded) {
       try {
-        Object.assign(appData, migrateDataIfNeeded(JSON.parse(evt.newValue)));
-        notify(); // Inform listeners of state update originating from another tab
+        dispatch(Actions.importData(JSON.parse(evt.newValue)));
       } catch (e) {
         // ignore corrupt cross-tab payloads
       }
@@ -202,7 +169,7 @@ if (typeof window !== 'undefined' && isLocalStorageAvailable()) {
 
 // -------------------------- Export / Import utils ----------------------------
 export function exportAppData() {
-  return JSON.stringify(appData, null, 2);
+  return JSON.stringify(getState(), null, 2);
 }
 
 /**
@@ -211,14 +178,12 @@ export function exportAppData() {
  */
 export function importAppData(jsonString) {
   try {
-    Object.assign(appData, migrateDataIfNeeded(JSON.parse(jsonString)));
-    ensureHolidayIntegrity(appData);
+    const data = JSON.parse(jsonString);
+    dispatch(Actions.importData(data));
     saveDataToLocalStorage();
     return true;
-  } catch (e) {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      console.error('[storage] Failed to import data:', e);
-    }
+  } catch (error) {
+    console.error('[storage] Error importing data:', error);
     return false;
   }
 }

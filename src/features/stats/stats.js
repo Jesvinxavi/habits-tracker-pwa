@@ -11,7 +11,7 @@
  * The page follows the same styling patterns as the fitness page with left-aligned titles.
  */
 
-import { appData, subscribe } from '../../core/state.js';
+import { getState, subscribe } from '../../core/state.js';
 import {
   isHabitCompleted,
   isHabitScheduledOnDate,
@@ -61,7 +61,6 @@ function buildHeaderBar() {
   const statsView = document.getElementById('stats-view');
   if (!statsView) return;
 
-  // Create header identical to Fitness page structure but with left-aligned title
   const header = document.createElement('header');
   header.className =
     'app-header flex justify-between items-center h-11 px-4 sm:px-6 lg:px-8 border-b border-gray-200 dark:border-gray-700 border-opacity-50 w-full';
@@ -138,7 +137,7 @@ function renderStatsContent() {
  * Calculate comprehensive habit statistics
  */
 function calculateHabitStatistics() {
-  const habits = (appData.habits || []).filter(validateHabitData);
+  const habits = (getState().habits || []).filter(validateHabitData);
   const today = new Date();
 
   // Basic counts
@@ -439,8 +438,6 @@ function calculateMonthlyHabitCompletionRate(habit, months = 3) {
     1;
   const monthsToCheck = Math.min(months, monthsSinceCreation);
 
-  // Debug logging for development
-
   for (let i = 0; i < monthsToCheck; i++) {
     // Calculate the month we're checking (0 = current month, 1 = previous month, etc.)
     const targetMonth = today.getMonth() - i;
@@ -468,8 +465,6 @@ function calculateMonthlyHabitCompletionRate(habit, months = 3) {
       }
       currentDate.setDate(currentDate.getDate() + 1);
     }
-
-    // Debug logging for each month
 
     if (monthScheduled) {
       scheduled++;
@@ -536,8 +531,8 @@ function calculateLongestStreak(habit) {
  * Calculate fitness statistics
  */
 function calculateFitnessStatistics() {
-  const activities = appData.activities || [];
-  const recordedActivities = appData.recordedActivities || {};
+  const activities = getState().activities || [];
+  const recordedActivities = getState().recordedActivities || {};
 
   const stats = {
     totalActivities: activities.length,
@@ -761,7 +756,7 @@ function renderHabitStatsSection(container, stats) {
 
   let categoryStatsHTML = '';
   stats.categoryBreakdown.forEach((categoryData, categoryId) => {
-    const category = appData.categories.find((c) => c.id === categoryId);
+    const category = getState().categories.find((c) => c.id === categoryId);
     const categoryName = category ? category.name : 'Unknown';
     const categoryColor = category ? category.color : '#888';
 

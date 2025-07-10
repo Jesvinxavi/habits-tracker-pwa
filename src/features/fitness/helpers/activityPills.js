@@ -2,7 +2,6 @@
  * Activity Pills Helper Functions
  *
  * Pure functions for generating activity pills display
- * Extracted from src/ui/fitness.js for better modularity
  */
 
 /**

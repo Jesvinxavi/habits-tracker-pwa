@@ -1,9 +1,6 @@
 // src/selectors/progress.js
-// Centralised progress / statistics helpers extracted from
-// features/home/schedule.js so multiple views can share one implementation.
-// Phase-6 task sel-1
 
-import { appData } from '../core/state.js';
+import { getState } from '../core/state.js';
 import { eachDayInRange, getPeriodBounds } from '../shared/datetime.js';
 
 // Re-use existing helpers from schedule.js to avoid duplication
@@ -14,10 +11,17 @@ import {
   belongsToSelectedGroup,
 } from '../features/home/schedule.js';
 
+// Simple memoization cache for progress calculation
+let _progressCache = {
+  selectedDate: null,
+  selectedGroup: null,
+  habitsHash: null,
+  result: null
+};
+
 /**
  * Calculate progress for a single habit over a specific date range.
  * Returns count of completed units and total active units.
- * Logic identical to original implementation in schedule.js.
  *
  * @param {object} habit - Habit object
  * @param {{start:Date,end:Date}} period - Inclusive date range
@@ -74,7 +78,7 @@ export function getGroupProgress(group, date = new Date()) {
   if (!period) throw new Error(`Unknown group: ${group}`);
 
   const bounds = getPeriodBounds(period, date);
-  const groupHabits = appData.habits.filter((h) => belongsToSelectedGroup(h, group));
+  const groupHabits = getState().habits.filter((h) => belongsToSelectedGroup(h, group));
 
   let totalCompleted = 0;
   let totalActive = 0;
@@ -87,4 +91,44 @@ export function getGroupProgress(group, date = new Date()) {
 
   const percentage = totalActive > 0 ? Math.round((totalCompleted / totalActive) * 100) : 0;
   return { percentage, completed: totalCompleted, active: totalActive };
+}
+
+/**
+ * Calculate progress for the current context (selected date and group)
+ * with simple memoization to avoid unnecessary re-computation
+ */
+export function getCurrentContextProgress() {
+  const dateObj = new Date(getState().selectedDate);
+  const habitsHash = JSON.stringify(getState().habits.map(h => ({ id: h.id, completed: h.completed, skipped: h.skipped })));
+  
+  // Check if we can use cached result
+  if (_progressCache.selectedDate === getState().selectedDate &&
+      _progressCache.selectedGroup === getState().selectedGroup &&
+      _progressCache.habitsHash === habitsHash) {
+    return _progressCache.result;
+  }
+
+  // 1) Habits that belong to the currently selected group
+  // 2) Are actually scheduled for the selected date (takes holiday mode into account)
+  const scheduledHabits = getState().habits.filter(
+    (h) => belongsToSelectedGroup(h, getState().selectedGroup) && isHabitScheduledOnDate(h, dateObj)
+  );
+
+  // 3) Remove any that the user explicitly skipped
+  const activeHabits = scheduledHabits.filter((h) => !isHabitSkippedToday(h, dateObj));
+
+  // 4) Determine how many of the remaining active habits are completed
+  const completed = activeHabits.filter((h) => isHabitCompleted(h, dateObj));
+
+  const progress = activeHabits.length ? (completed.length / activeHabits.length) * 100 : 0;
+  
+  // Cache the result
+  _progressCache = {
+    selectedDate: getState().selectedDate,
+    selectedGroup: getState().selectedGroup,
+    habitsHash: habitsHash,
+    result: progress
+  };
+  
+  return progress;
 }

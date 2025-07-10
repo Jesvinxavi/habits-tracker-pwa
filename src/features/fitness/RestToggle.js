@@ -2,11 +2,10 @@
  * Rest Toggle Component
  *
  * Component for building the rest day toggle functionality
- * Extracted from src/ui/fitness.js for better modularity
  */
 
 import { isRestDay, toggleRestDay } from './restDays.js';
-import { appData } from '../../core/state.js';
+import { getState } from '../../core/state.js';
 import { getLocalISODate } from '../../shared/datetime.js';
 import { getActivitiesForDate } from './activities.js';
 import { renderActivitiesList } from './ActivityList/ActivitiesList.js';
@@ -19,9 +18,9 @@ import { showConfirm } from '../../components/ConfirmDialog.js';
  * @returns {HTMLElement} The rest day toggle element
  */
 export function mountRestToggle(options = {}) {
-  // Add Rest Day toggle row below calendar
+  // Build Rest Day toggle row below calendar
   const restRow = document.createElement('div');
-  restRow.className = 'flex items-center justify-between px-4 py-1';
+  restRow.className = 'flex items-center justify-between px-4 py-1 rest-toggle-row';
   restRow.innerHTML = `
     <div id="activities-label" class="bg-blue-50 dark:bg-gray-800 text-gray-900 dark:text-white px-6 py-1.5 rounded-full text-xl font-bold flex items-center justify-center gap-2">
       <span class="material-icons text-xl">fitness_center</span>
@@ -52,7 +51,7 @@ function bindRestToggle(container, onToggle) {
   if (!restBtn) return;
 
   restBtn.addEventListener('click', () => {
-    const selectedDate = appData.fitnessSelectedDate || new Date().toISOString();
+    const selectedDate = getState().fitnessSelectedDate || new Date().toISOString();
     const iso = getLocalISODate(selectedDate);
 
     // Check if there are activities recorded for this date
@@ -105,7 +104,7 @@ export function updateRestToggle(container) {
 
   if (!restBtn) return;
 
-  const selectedDate = appData.fitnessSelectedDate || new Date().toISOString();
+  const selectedDate = getState().fitnessSelectedDate || new Date().toISOString();
   const iso = getLocalISODate(selectedDate);
   const isOn = isRestDay(iso);
 

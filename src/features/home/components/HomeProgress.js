@@ -1,15 +1,9 @@
 // HomeProgress.js - Progress component for the home view
-import * as scheduleUtils from '../schedule.js';
-import { appData } from '../../../core/state.js';
-import { updateProgressRing } from '../../../components/ProgressRing.js';
-import { updateProgressPills } from '../../../components/HomeProgressPills.js';
+import { updateProgressRing } from './ProgressRing.js';
+import { updateProgressPills } from './HomeProgressPills.js';
+import { getCurrentContextProgress } from '../../../selectors/progress.js';
 
-// Re-export for external use
 export { updateProgressRing, updateProgressPills };
-
-// Local aliases for schedule helpers
-const { belongsToSelectedGroup, isHabitScheduledOnDate, isHabitCompleted, isHabitSkippedToday } =
-  scheduleUtils;
 
 /**
  * HomeProgress component that manages progress ring and pills
@@ -30,34 +24,12 @@ export const HomeProgress = {
    * Renders the progress components
    */
   render() {
-    // Calculate and update progress ring
-    const progress = this._calculateProgressForCurrentContext();
+    // Calculate and update progress ring using memoized selector
+    const progress = getCurrentContextProgress();
     updateProgressRing(progress);
 
     // Update progress pills
     updateProgressPills();
-  },
-
-  /**
-   * Calculates progress for the current context
-   */
-  _calculateProgressForCurrentContext() {
-    const dateObj = new Date(appData.selectedDate);
-
-    // 1) Habits that belong to the currently selected group
-    // 2) Are actually scheduled for the selected date (takes holiday mode into account)
-    const scheduledHabits = appData.habits.filter(
-      (h) => belongsToSelectedGroup(h, appData.selectedGroup) && isHabitScheduledOnDate(h, dateObj)
-    );
-
-    // 3) Remove any that the user explicitly skipped
-    const activeHabits = scheduledHabits.filter((h) => !isHabitSkippedToday(h, dateObj));
-
-    // 4) Determine how many of the remaining active habits are completed
-    const completed = activeHabits.filter((h) => isHabitCompleted(h, dateObj));
-
-    const progress = activeHabits.length ? (completed.length / activeHabits.length) * 100 : 0;
-    return progress;
   },
 
   /**

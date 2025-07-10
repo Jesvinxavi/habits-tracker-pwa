@@ -3,8 +3,6 @@
  * Provides start/stop/reset functionality with persistent state
  */
 
-// formatElapsedTime import removed - function moved to datetime.js but not used in timer.js
-
 // Timer state
 let timerState = {
   isRunning: false,
@@ -16,8 +14,6 @@ let timerState = {
 // Timer interval and callbacks
 let timerInterval = null;
 let updateCallback = null;
-
-// formatElapsedTime function moved to datetime.js for centralization
 
 /**
  * Gets the current timer state

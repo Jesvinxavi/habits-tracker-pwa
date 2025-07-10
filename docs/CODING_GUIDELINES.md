@@ -63,11 +63,12 @@ Whenever you (or the AI assistant) make a change **refer to this guide first** a
 
 ## 4. State Management (`src/core`)
 
-1. `state.js` exports **one mutable object** `appData` and helper utilities `mutate`, `subscribe`, `notify`.
-2. **Never** replace `appData` – always mutate properties so references remain valid.
-3. Wrap every change in `mutate((state)=>{ … })` so subscribers are notified.
-4. Add new persistent fields to `appData` **together** with migration logic inside `ensureHabitIntegrity` (or a dedicated helper).
-5. **Persistence**: LocalStorage (`storage.js`) automatically serialises after `notify()`. Do not write to LocalStorage directly anywhere else.
+1. `state.js` exports **one mutable object** `appData` and helper utilities `dispatch`, `Actions`, `subscribe`, `notify`.
+2. **Never** replace `appData` – always use `dispatch(Actions.actionName(...))` for state changes.
+3. **Always** use `dispatch(Actions.actionName(...))` to change state so subscribers are notified.
+4. **Never** access `appData` directly for reading state - use `Selectors` instead.
+5. Add new persistent fields to `appData` **together** with migration logic inside `ensureHabitIntegrity` (or a dedicated helper).
+6. **Persistence**: LocalStorage (`storage.js`) automatically serialises after `notify()`. Do not write to LocalStorage directly anywhere else.
 
 ---
 

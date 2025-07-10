@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  base: '/habits-tracker-pwa/',
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
@@ -17,8 +18,8 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
+        scope: '/habits-tracker-pwa/',
+        start_url: '/habits-tracker-pwa/',
         icons: [
           {
             src: 'public/icons/apple-touch-icon.png',
@@ -40,7 +41,7 @@ export default defineConfig({
     }),
   ],
   build: {
-    target: 'es2015',
+    target: 'es2020',
     minify: 'terser',
     terserOptions: {
       compress: {
@@ -65,7 +66,6 @@ export default defineConfig({
           'fitness-core': [
             './src/features/fitness/FitnessModule.js',
             './src/features/fitness/FitnessView.js',
-            './src/features/fitness/ActivityListModule.js',
           ],
           'fitness-modals': [
             './src/features/fitness/Modals/ActivityDetailsModal.js',
@@ -83,6 +83,8 @@ export default defineConfig({
             './src/components/ConfirmDialog.js',
             './src/components/InstallPrompt.js',
             './src/components/UpdatePrompt.js',
+            './src/shared/HeaderBar.js',
+            './src/shared/ActionButtons.js',
           ],
         },
         chunkFileNames: (chunkInfo) => {
