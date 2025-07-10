@@ -266,9 +266,22 @@ export function formatDate(key) {
 }
 
 export function getLocalMidnightISOString(date) {
-  // Re-use getLocalISODate to strip any time portion and avoid TZ shifts.
-  const isoDate = getLocalISODate(date);
-  return `${isoDate}T00:00:00.000Z`;
+  // Build an ISO string that represents midnight **in the user's LOCAL timezone**.
+  // We intentionally omit the trailing "Z" so the resulting string is parsed
+  // by `new Date(str)` as local time, avoiding the 1-day shift that occurs when
+  // using `YYYY-MM-DDT00:00:00Z` across different timezones.
+
+  // 1. Coerce to Date (accepts Date or string).
+  const d = new Date(date);
+  if (isNaN(d)) return '';
+
+  // 2. Extract the local date components.
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+
+  // 3. Return ISO-like string (no timezone designator).
+  return `${year}-${month}-${day}T00:00:00.000`;
 }
 
 export const toKey = dateToKey;
