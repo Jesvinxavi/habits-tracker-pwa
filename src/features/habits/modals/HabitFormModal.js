@@ -28,6 +28,26 @@ let editingHabitId = null;
 // ---------- Icon Picker ----------
 
 export function openAddHabitModal() {
+  // Check if categories exist before opening modal
+  if (getState().categories.length === 0) {
+    // If no categories, show a confirmation dialog to create one first
+    import('../../../components/ConfirmDialog.js').then(({ showConfirm }) => {
+      showConfirm({
+        title: 'No Categories',
+        message: 'You need to create at least one category before adding habits. Would you like to create a category now?',
+        okText: 'Create Category',
+        cancelText: 'Cancel',
+        onOK: () => {
+          import('../ui/categories.js').then((m) => {
+            m.initializeCategories();
+            m.openAddCategoryModal();
+          });
+        },
+      });
+    });
+    return;
+  }
+
   editingHabitId = null;
   resetHabitFormUI();
   // hide delete button
@@ -241,24 +261,17 @@ export function initializeHabitsForm() {
     const btn = e.target.closest('.new-habit-btn');
     if (btn) {
       e.preventDefault();
+      // Check if button is disabled (no categories)
+      if (btn.disabled) {
+        return;
+      }
       openAddHabitModal();
     }
   });
   document.getElementById('cancel-habit')?.addEventListener('click', closeAddHabitModal);
   document.getElementById('save-habit')?.addEventListener('click', handleSaveHabit);
 
-  // Create-category from inside habit form
-  const createCatBtn = document.getElementById('create-category-btn');
-  if (createCatBtn) {
-    createCatBtn.addEventListener('click', () => {
-      window._returnToHabit = true;
-      closeAddHabitModal();
-      import('../ui/categories.js').then((m) => {
-        m.initializeCategories();
-        m.openAddCategoryModal();
-      });
-    });
-  }
+
 
   // Validation wiring
   const nameInput = document.getElementById('habit-name-input');
@@ -360,7 +373,7 @@ function gatherFormData() {
   };
 }
 
-function handleSaveHabit() {
+async function handleSaveHabit() {
   const data = gatherFormData();
   if (!data.name || !data.categoryId) return;
 
@@ -375,11 +388,15 @@ function handleSaveHabit() {
   const defaultIncInput = document.getElementById('default-increment-input');
   const defaultIncVal = defaultIncInput ? parseInt(defaultIncInput.value || '1', 10) : 1;
 
+  // Import timezone-safe date helper
+  const { getLocalMidnightISOString } = await import('../../../shared/datetime.js');
+  
   const habitObj = {
     id: generateUniqueId(),
     name: data.name,
     categoryId: data.categoryId,
     frequency: data.frequency,
+    createdAt: getLocalMidnightISOString(new Date()), // Add timezone-safe creation timestamp
     days:
       data.frequency === 'weekly'
         ? Array.from(selectedWeeklyDays)

@@ -1,12 +1,12 @@
 // Enhanced State Management System with Immutable Updates and Actions
 
 import { deepClone, generateUniqueId } from '../shared/common.js';
+import { getLocalMidnightISOString } from '../shared/datetime.js';
 
 // Helper to get local date without timezone issues
 function getLocalDateISO() {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today.toISOString();
+  return getLocalMidnightISOString(today);
 }
 
 // Initial state structure

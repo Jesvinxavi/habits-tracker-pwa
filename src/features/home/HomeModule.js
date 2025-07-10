@@ -89,7 +89,8 @@ export const HomeModule = {
    * Handles holiday toggle
    */
   _handleHolidayToggle() {
-    // State change will trigger HomeView.render() via subscription
+    // Immediately refresh UI like backup7 does
+    this._handleStateChange();
   },
 
   /**

@@ -6,6 +6,7 @@
  */
 
 import { getTimerState, setTimerUpdateCallback, initializeTimer } from '../features/fitness/timer.js';
+import { getState, subscribe } from '../core/state.js';
 
 /**
  * Mounts the action buttons row
@@ -56,6 +57,30 @@ export function mountActionButtons(options = {}) {
     if (newHabitBtn && callbacks.onNewHabit) {
       newHabitBtn.addEventListener('click', callbacks.onNewHabit);
     }
+
+    // Function to update New Habit button state based on categories
+    const updateNewHabitButtonState = () => {
+      if (!newHabitBtn) return;
+      
+      const hasCategories = getState().categories.length > 0;
+      newHabitBtn.disabled = !hasCategories;
+      
+      if (hasCategories) {
+        newHabitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        newHabitBtn.title = '';
+      } else {
+        newHabitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        newHabitBtn.title = 'Create a category first before adding habits';
+      }
+    };
+
+    // Initial state update
+    updateNewHabitButtonState();
+
+    // Subscribe to state changes to update button when categories change
+    subscribe(() => {
+      updateNewHabitButtonState();
+    });
   } else if (type === 'fitness') {
     actionButtons.innerHTML = `
       <button id="new-activity-btn" class="flex-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 py-1.5 px-4 rounded-xl font-medium flex items-center justify-center gap-2">

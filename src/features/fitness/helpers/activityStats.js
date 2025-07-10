@@ -225,6 +225,18 @@ export function buildStatsContent(activity, stats, category) {
         }
       </div>
     `;
+
+    // Strength progression chart (e.g., max weight per session)
+    const progressionData = extractStrengthProgressionData(activity.id);
+    if (progressionData.length > 1) {
+      content += `
+        <div class="mt-6">
+          <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Progression</h4>
+          <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+            ${generateLineChartSVG(progressionData, category.color, activity)}
+          </div>
+        </div>`;
+    }
   } else {
     content += `
       <div class="stats-section">
@@ -410,4 +422,225 @@ export function openActivityStatsModal(activity, stats) {
   if (modal) {
     modal.classList.remove('hidden');
   }
+}
+
+/**
+ * Extracts progression data (e.g., max weight per session) for strength-type activities.
+ * Returned values are sorted by date ascending and suitable for plotting a line chart.
+ *
+ * @param {string} activityId The ID of the activity
+ * @returns {Array<{date: string, value: number}>} Progression data
+ */
+/**
+ * Gets the weight unit used for an activity by looking at recent recorded sets
+ * @param {string} activityId - The activity ID
+ * @returns {string} - The weight unit (e.g., 'lbs', 'kg') or empty string
+ */
+export function getWeightUnitForActivity(activityId) {
+  const allRecords = [];
+  Object.values(getState().recordedActivities || {}).forEach((dayRecords) => {
+    dayRecords.forEach((record) => {
+      if (record.activityId === activityId && record.sets) {
+        allRecords.push(record);
+      }
+    });
+  });
+
+  // Find the most recent record with a non-'none' unit
+  for (let i = allRecords.length - 1; i >= 0; i--) {
+    const record = allRecords[i];
+    if (record.sets && record.sets.length > 0) {
+      const set = record.sets.find(s => s.unit && s.unit !== 'none');
+      if (set && set.unit) {
+        return set.unit;
+      }
+    }
+  }
+
+  return 'lbs'; // Default fallback
+}
+
+export function extractStrengthProgressionData(activityId) {
+  const activity = getActivity(activityId);
+  if (!activity || activity.trackingType !== 'sets-reps') return [];
+
+  // Flatten records similar to calculateActivityStatistics
+  const allRecords = [];
+  Object.values(getState().recordedActivities || {}).forEach((dayRecords) => {
+    dayRecords.forEach((record) => {
+      if (record.activityId === activityId) {
+        allRecords.push(record);
+      }
+    });
+  });
+
+  if (allRecords.length === 0) return [];
+
+  // Sort by timestamp so earliest first
+  allRecords.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+  const progression = [];
+
+  allRecords.forEach((record) => {
+    if (!record.sets || record.sets.length === 0) return;
+
+    // Determine the heaviest weight lifted in this session
+    // Ignore sets with unit === 'none'. Treat missing/invalid as 0.
+    const maxWeight = Math.max(
+      ...record.sets.map((set) => {
+        const weight = parseFloat(set.value);
+        return isNaN(weight) ? 0 : weight;
+      }),
+      0,
+    );
+
+    // Use the actual recorded date from the fitness page, not the timestamp
+    const date = record.date;
+
+    progression.push({ date, value: maxWeight });
+  });
+
+  return progression;
+}
+
+/**
+ * Generates a responsive SVG line chart with axes for the given progression data.
+ *
+ * Features:
+ * - X-axis shows session dates with equal spacing regardless of time gaps
+ * - Y-axis shows value range with grid lines
+ * - Data points are connected with a line
+ * - Responsive design with proper margins for labels
+ *
+ * @param {Array<{date: string, value: number}>} data Progression data – must have length ≥ 2
+ * @param {string} color Stroke color for the line (hex)
+ * @param {Object} activity Activity object to get unit information
+ * @returns {string} SVG markup
+ */
+export function generateLineChartSVG(data, color = '#3b82f6', activity = null) {
+  if (!data || data.length < 2) return '';
+
+  const chartWidth = 320;
+  const chartHeight = 200;
+  const margin = { top: 20, right: 30, bottom: 50, left: 70 };
+  const plotWidth = chartWidth - margin.left - margin.right;
+  const plotHeight = chartHeight - margin.top - margin.bottom;
+
+  const maxValue = Math.max(...data.map((d) => d.value));
+  const minValue = Math.min(...data.map((d) => d.value));
+  const range = maxValue === minValue ? 1 : maxValue - minValue;
+
+  // Add 10% padding to the Y-axis range for better visualization
+  // Ensure Y-axis never goes below 0
+  const paddedMin = Math.max(0, minValue - range * 0.1);
+  const paddedMax = maxValue + range * 0.1;
+  const paddedRange = paddedMax - paddedMin;
+
+  // Calculate Y-axis ticks (4-5 nice round numbers) - now from bottom to top
+  const yTickCount = 4;
+  const yTicks = [];
+  for (let i = 0; i <= yTickCount; i++) {
+    const value = paddedMin + (i * paddedRange / yTickCount);
+    yTicks.push(Math.round(value * 10) / 10); // Round to 1 decimal
+  }
+
+  // Generate plot points with equal spacing on x-axis - FIXED Y-AXIS INVERSION
+  const points = data
+    .map((d, idx) => {
+      const x = margin.left + (idx / (data.length - 1)) * plotWidth;
+      // Fixed: Higher values should be higher on chart (smaller y coordinate)
+      const y = margin.top + plotHeight - ((d.value - paddedMin) / paddedRange) * plotHeight;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+
+  // Generate data point circles - FIXED Y-AXIS INVERSION
+  const circles = data
+    .map((d, idx) => {
+      const x = margin.left + (idx / (data.length - 1)) * plotWidth;
+      // Fixed: Higher values should be higher on chart (smaller y coordinate)
+      const y = margin.top + plotHeight - ((d.value - paddedMin) / paddedRange) * plotHeight;
+      return `<circle cx="${x}" cy="${y}" r="4" fill="${color}" stroke="white" stroke-width="2"/>`;
+    })
+    .join('');
+
+  // Generate Y-axis grid lines and labels - FIXED Y-AXIS INVERSION
+  const yAxisElements = yTicks
+    .map((value, idx) => {
+      // Fixed: Bottom tick (idx=0) should be at bottom of chart
+      const y = margin.top + plotHeight - (idx / (yTicks.length - 1)) * plotHeight;
+      return `
+        <line x1="${margin.left}" y1="${y}" x2="${margin.left + plotWidth}" y2="${y}" stroke="#e5e7eb" stroke-width="1" opacity="0.5"/>
+        <text x="${margin.left - 8}" y="${y + 4}" text-anchor="end" font-size="11" font-weight="500" fill="currentColor" class="text-gray-700 dark:text-gray-300">${value}</text>
+      `;
+    })
+    .join('');
+
+  // Generate X-axis labels (dates) - FIXED DATE REPETITION
+  const showEveryNth = data.length > 8 ? Math.ceil(data.length / 6) : 1;
+  const xAxisElements = data
+    .map((d, idx) => {
+      // Show first, last, and every Nth date to avoid repetition
+      if (idx % showEveryNth !== 0 && idx !== data.length - 1 && idx !== 0) return '';
+      
+      const x = margin.left + (idx / (data.length - 1)) * plotWidth;
+      const y = margin.top + plotHeight + 20;
+      
+      // Format date as DD/MM (UK style)
+      const date = new Date(d.date);
+      const dateLabel = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+      
+      return `
+        <line x1="${x}" y1="${margin.top + plotHeight}" x2="${x}" y2="${margin.top + plotHeight + 6}" stroke="currentColor" stroke-width="1" class="text-gray-400"/>
+        <text x="${x}" y="${y}" text-anchor="middle" font-size="10" font-weight="500" fill="currentColor" class="text-gray-700 dark:text-gray-300">${dateLabel}</text>
+      `;
+    })
+    .join('');
+
+  // Get weight unit for Y-axis label
+  const weightUnit = activity ? getWeightUnitForActivity(activity.id) : 'lbs';
+
+  return `
+    <div class="w-full">
+      <svg viewBox="0 0 ${chartWidth} ${chartHeight}" class="w-full h-40 text-gray-600 dark:text-gray-400">
+        <!-- Y-axis grid lines and labels -->
+        ${yAxisElements}
+        
+        <!-- X-axis -->
+        <line x1="${margin.left}" y1="${margin.top + plotHeight}" x2="${margin.left + plotWidth}" y2="${margin.top + plotHeight}" stroke="currentColor" stroke-width="2" class="text-gray-500"/>
+        
+        <!-- Y-axis -->
+        <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${margin.top + plotHeight}" stroke="currentColor" stroke-width="2" class="text-gray-500"/>
+        
+        <!-- X-axis labels and tick marks -->
+        ${xAxisElements}
+        
+        <!-- Y-axis label (vertical) -->
+        <text x="15" y="${margin.top + plotHeight / 2}" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor" class="text-gray-700 dark:text-gray-300" transform="rotate(-90, 15, ${margin.top + plotHeight / 2})">Max Weight (${weightUnit})</text>
+        
+        <!-- X-axis label (horizontal) -->
+        <text x="${margin.left + plotWidth / 2}" y="${chartHeight - 10}" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor" class="text-gray-700 dark:text-gray-300">Session Dates</text>
+        
+        <!-- Data line with gradient effect -->
+        <defs>
+          <linearGradient id="lineGradient-${activity?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:${color};stop-opacity:0.8" />
+            <stop offset="100%" style="stop-color:${color};stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        
+        <!-- Data line -->
+        <polyline
+          fill="none"
+          stroke="url(#lineGradient-${activity?.id || 'default'})"
+          stroke-width="3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          points="${points}"/>
+        
+        <!-- Data points -->
+        ${circles}
+      </svg>
+    </div>
+  `;
 }

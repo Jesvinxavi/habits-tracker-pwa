@@ -41,7 +41,6 @@ function resetCategoryForm() {
 
 export function populateCategoryDropdown() {
   const select = document.getElementById('habit-category-select');
-  const msg = document.getElementById('no-categories-message');
   if (!select) return;
 
   select.innerHTML = '<option value="" disabled selected>Select Category</option>';
@@ -60,7 +59,6 @@ export function populateCategoryDropdown() {
   if (chevron && chevron.tagName.toLowerCase() === 'svg') {
     chevron.classList.toggle('hidden', !hasCats);
   }
-  if (msg) msg.classList.toggle('hidden', hasCats);
 }
 
 // -------------------- Modal open/close --------------------
@@ -110,11 +108,6 @@ function addNewCategory() {
   closeAddCategoryModal();
   populateCategoryDropdown();
   import('../HabitsListModule.js').then((m) => m.renderHabitsList());
-
-  if (window._returnToHabit) {
-    window._returnToHabit = false;
-    import('../modals/HabitFormModal.js').then((m) => m.openAddHabitModal());
-  }
 }
 
 function updateCategory() {

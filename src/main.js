@@ -19,36 +19,8 @@ if (
   window.process.env.NODE_ENV = 'test';
 }
 
-function registerServiceWorker() {
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker
-        .register('sw.js')
-        .then((reg) => {
-          if (reg.waiting) {
-            showUpdateBanner();
-          }
-          reg.addEventListener('updatefound', () => {
-            const newWorker = reg.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  showUpdateBanner();
-                }
-              });
-            }
-          });
-        })
-        .catch((err) => console.error('[sw] registration failed', err));
-    });
-  }
-}
-
 async function bootstrap() {
   try {
-    // Register service worker
-    registerServiceWorker();
-
     // Load data first, then initialize UI components
     await loadDataFromLocalStorage();
 

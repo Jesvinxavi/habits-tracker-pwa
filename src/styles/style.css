@@ -948,22 +948,38 @@ body {
     z-index: 1000; /* Ensure search container is above other content */
 }
 
+/* Blur effect for background content when search is expanded */
+#fitness-view.search-expanded .calendar-wrapper,
+#fitness-view.search-expanded .rest-toggle-row,
+#fitness-view.search-expanded .activities-container {
+    filter: blur(8px);
+    transition: filter 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    pointer-events: none; /* Prevent interaction with blurred content */
+}
+
+/* Ensure search container and its children are not blurred */
+#fitness-view.search-expanded .search-container,
+#fitness-view.search-expanded .search-panel {
+    filter: none;
+    pointer-events: auto;
+}
+
 #fitness-view .activities-search-section {
     position: absolute;
     top: calc(100% + 4px); /* Position below search input with small gap */
-    left: 0;
-    right: 0;
+    left: 8px;
+    right: 8px;
     z-index: 999; /* Below search container but above other content */
     max-height: 0;
     opacity: 0;
     transform: translateY(-8px) scale(0.98);
     overflow: hidden;
     transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    border-radius: 16px;
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.25), 0 8px 16px -4px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border-radius: 16px 16px 16px 16px;
     background: #ffffff;
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(229, 231, 235, 0.8);
+    border: 2px solid rgba(107, 114, 128, 0.3);
     margin: 0;
     pointer-events: none; /* Prevent interaction when hidden */
 }
@@ -995,6 +1011,7 @@ body {
     /* Ensure smooth scrolling */
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
+    border-radius: 14px; /* Slightly smaller than parent to show border */
 }
 
 /* Smooth scrollbar for search section content */
@@ -1020,8 +1037,26 @@ body {
 /* Dark mode adjustments for search section */
 [data-theme="dark"] #fitness-view .activities-search-section {
     background: #1f2937;
-    border: 1px solid rgba(75, 85, 99, 0.8);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+    border: 2px solid rgba(156, 163, 175, 0.4);
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.4), 0 8px 16px -4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Enhanced border visibility for search section */
+#fitness-view .activities-search-section::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    right: -1px;
+    bottom: -1px;
+    border-radius: 16px;
+    background: linear-gradient(45deg, rgba(107, 114, 128, 0.4), rgba(107, 114, 128, 0.2));
+    z-index: -1;
+    pointer-events: none;
+}
+
+[data-theme="dark"] #fitness-view .activities-search-section::before {
+    background: linear-gradient(45deg, rgba(156, 163, 175, 0.5), rgba(156, 163, 175, 0.3));
 }
 
 [data-theme="dark"] #fitness-view .activities-search-content::-webkit-scrollbar-track {
@@ -1110,6 +1145,56 @@ body {
 [data-theme="dark"] #fitness-view .search-input:focus-within {
   box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.2), 0 4px 6px -2px rgba(59, 130, 246, 0.1);
   border-color: #60a5fa;
+}
+
+/* Enhanced responsive text sizing for home group title */
+#group-title {
+    font-size: clamp(0.875rem, 4vw, 1.25rem); /* Responsive between 14px and 20px */
+    white-space: nowrap; /* Prevent text wrapping */
+    overflow: hidden;
+    text-overflow: ellipsis; /* Add ellipsis if text is too long */
+    max-width: 100%;
+}
+
+/* Media queries for more precise control on different screen sizes */
+@media (max-width: 320px) {
+    /* Extra small phones (iPhone SE, etc.) */
+    #group-title {
+        font-size: 0.875rem; /* 14px */
+    }
+}
+
+@media (min-width: 321px) and (max-width: 375px) {
+    /* Small phones */
+    #group-title {
+        font-size: 1rem; /* 16px */
+    }
+}
+
+@media (min-width: 376px) and (max-width: 414px) {
+    /* Medium phones */
+    #group-title {
+        font-size: 1.125rem; /* 18px */
+    }
+}
+
+@media (min-width: 415px) {
+    /* Large phones and tablets */
+    #group-title {
+        font-size: 1.25rem; /* 20px - original text-xl size */
+    }
+}
+
+/* Ensure the pill container has proper flex behavior for text overflow */
+#group-pill {
+    min-width: 0; /* Allow flex item to shrink below content size */
+}
+
+/* Responsive adjustments for very small screens */
+@media (max-width: 280px) {
+    #group-title {
+        font-size: 0.75rem; /* 12px for very small screens */
+    }
 }
 
 

@@ -60,11 +60,11 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
   }
 
   function setStateDate(dateObj) {
-    // For fitness calendar, use centralised helper to build local midnight ISO
+    // Use timezone-safe local midnight ISO for all calendars to prevent timezone issues
     if (stateKey === 'fitnessSelectedDate') {
       dispatch(Actions.setFitnessSelectedDate(getLocalMidnightISOString(dateObj)));
     } else {
-      dispatch(Actions.setSelectedDate(dateObj.toISOString()));
+      dispatch(Actions.setSelectedDate(getLocalMidnightISOString(dateObj)));
     }
     if (typeof onDateChange === 'function') onDateChange(dateObj);
   }
@@ -103,12 +103,36 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
       // For fitness calendar, use the currently selected fitness date as the anchor –
       // this is effectively the "first" day (installation day).
       // No days before this will be generated, matching Home calendars.
-      const sel = getStateDate();
-      if (sel && !isNaN(sel)) {
-        return new Date(sel);
+      if (stateKey === 'fitnessSelectedDate') {
+        const sel = getStateDate();
+        if (sel && !isNaN(sel)) {
+          return new Date(sel);
+        }
+        // Fallback to today if somehow invalid
+        return new Date();
       }
-      // Fallback to today if somehow invalid
-      return new Date();
+
+      // For home calendar, find the earliest habit creation date to prevent showing
+      // tiles before the first habit was created
+      const earliestHabitDate = (getState().habits || []).reduce((acc, h) => {
+        let d = null;
+        if (h.createdAt) {
+          // Parse timezone-safe creation date
+          d = new Date(h.createdAt);
+        } else if (typeof h.id === 'string' && /^\d{13}/.test(h.id)) {
+          // Extract timestamp from habit ID and create local date
+          const ts = parseInt(h.id.slice(0, 13), 10);
+          if (!Number.isNaN(ts)) {
+            const utcDate = new Date(ts);
+            // Convert to local date to avoid timezone issues
+            d = new Date(utcDate.getFullYear(), utcDate.getMonth(), utcDate.getDate());
+          }
+        }
+        return !acc || (d && d < acc) ? d : acc;
+      }, null);
+
+      // Return the earliest habit date or today if no habits exist
+      return earliestHabitDate || new Date();
     }
 
     const earliestDate = getEarliestDate();
@@ -144,12 +168,8 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
         el.style.paddingBottom = '16px';
       }
 
-      // For fitness calendar, use centralised helper to build local midnight ISO
-      if (stateKey === 'fitnessSelectedDate') {
-        el.dataset.date = getLocalMidnightISOString(date);
-      } else {
-        el.dataset.date = date.toISOString();
-      }
+      // Use timezone-safe local midnight ISO for all calendars to prevent timezone issues
+      el.dataset.date = getLocalMidnightISOString(date);
 
       el.innerHTML = `<span class="day-name block text-xs">${lbl.name}</span>
                       <span class="day-number block text-lg font-semibold">${lbl.number}</span>
@@ -360,19 +380,25 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
         }
       } else if (arrow.classList.contains('prev-day') || arrow.classList.contains('next-day')) {
         const dirDay = arrow.classList.contains('prev-day') ? -1 : +1;
-        switch (grp) {
-          case 'weekly':
-            cur.setDate(cur.getDate() + dirDay * 7);
-            break;
-          case 'monthly':
-            cur.setMonth(cur.getMonth() + dirDay);
-            break;
-          case 'yearly':
-            cur.setFullYear(cur.getFullYear() + dirDay);
-            break;
-          case 'daily':
-          default:
-            cur.setDate(cur.getDate() + dirDay);
+        // For fitness calendar, always move by single day regardless of group
+        // For home calendar, respect the group settings
+        if (stateKey === 'fitnessSelectedDate') {
+          cur.setDate(cur.getDate() + dirDay);
+        } else {
+          switch (grp) {
+            case 'weekly':
+              cur.setDate(cur.getDate() + dirDay * 7);
+              break;
+            case 'monthly':
+              cur.setMonth(cur.getMonth() + dirDay);
+              break;
+            case 'yearly':
+              cur.setFullYear(cur.getFullYear() + dirDay);
+              break;
+            case 'daily':
+            default:
+              cur.setDate(cur.getDate() + dirDay);
+          }
         }
       }
       const anchor = _groupAnchors[grp] ? new Date(_groupAnchors[grp]) : null;
@@ -432,10 +458,17 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
           // reset anchor for new group to earliest period
           const earliestDate = (getState().habits || []).reduce((acc, h) => {
             let d = null;
-            if (h.createdAt) d = new Date(h.createdAt);
-            else if (typeof h.id === 'string' && /^\d{13}/.test(h.id)) {
+            if (h.createdAt) {
+              // Parse timezone-safe creation date
+              d = new Date(h.createdAt);
+            } else if (typeof h.id === 'string' && /^\d{13}/.test(h.id)) {
+              // Extract timestamp from habit ID and create local date
               const ts = parseInt(h.id.slice(0, 13), 10);
-              if (!Number.isNaN(ts)) d = new Date(ts);
+              if (!Number.isNaN(ts)) {
+                const utcDate = new Date(ts);
+                // Convert to local date to avoid timezone issues
+                d = new Date(utcDate.getFullYear(), utcDate.getMonth(), utcDate.getDate());
+              }
             }
             return !acc || (d && d < acc) ? d : acc;
           }, null) || new Date();

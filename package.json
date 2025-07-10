@@ -14,14 +14,20 @@
     "serve": "npx serve dist -l 8100",
     "lint": "eslint src --ext .js",
     "clean": "rm -rf dist node_modules/.vite",
-    "audit": "npm audit && npm run lint && npm run build"
+    "audit": "npm audit && npm run lint && npm run build",
+    "build:local": "NODE_ENV=development npm run build",
+    "serve:local": "cd dist && python3 -m http.server 9000",
+    "build:gh": "NODE_ENV=production npm run build"
   },
   "dependencies": {
     "vite": "^5.4.19",
     "vite-plugin-pwa": "^0.19.0"
   },
   "devDependencies": {
-    "eslint": "^8.57.1"
+    "autoprefixer": "^10.4.21",
+    "eslint": "^8.57.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.11"
   },
   "engines": {
     "node": ">=18.0.0",

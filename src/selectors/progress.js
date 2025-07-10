@@ -16,6 +16,7 @@ let _progressCache = {
   selectedDate: null,
   selectedGroup: null,
   habitsHash: null,
+  holidayHash: null,
   result: null
 };
 
@@ -100,11 +101,13 @@ export function getGroupProgress(group, date = new Date()) {
 export function getCurrentContextProgress() {
   const dateObj = new Date(getState().selectedDate);
   const habitsHash = JSON.stringify(getState().habits.map(h => ({ id: h.id, completed: h.completed, skipped: h.skipped })));
+  const holidayHash = JSON.stringify(getState().holidayDates);
   
   // Check if we can use cached result
   if (_progressCache.selectedDate === getState().selectedDate &&
       _progressCache.selectedGroup === getState().selectedGroup &&
-      _progressCache.habitsHash === habitsHash) {
+      _progressCache.habitsHash === habitsHash &&
+      _progressCache.holidayHash === holidayHash) {
     return _progressCache.result;
   }
 
@@ -127,6 +130,7 @@ export function getCurrentContextProgress() {
     selectedDate: getState().selectedDate,
     selectedGroup: getState().selectedGroup,
     habitsHash: habitsHash,
+    holidayHash: holidayHash,
     result: progress
   };
   

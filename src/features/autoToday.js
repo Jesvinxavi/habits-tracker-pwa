@@ -17,8 +17,11 @@ function alignSelectedAndScheduleNext() {
 
   // Align date if it's out of the current period
   if (!isSamePeriod(now, sel, group)) {
-    dispatch(Actions.setSelectedDate(now.toISOString()));
-    invalidatePillsCache();
+    // Use timezone-safe local midnight ISO to prevent timezone issues
+    import('../shared/datetime.js').then(({ getLocalMidnightISOString }) => {
+      dispatch(Actions.setSelectedDate(getLocalMidnightISOString(now)));
+      invalidatePillsCache();
+    });
   }
 
   // Schedule the next check

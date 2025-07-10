@@ -6,7 +6,10 @@ import { generateUniqueId } from '../../shared/common.js';
 /**
  * Add a new activity to the activities list
  */
-export function addActivity(activityData) {
+export async function addActivity(activityData) {
+  // Import timezone-safe date helper
+  const { getLocalMidnightISOString } = await import('../../shared/datetime.js');
+  
   const newActivity = {
     id: generateUniqueId(),
     name: activityData.name,
@@ -15,7 +18,7 @@ export function addActivity(activityData) {
       activityData.icon ||
       getState().activityCategories.find((c) => c.id === activityData.categoryId)?.icon ||
       '🎯',
-    createdAt: new Date().toISOString(),
+    createdAt: getLocalMidnightISOString(new Date()), // Use timezone-safe creation timestamp
     ...activityData,
   };
 

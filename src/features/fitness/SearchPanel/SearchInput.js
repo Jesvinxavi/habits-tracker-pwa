@@ -182,10 +182,16 @@ export function mountSearchInput(onSearchChange, onExpand, onCollapse) {
  */
 function expandSearchSection(onExpand) {
   const closeBtn = document.getElementById('close-search-btn');
+  const fitnessView = document.getElementById('fitness-view');
 
   // Show the close button
   if (closeBtn) {
     closeBtn.classList.remove('hidden');
+  }
+
+  // Add blur effect to background content
+  if (fitnessView) {
+    fitnessView.classList.add('search-expanded');
   }
 
   // Update expanded state
@@ -203,10 +209,16 @@ function expandSearchSection(onExpand) {
 function collapseSearchSection(onCollapse) {
   const closeBtn = document.getElementById('close-search-btn');
   const searchInput = document.getElementById('fitness-activity-search');
+  const fitnessView = document.getElementById('fitness-view');
 
   // Hide the close button
   if (closeBtn) {
     closeBtn.classList.add('hidden');
+  }
+
+  // Remove blur effect from background content
+  if (fitnessView) {
+    fitnessView.classList.remove('search-expanded');
   }
 
   // Clear search input if not already cleared

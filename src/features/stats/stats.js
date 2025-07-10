@@ -202,9 +202,7 @@ function calculateHabitStatistics() {
         });
 
         // Update longest streak record (only for daily habits)
-        if (longestStreak > stats.longestStreak) {
-          stats.longestStreak = longestStreak;
-        }
+        // Removed individual max, will compute group after loop
       }
 
       // Check if completed today
@@ -286,6 +284,9 @@ function calculateHabitStatistics() {
     currentDate.setDate(currentDate.getDate() + 1);
   }
   stats.holidayDaysThisYear = holidayCount;
+
+  // Calculate group longest 100% streak
+  stats.longestStreak = safeCalculation(() => calculateLongestGroupStreak(stats.dailyHabits), 0);
 
   return stats;
 }
@@ -528,6 +529,39 @@ function calculateLongestStreak(habit) {
 }
 
 /**
+ * Calculate longest 100% streak for the daily habit group
+ * (consecutive active days with 100% completion, skipping holidays without breaking streak)
+ */
+function calculateLongestGroupStreak(dailyHabits) {
+  if (dailyHabits.length === 0) return 0;
+
+  const today = new Date();
+  let longest = 0;
+  let current = 0;
+
+  for (let i = 365; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+
+    const scheduled = dailyHabits.filter(h => isHabitScheduledOnDate(h, date));
+
+    if (scheduled.length === 0) continue; // Skip non-active days
+
+    const completedCount = scheduled.filter(h => isHabitCompleted(h, date)).length;
+    const is100Percent = completedCount === scheduled.length;
+
+    if (is100Percent) {
+      current++;
+      longest = Math.max(longest, current);
+    } else {
+      current = 0;
+    }
+  }
+
+  return longest;
+}
+
+/**
  * Calculate fitness statistics
  */
 function calculateFitnessStatistics() {
@@ -628,8 +662,7 @@ function renderOverviewSection(container, habitStats, fitnessStats) {
       </div>
       <div class="stat-card bg-orange-50 dark:bg-orange-900 p-4 rounded-lg hover:scale-105 transition-transform">
         <div class="stat-value text-2xl font-bold text-orange-600 dark:text-orange-300">${formatNumber(habitStats.longestStreak)}</div>
-        <div class="stat-label text-sm text-orange-600 dark:text-orange-300">Longest Streak</div>
-        <div class="text-sm text-orange-600 dark:text-orange-300 mt-1">Days</div>
+        <div class="stat-label text-sm text-orange-600 dark:text-orange-300">Longest 100% Streak (Daily)</div>
       </div>
     </div>
   `;
@@ -686,7 +719,7 @@ function renderHabitStatsSection(container, stats) {
         ${stats.longestStreak}
       </div>
       <div class="text-center text-sm text-gray-600 dark:text-gray-400">
-        Longest streak (days)
+        Longest 100% Streak (Daily)
       </div>
     </div>
   `);

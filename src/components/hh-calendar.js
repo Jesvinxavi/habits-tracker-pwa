@@ -104,27 +104,33 @@ export class HHCalendar extends HTMLElement {
           }
         } else if (arrow.classList.contains('prev-day') || arrow.classList.contains('next-day')) {
           const dirDay = arrow.classList.contains('prev-day') ? -1 : +1;
-          switch (group) {
-            case 'weekly':
-              cur.setDate(cur.getDate() + dirDay * 7);
-              break;
-            case 'monthly':
-              cur.setMonth(cur.getMonth() + dirDay);
-              break;
-            case 'yearly':
-              cur.setFullYear(cur.getFullYear() + dirDay);
-              break;
-            default:
-              cur.setDate(cur.getDate() + dirDay);
+          // For fitness calendar, always move by single day regardless of group
+          // For home calendar, respect the group settings
+          if (stateKey === 'fitnessSelectedDate') {
+            cur.setDate(cur.getDate() + dirDay);
+          } else {
+            switch (group) {
+              case 'weekly':
+                cur.setDate(cur.getDate() + dirDay * 7);
+                break;
+              case 'monthly':
+                cur.setMonth(cur.getMonth() + dirDay);
+                break;
+              case 'yearly':
+                cur.setFullYear(cur.getFullYear() + dirDay);
+                break;
+              default:
+                cur.setDate(cur.getDate() + dirDay);
+            }
           }
         }
 
         // Update global state via dispatched action so other views update too
+        const { getLocalMidnightISOString } = await import('../shared/datetime.js');
         if (stateKey === 'fitnessSelectedDate') {
-          const { getLocalMidnightISOString } = await import('../shared/datetime.js');
           dispatch(Actions.setFitnessSelectedDate(getLocalMidnightISOString(cur)));
         } else {
-          dispatch(Actions.setSelectedDate(cur.toISOString()));
+          dispatch(Actions.setSelectedDate(getLocalMidnightISOString(cur)));
         }
         // Refresh tiles to reflect new selection colour immediately
         this._api?.refresh?.();
@@ -202,11 +208,11 @@ export class HHCalendar extends HTMLElement {
   /* -------------- Override calendar API -------------- */
   async setDate(date, { smooth = false } = {}) {
     const stateKey = this.getAttribute('state-key') || 'currentDate';
+    const { getLocalMidnightISOString } = await import('../shared/datetime.js');
     if (stateKey === 'fitnessSelectedDate') {
-      const { getLocalMidnightISOString } = await import('../shared/datetime.js');
       dispatch(Actions.setFitnessSelectedDate(getLocalMidnightISOString(date)));
     } else {
-      dispatch(Actions.setSelectedDate(date.toISOString()));
+      dispatch(Actions.setSelectedDate(getLocalMidnightISOString(date)));
     }
     this._api?.refresh?.();
     this._applyVirtualWindow();

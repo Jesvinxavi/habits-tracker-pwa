@@ -3,6 +3,9 @@ import * as scheduleUtils from '../schedule.js';
 import { getState, dispatch, Actions } from '../../../core/state.js';
 import { capitalize } from '../../../shared/common.js';
 import { dateToKey } from '../../../shared/datetime.js';
+import { getCurrentContextProgress } from '../../../selectors/progress.js';
+import { updateProgressRing } from './ProgressRing.js';
+import { updateProgressPills } from './HomeProgressPills.js';
 
 // Map each group to a Material Design icon name
 const GROUP_ICONS = {
@@ -194,8 +197,10 @@ export const HomeHeader = {
         return;
       }
 
+      // Toggle holiday in state
       toggleSingleHoliday(targetISO);
 
+      // Explicitly trigger the callback to refresh UI through state subscription
       if (this.callbacks.onHolidayToggle) {
         this.callbacks.onHolidayToggle(true);
       }
@@ -237,7 +242,7 @@ export const HomeHeader = {
       }
     };
 
-    const handleEnd = (e) => {
+    const handleEnd = async (e) => {
       if (!isDragging) return;
 
       const endX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
@@ -282,7 +287,9 @@ export const HomeHeader = {
           }
         }
 
-        dispatch(Actions.setSelectedDate(periodStart.toISOString()));
+        // Use timezone-safe local midnight ISO to prevent timezone issues
+        const { getLocalMidnightISOString } = await import('../../../shared/datetime.js');
+        dispatch(Actions.setSelectedDate(getLocalMidnightISOString(periodStart)));
 
         if (this.callbacks.onGroupChange) {
           this.callbacks.onGroupChange(nextGroup);

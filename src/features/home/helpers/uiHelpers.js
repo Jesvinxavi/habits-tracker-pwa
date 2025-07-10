@@ -53,8 +53,37 @@ export function setupMenuToggle() {
   if (menuBtn && menuDropdown) {
     menuDropdown.classList.add('hidden');
 
+    // Function to update the "Add New Habit" menu item state
+    const updateAddHabitMenuItem = async () => {
+      const addHabitItem = menuDropdown.querySelector('[data-action="add-habit"]');
+      if (!addHabitItem) return;
+      
+      const { getState } = await import('../../../core/state.js');
+      const hasCategories = getState().categories.length > 0;
+      
+      if (hasCategories) {
+        addHabitItem.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+        addHabitItem.title = '';
+      } else {
+        addHabitItem.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+        addHabitItem.title = 'Create a category first before adding habits';
+      }
+    };
+
+    // Initial state update
+    updateAddHabitMenuItem();
+
+    // Subscribe to state changes to update menu item when categories change
+    import('../../../core/state.js').then((m) => {
+      m.subscribe(() => {
+        updateAddHabitMenuItem();
+      });
+    });
+
     menuBtn.addEventListener('click', (ev) => {
       ev.stopPropagation();
+      // Update menu item state before showing dropdown
+      updateAddHabitMenuItem();
       menuDropdown.classList.toggle('hidden');
     });
 
@@ -71,6 +100,11 @@ export function setupMenuToggle() {
 
       const action = menuItem.dataset.action;
       if (!action) return;
+
+      // Check if the item is disabled
+      if (menuItem.classList.contains('pointer-events-none')) {
+        return;
+      }
 
       // Hide the dropdown after clicking
       menuDropdown.classList.add('hidden');

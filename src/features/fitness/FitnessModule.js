@@ -49,7 +49,8 @@ export async function initializeFitness() {
     onEditClick: (activityId) => Modals.openEditActivity(activityId),
     onActivityClick: (activityId) => Modals.openActivityDetails(activityId),
     onDateChange: (date) => {
-      dispatch(Actions.setFitnessSelectedDate(date.toISOString()));
+      // Use timezone-safe local midnight ISO to prevent timezone issues
+      dispatch(Actions.setFitnessSelectedDate(getLocalMidnightISOString(date)));
       // Refresh the calendar and rest toggle after date change
       if (FitnessCalendar.ready && FitnessCalendar.scrollToSelected) {
         FitnessCalendar.ready.then(() => {

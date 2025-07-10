@@ -1,8 +1,14 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// Dynamically set base path for local/dev vs GitHub Pages
+const isProd = process.env.NODE_ENV === 'production';
+const repoName = 'healthy-habits-tracker'; // Change if your repo name is different
+const base = isProd ? `/${repoName}/` : '/'; // '/' for local, '/repo-name/' for GitHub Pages
+const iconsBase = base.endsWith('/') ? base + 'icons/' : base + '/icons/';
+
 export default defineConfig({
-  base: '/habits-tracker-pwa/',
+  base: base, // Use the dynamically calculated base
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
@@ -18,21 +24,21 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/habits-tracker-pwa/',
-        start_url: '/habits-tracker-pwa/',
+        scope: base,
+        start_url: base,
         icons: [
           {
-            src: 'public/icons/apple-touch-icon.png',
+            src: iconsBase + 'apple-touch-icon.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: 'public/icons/apple-touch-icon.png',
+            src: iconsBase + 'apple-touch-icon.png',
             sizes: '512x512',
             type: 'image/png',
           },
           {
-            src: 'public/icons/apple-touch-icon.png',
+            src: iconsBase + 'apple-touch-icon.png',
             sizes: '180x180',
             type: 'image/png',
           },
