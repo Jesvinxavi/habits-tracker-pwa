@@ -5,6 +5,8 @@
  * Extracted from HabitsListModule.js for better modularity
  */
 
+/* eslint-disable quotes */
+
 import { getState } from '../../../core/state.js';
 import { calculateHabitStatistics } from '../helpers/habitStats.js';
 import { formatLastPerformed } from '../../../shared/datetime.js';
