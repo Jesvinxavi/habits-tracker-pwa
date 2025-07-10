@@ -1,1 +1,0 @@
-if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/habits-tracker-pwa/sw.js', { scope: '/habits-tracker-pwa/' })})}
