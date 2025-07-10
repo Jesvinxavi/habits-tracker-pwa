@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Healthy Habits Tracker</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#F2F2F7">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Habits">
+    
+    <!-- PWA Assets -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+    
+    <!-- Modern CSS Framework -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: ['class', '[data-theme="dark"]'],
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sf': ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Arial', 'sans-serif'],
+                    },
+                    colors: {
+                        'ios-blue': '#007AFF',
+                        'ios-red': '#FF3B30',
+                        'ios-green': '#34C759',
+                        'ios-orange': '#FF9500',
+                        'ios-purple': '#AF52DE',
+                        'ios-gray': '#8E8E93',
+                        'ios-bg': '#FFFFFF',
+                        'ios-bg-dark': '#000000',
+                        'ios-surface': '#FFFFFF',
+                        'ios-surface-dark': '#1C1C1E',
+                    },
+                    backdropBlur: {
+                        'ios': '20px',
+                    },
+                    boxShadow: {
+                        'ios': '0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24)',
+                        'ios-lg': '0 4px 6px rgba(0, 0, 0, 0.07), 0 10px 15px rgba(0, 0, 0, 0.1)',
+                    }
+                },
+            },
+            plugins: [
+                function({ addUtilities }) {
+                    const newUtilities = {
+                        '.home-inset': {
+                            'margin-left': 'var(--home-inset)',
+                            'margin-right': 'var(--home-inset)',
+                        },
+                        '.home-inset-plus': {
+                            'margin-left': 'calc(var(--home-inset) + 8px)',
+                            'margin-right': 'calc(var(--home-inset) + 8px)',
+                        }
+                    }
+                    addUtilities(newUtilities)
+                }
+            ],
+        }
+    </script>
+    
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons&display=swap" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    
+    <!-- Loader script with defer for better CSP compliance -->
+  <script type="module" crossorigin src="/habits-tracker-pwa/assets/index-C03fB5je.js"></script>
+  <link rel="modulepreload" crossorigin href="/habits-tracker-pwa/assets/chunk-D7AUNH-1.js">
+  <link rel="modulepreload" crossorigin href="/habits-tracker-pwa/assets/chunk-T8n2V78z.js">
+  <link rel="modulepreload" crossorigin href="/habits-tracker-pwa/assets/chunk-Crpe9ixu.js">
+  <link rel="modulepreload" crossorigin href="/habits-tracker-pwa/assets/chunk-DKk19pOv.js">
+  <link rel="modulepreload" crossorigin href="/habits-tracker-pwa/assets/chunk-BdDUzKB8.js">
+  <link rel="modulepreload" crossorigin href="/habits-tracker-pwa/assets/chunk-DxYHFs0w.js">
+  <link rel="stylesheet" crossorigin href="/habits-tracker-pwa/assets/index-BLDWlbNg.css">
+<link rel="manifest" href="/habits-tracker-pwa/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/habits-tracker-pwa/registerSW.js"></script></head>
+<body class="font-sf bg-ios-bg dark:bg-ios-bg-dark text-gray-900 dark:text-white">
+    <div class="app-container w-full h-screen bg-ios-bg dark:bg-ios-bg-dark overflow-hidden flex flex-col">
+        <main class="content-area pb-20 w-full flex flex-col flex-grow">
+            <!-- Home View -->
+            <div id="home-view" class="view active-view w-full h-full flex flex-col overflow-hidden">
+                <!-- App Header -->
+                <header class="app-header flex justify-between items-center h-11 px-4 sm:px-6 lg:px-8 border-b border-gray-200 dark:border-gray-700 border-opacity-50 w-full">
+                    <button class="theme-toggle p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors spring" id="theme-toggle" aria-label="Toggle dark mode" role="button" tabindex="0">
+                        <svg class="w-6 h-6 text-ios-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2"/>
+                            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </button>
+                    
+                    <h1 class="app-title text-center flex-grow text-[26px] font-extrabold">Healthy Habits Tracker</h1>
+                    
+                    <div class="menu-container relative">
+                        <button class="menu-toggle p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors spring text-ios-blue" id="menu-toggle" aria-label="Open menu" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                        
+                        <!-- Dropdown Menu -->
+                        <div id="dropdown-menu" class="absolute top-full right-0 mt-2 bg-gray-100 dark:bg-gray-900 rounded-[14px] shadow-lg min-w-max z-50 overflow-hidden hidden p-1" role="menu" aria-labelledby="menu-toggle">
+                            <div class="dropdown-item flex items-center h-[36px] gap-2 px-4 py-0 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors text-sm font-medium" data-action="add-habit" role="menuitem" tabindex="0">
+                                <span class="flex items-center justify-center">
+                                    <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12 5v14M5 12h14" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </span>
+                                <span>Add New Habit</span>
+                            </div>
+                            <div class="dropdown-item flex items-center h-[36px] gap-2 px-4 py-0 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors text-sm font-medium" data-action="manage-holidays" role="menuitem" tabindex="0">
+                                <span class="flex items-center justify-center">
+                                    <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M16 2v4M8 2v4M3 10h18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </span>
+                                <span>Manage Holiday Periods</span>
+                            </div>
+                            <div class="dropdown-item flex items-center h-[36px] gap-2 px-4 py-0 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors text-sm font-medium" data-action="toggle-completed" role="menuitem" tabindex="0">
+                                <span class="flex items-center justify-center text-lg">✅</span>
+                                <span>Hide/Show Completed</span>
+                            </div>
+                            <div class="dropdown-item flex items-center h-[36px] gap-2 px-4 py-0 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors text-sm font-medium" data-action="toggle-skipped" role="menuitem" tabindex="0">
+                                <span class="flex items-center justify-center text-lg">⏭️</span>
+                                <span>Hide/Show Skipped</span>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="home-content pt-0 pb-0 px-0 w-full flex flex-col h-full overflow-hidden">
+                    <!-- Progress Ring Section -->
+                    <div class="progress-section relative mb-0 flex items-center w-full">
+                        <div class="progress-ring-container relative w-27 h-27 sm:w-30 sm:h-30 lg:w-33 lg:h-33 mx-auto">
+                             <svg class="progress-ring w-full h-full transform -rotate-90 relative z-10" viewBox="0 0 100 100">
+                                 <circle class="progress-ring-bg" stroke="#E5E5E7" stroke-width="12" fill="transparent" r="44" cx="50" cy="50"/>
+                                 <circle class="progress-ring-fg spring" stroke="#FF6347" stroke-width="12" fill="transparent" r="44" cx="50" cy="50" stroke-dasharray="276" stroke-dashoffset="276" stroke-linecap="round"/>
+                                 <g transform="rotate(90, 50, 50)">
+                                     <text x="50" y="48" text-anchor="middle" class="progress-number text-2xl font-extrabold leading-none fill-gray-900 dark:fill-white select-none">0%</text>
+                                     <text x="50" y="65" text-anchor="middle" class="progress-label text-xs fill-gray-500 dark:fill-gray-400">Complete</text>
+                                 </g>
+                             </svg>
+                         </div>
+                    </div> <!-- end progress-section -->
+                    <!-- Week Calendar -->
+                    <div class="week-calendar mb-0 mt-0 overflow-visible">
+                         <!-- Dynamic calendar will be injected by JS -->
+                        <div class="week-days flex gap-2 overflow-x-auto scrollbar-hide mb-0 px-0"></div>
+
+                        <!-- Navigation Arrows (kept static) -->
+                        <div class="calendar-nav flex justify-center items-center gap-4 lg:gap-6">
+                            <button class="nav-arrow prev-week text-ios-blue p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors spring font-medium lg:p-3 lg:text-lg">‹‹</button>
+                            <button class="nav-arrow prev-day text-ios-blue p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors spring font-medium lg:p-3 lg:text-lg">‹</button>
+                            <button class="today-btn bg-ios-blue text-white rounded-full font-medium hover:bg-blue-600 transition-colors spring lg:px-6 lg:text-lg">Today</button>
+                            <button class="nav-arrow next-day text-ios-blue p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors spring font-medium lg:p-3 lg:text-lg">›</button>
+                            <button class="nav-arrow next-week text-ios-blue p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors spring font-medium lg:p-3 lg:text-lg">››</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Habits container (dynamic) -->
+                    <!-- Group Header (fixed) -->
+                    <div class="habits-header flex justify-between items-center border-b border-gray-200 dark:border-gray-700 border-opacity-50 lg:pr-6 lg:pl-4">
+                        <div class="habits-title flex items-center gap-2 text-lg font-semibold lg:text-xl"></div>
+                    </div>
+
+                    <!-- Scrollable Habits Container (dynamic content only) -->
+                    <div class="habits-container flex-grow bg-white dark:bg-gray-800 rounded-2xl overflow-y-auto overflow-visible scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800 shadow-ios w-full px-4"></div>
+                </div>
+            </div>
+
+            <!-- Fitness View -->
+            <div id="fitness-view" class="view hidden w-full h-full flex flex-col overflow-hidden"></div>
+
+            <!-- Stats View -->
+            <div id="stats-view" class="view hidden w-full h-full flex flex-col overflow-hidden"></div>
+
+            <!-- Food View -->
+            <div id="food-view" class="view hidden w-full h-full flex flex-col overflow-hidden"></div>
+
+            <!-- Other Views with Modern Styling -->
+            <div id="habits-view" class="view hidden w-full h-full flex flex-col overflow-hidden">
+                <!-- Habits view content will be dynamically generated by HabitsModule.js -->
+            </div>
+                            
+            <!-- Other views will be injected dynamically by navigation.js -->
+        </main>
+
+        <!-- Bottom Tab Navigation -->
+        <nav class="tab-bar fixed bottom-0 left-0 right-0 w-full bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 border-opacity-50 flex justify-around items-center h-20 z-50 px-safe" role="navigation" aria-label="Main navigation">
+            <button class="tab-item active flex flex-col items-center justify-center flex-1 py-2 text-ios-blue transition-colors max-w-none" data-view="home-view" role="tab" aria-selected="true" aria-label="Home view">
+                <svg class="tab-icon w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="tab-label text-xs font-medium">Home</span>
+            </button>
+            <button class="tab-item flex flex-col items-center justify-center flex-1 py-2 text-gray-400 hover:text-ios-blue transition-colors max-w-none" data-view="habits-view" role="tab" aria-selected="false" aria-label="Habits view">
+                <svg class="tab-icon w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <rect x="9" y="7" width="6" height="5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="tab-label text-xs font-medium">Habits</span>
+            </button>
+            <button class="tab-item flex flex-col items-center justify-center flex-1 py-2 text-gray-400 hover:text-ios-blue transition-colors max-w-none" data-view="fitness-view" role="tab" aria-selected="false" aria-label="Fitness view">
+                <svg class="tab-icon w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M6.5 6.5h11v11h-11z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M3 12h3M18 12h3M12 3v3M12 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="tab-label text-xs font-medium">Fitness</span>
+            </button>
+            <button class="tab-item flex flex-col items-center justify-center flex-1 py-2 text-gray-400 hover:text-ios-blue transition-colors max-w-none hidden" data-view="food-view" role="tab" aria-selected="false" aria-label="Food view">
+                <svg class="tab-icon w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="12" cy="9" r="3" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                <span class="tab-label text-xs font-medium">Food</span>
+            </button>
+            <button class="tab-item flex flex-col items-center justify-center flex-1 py-2 text-gray-400 hover:text-ios-blue transition-colors max-w-none" data-view="stats-view" role="tab" aria-selected="false" aria-label="Stats view">
+                <svg class="tab-icon w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="tab-label text-xs font-medium">Stats</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Add Category Modal -->
+    <div id="add-category-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1001] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
+        <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate">
+            <!-- Modal Header -->
+            <div class="modal-header flex justify-between items-center px-6 py-2 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50">
+                <button id="cancel-category" class="px-4 py-2 text-ios-blue hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 font-medium" role="button" aria-label="Cancel category creation">Cancel</button>
+                <button id="save-category" class="px-4 py-2 bg-ios-blue/10 text-ios-blue rounded-lg font-medium opacity-50 transition-all duration-200 hover:bg-ios-blue/20" disabled role="button" aria-label="Save category">Save</button>
+            </div>
+            
+            <!-- Modal Content -->
+            <div class="p-6 space-y-6">
+            <!-- Modal Title -->
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">New Category</h2>
+                    <p class="text-gray-600 dark:text-gray-400 text-sm">Create a custom category for organizing your habits</p>
+            </div>
+            
+                <!-- Category Details Section -->
+                <div class="space-y-3">
+                    <label for="category-name-input" class="block text-gray-700 dark:text-gray-300 text-sm font-semibold">Category Name</label>
+                    <div class="relative">
+                                                <input 
+                                id="category-name-input"
+                                    name="category-name"
+                                    placeholder="Enter category name" 
+                                    class="w-full px-4 py-3 bg-gray-50/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200"
+                            >
+                    </div>
+                </div>
+                
+                <!-- Color Section -->
+                <div class="space-y-3">
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-semibold" id="color-label">Choose Color</label>
+                    <div class="color-grid grid grid-cols-6 gap-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl" role="radiogroup" aria-labelledby="color-label">
+                        <!-- Modern Color Palette -->
+                        <!-- Colour buttons are injected dynamically by categories.js -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Modal Footer Padding -->
+            <!-- Removed blank spacer div -->
+        </div>
+    </div>
+
+    <!-- Edit Category Modal -->
+    <div id="edit-category-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1001] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
+        <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate">
+            <!-- Modal Header -->
+            <div class="modal-header flex justify-between items-center px-6 py-2 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50">
+                <button id="cancel-edit-category" class="px-4 py-2 text-ios-blue hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 font-medium">Cancel</button>
+                <button id="save-edit-category" class="px-4 py-2 bg-ios-blue/10 text-ios-blue rounded-lg font-medium transition-all duration-200 hover:bg-ios-blue/20">Save</button>
+            </div>
+            
+            <!-- Modal Content -->
+            <div class="p-6 space-y-6">
+            <!-- Modal Title -->
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Edit Category</h2>
+                    <p class="text-gray-600 dark:text-gray-400 text-sm">Modify your category details</p>
+            </div>
+            
+                <!-- Category Details Section -->
+                <div class="space-y-3">
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-semibold">Category Name</label>
+                    <div class="relative">
+                    <input 
+                        id="edit-category-name-input"
+                            placeholder="Enter category name" 
+                            class="w-full px-4 py-3 bg-gray-50/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200"
+                    >
+                    </div>
+                </div>
+                
+                <!-- Color Section -->
+                <div class="space-y-3">
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-semibold">Choose Color</label>
+                    <div class="edit-color-grid grid grid-cols-6 gap-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+                        <!-- Modern Color Palette -->
+                        <!-- Colour buttons are injected dynamically by categories.js -->
+                    </div>
+                </div>
+                
+                <!-- Delete Category Section -->
+                <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button id="delete-category-btn" class="w-full py-3 px-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition-all duration-200">
+                        Delete Category
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Modal Footer Padding -->
+            <!-- Removed blank spacer div -->
+        </div>
+    </div>
+
+    <!-- Add Habit Modal -->
+    <div id="add-habit-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1001] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
+        <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 flex flex-col">
+            <!-- Modal Header - Fixed -->
+            <div class="modal-header flex justify-between items-center px-6 py-1 bg-white/90 dark:bg-gray-800/90 border-b border-gray-200/50 dark:border-gray-700/50 flex-shrink-0 rounded-t-2xl backdrop-blur-xl">
+                <button id="cancel-habit" class="px-4 py-2 text-ios-blue hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 font-medium">Cancel</button>
+                <button id="save-habit" class="px-4 py-2 text-ios-blue rounded-lg font-medium opacity-50 transition-all duration-200 hover:bg-gray-100/50 dark:hover:bg-gray-800/50" disabled>Save</button>
+            </div>
+            
+            <!-- Modal Content - Scrollable -->
+            <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
+                <div class="p-3 space-y-4">
+            <!-- Modal Title -->
+                <div>
+                    <h2 id="habit-modal-title" class="text-2xl font-bold text-gray-900 dark:text-white mb-2">New Habit</h2>
+                    <p id="habit-modal-desc" class="text-gray-600 dark:text-gray-400 text-sm">Add a new habit to track your daily progress</p>
+            </div>
+            
+                <!-- Details Section -->
+                <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+                    <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Details</h3>
+                    
+                <!-- Name Field -->
+                <input 
+                    id="habit-name-input"
+                        placeholder="Enter habit name" 
+                        class="w-full px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 h-12"
+                >
+                
+                <!-- Category Dropdown -->
+                    <div class="relative">
+                        <select id="habit-category-select" class="w-full px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 appearance-none h-12">
+                            <!-- options injected by categories.js populateCategoryDropdown() -->
+                        </select>
+                        <svg class="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 9l-7 7-7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                </div>
+                
+
+                
+                <!-- Icon Field -->
+                    <div class="flex items-center justify-between px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl h-12 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors" id="icon-selector-btn">
+                        <span class="text-gray-600 dark:text-gray-400">Choose an icon</span>
+                        <div id="selected-icon-display" class="w-8 h-8 rounded-lg bg-gradient-to-br from-ios-blue to-blue-600 flex items-center justify-center text-white font-medium text-lg shadow-sm">
+                            📋
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tab Buttons -->
+                <div class="flex bg-gray-100/80 dark:bg-gray-700/80 rounded-xl p-1 backdrop-blur-sm">
+                    <button id="schedule-tab" class="flex-1 py-3 px-4 rounded-lg bg-white dark:bg-gray-600 text-gray-900 dark:text-white font-medium shadow-sm transition-all duration-200">Schedule</button>
+                    <button id="completion-target-tab" class="flex-1 py-3 px-4 rounded-lg text-gray-600 dark:text-gray-400 font-medium hover:text-gray-900 dark:hover:text-white transition-all duration-200">Target</button>
+                </div>
+                
+                <!-- Schedule Section -->
+                <div id="schedule-section" class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+                    <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Schedule</h3>
+                    
+                    <!-- Frequency -->
+                    <div class="flex justify-between items-center p-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg">
+                        <div>
+                            <span class="text-gray-900 dark:text-white font-medium">Frequency</span>
+                        </div>
+                        <select id="frequency-select" class="px-3 py-2 bg-gray-50 dark:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50">
+                            <!-- options injected by frequencySection.js buildFrequencySelect() -->
+                        </select>
+                    </div>
+                    
+                    <!-- Days of Week Selection (Hidden by default) -->
+                    <div id="days-selection" class="p-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg hidden">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-gray-900 dark:text-white font-medium">Select Days</span>
+                            <div class="flex gap-2">
+                                <button id="select-all-days" class="px-2 py-1 text-xs text-ios-blue bg-ios-blue/10 hover:bg-ios-blue/20 rounded-md transition-colors">Select All</button>
+                                <button id="clear-all-days" class="px-2 py-1 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-md transition-colors">Clear All</button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-7 gap-2" id="weekly-day-grid"><!-- buttons injected by frequencySection.js buildDayButtonsGrid() --></div>
+                    </div>
+
+                    <!-- Monthly Frequency Details (Hidden by default) -->
+                    <div id="monthly-details" class="space-y-4 p-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg hidden">
+                        <!-- Every X months -->
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-700 dark:text-gray-300 font-medium">Every</span>
+                            <div class="flex items-center gap-2">
+                                <select id="month-interval-select" class="px-3 py-2 bg-gray-50 dark:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50">
+                                    <!-- options injected by frequencySection.js buildIntervalOptions() -->
+                                </select>
+                                <span id="month-text" class="text-gray-500 dark:text-gray-400">month</span>
+                            </div>
+                        </div>
+
+                        <!-- Each / On the... toggle -->
+                        <div class="flex rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 p-1">
+                            <button id="monthly-each-btn" class="flex-1 py-2 px-4 text-sm font-medium rounded-md transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 shadow-sm">Each</button>
+                            <button id="monthly-on-btn" class="flex-1 py-2 px-4 text-sm font-medium rounded-md transition-all text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">On the...</button>
+                        </div>
+
+                        <!-- Date Selection (for "Each" mode) -->
+                        <div id="monthly-dates-section">
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-gray-700 dark:text-gray-300 font-medium">Select Dates:</span>
+                                <div class="flex gap-2">
+                                    <button id="select-all-dates" class="px-2 py-1 text-xs text-ios-blue bg-ios-blue/10 hover:bg-ios-blue/20 rounded-md transition-colors">Select All</button>
+                                    <button id="clear-dates" class="px-2 py-1 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-md transition-colors">Clear</button>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                                <span id="selected-dates-count">0</span> dates selected
+                            </div>
+                            <div id="monthly-date-grid" class="grid grid-cols-7 gap-2"><!-- buttons injected by frequencySection.js --></div>
+                        </div>
+
+                        <!-- Combination Selection (for "On the..." mode) -->
+                        <div id="monthly-combinations-section" class="hidden">
+                            <!-- Selected Combinations Display -->
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-gray-700 dark:text-gray-300 font-medium">Selected Combinations:</span>
+                                <button id="clear-all-combinations" class="px-2 py-1 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-md transition-colors">Clear All</button>
+                            </div>
+                            
+                            <!-- Combinations List -->
+                            <div id="combinations-list" class="mb-4 min-h-[60px] flex items-center">
+                                <span class="text-gray-500 dark:text-gray-400 text-sm">No combinations added yet</span>
+                            </div>
+                            
+                            <!-- Separator -->
+                            <div class="border-t border-gray-200 dark:border-gray-600 my-4"></div>
+                            
+                            <!-- Add New Combination -->
+                            <div class="space-y-3">
+                                <span class="text-gray-700 dark:text-gray-300 font-medium">Add New Combination</span>
+                                
+                                <div class="flex gap-3">
+                                    <!-- Ordinal Selector -->
+                                    <select id="ordinal-select" class="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50">
+                                        <!-- options injected by frequencySection.js buildCombinationSelectors() -->
+                                    </select>
+                                    
+                                    <!-- Day of Week Selector -->
+                                    <select id="day-of-week-select" class="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50">
+                                        <!-- options injected by frequencySection.js buildCombinationSelectors() -->
+                                    </select>
+                                </div>
+                                
+                                <!-- Add Button -->
+                                <button id="add-combination-btn" class="w-full py-3 bg-ios-blue/10 text-ios-blue rounded-lg font-medium hover:bg-ios-blue/20 transition-colors flex items-center justify-center gap-2">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                                    </svg>
+                                    Add This Combination
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Yearly Frequency Details (Hidden by default) -->
+                    <div id="yearly-details" class="space-y-4 p-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg hidden">
+                        <!-- Every X years -->
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-700 dark:text-gray-300 font-medium">Every</span>
+                            <div class="flex items-center gap-2">
+                                <select id="year-interval-select" class="px-3 py-2 bg-gray-50 dark:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50">
+                                    <!-- options injected by frequencySection.js buildIntervalOptions() -->
+                                </select>
+                                <span id="year-text" class="text-gray-500 dark:text-gray-400">year</span>
+                            </div>
+                        </div>
+
+                        <!-- Month Selection -->
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-700 dark:text-gray-300 font-medium">Select Months:</span>
+                                <div class="flex gap-2">
+                                    <button id="select-all-months" class="px-2 py-1 text-xs text-ios-blue bg-ios-blue/10 hover:bg-ios-blue/20 rounded-md transition-colors">Select All</button>
+                                    <button id="clear-months" class="px-2 py-1 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-md transition-colors">Clear</button>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                                <span id="selected-months-count">0</span> months selected
+                            </div>
+                            <div id="yearly-month-grid" class="grid grid-cols-3 gap-2"><!-- buttons injected by frequencySection.js --></div>
+                        </div>
+
+                        <!-- Specify dates toggle -->
+                        <div class="flex justify-between items-center p-3 bg-gray-50/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-600 rounded-lg">
+                            <div>
+                                <span class="text-gray-900 dark:text-white font-medium">Specify dates</span>
+                            </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="yearly-specify-dates-toggle" class="sr-only peer">
+                                <div class="w-12 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-ios-green shadow-lg"></div>
+                        </label>
+                    </div>
+                    
+                        <!-- Yearly Dates Section (Hidden by default, appears when specify dates toggle is on) -->
+                        <div id="yearly-dates-section" class="hidden">
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-gray-700 dark:text-gray-300 font-medium">Select Dates:</span>
+                                <div class="flex gap-2">
+                                    <button id="select-all-yearly-dates" class="px-2 py-1 text-xs text-ios-blue bg-ios-blue/10 hover:bg-ios-blue/20 rounded-md transition-colors">Select All</button>
+                                    <button id="clear-yearly-dates" class="px-2 py-1 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-md transition-colors">Clear</button>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                                <span id="selected-yearly-dates-count">0</span> dates selected
+                            </div>
+                            <div id="yearly-date-grid" class="grid grid-cols-7 gap-2"><!-- buttons injected by frequencySection.js --></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Anytime Toggle -->
+                    <div class="flex justify-between items-center p-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg">
+                        <div>
+                            <span class="text-gray-900 dark:text-white font-medium">Anytime</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="anytime-toggle" class="sr-only peer" checked>
+                            <div class="w-12 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-ios-green shadow-lg"></div>
+                        </label>
+                    </div>
+                    
+                    <!-- Time Selection Section (Hidden by default, appears when anytime is off) -->
+                    <div id="time-selection" class="p-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg hidden">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <span class="text-gray-900 dark:text-white font-medium">Specific Time</span>
+                            </div>
+                            <div class="relative">
+                                <button id="time-picker-btn" class="px-4 py-2 bg-gray-50 dark:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50 transition-colors">
+                                    <span id="selected-time">09:00</span>
+                                </button>
+                                
+                                <!-- Time Picker Popup -->
+                                <div id="time-picker-popup" class="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-[1002] hidden overflow-hidden">
+                                    <div id="time-picker-container" class="flex w-48 h-32 relative">
+                                        <!-- Hour Picker -->
+                                        <div class="flex-1">
+                                            <div id="hour-picker" class="h-full overflow-y-scroll scroll-smooth">
+                                                <div class="py-8" id="hour-options-container"><!-- hour rows are injected by form-pickers.js --></div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Minute Picker -->
+                                        <div class="flex-1 border-l border-gray-300 dark:border-gray-600 border-l-[0.5px]">
+                                            <div id="minute-picker" class="h-full overflow-y-scroll scroll-smooth">
+                                                <div class="py-8" id="minute-options-container">
+                                                    <!-- Minutes will be dynamically generated for infinite scroll -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Hidden inputs for form submission -->
+                        <input type="hidden" id="hour-select" value="09">
+                        <input type="hidden" id="minute-select" value="00">
+                    </div>
+                </div>
+                
+                <!-- Completion Target Section (Hidden by default) -->
+                <div id="completion-target-section" class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl hidden">
+                    <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Completion Target</h3>
+                    
+                    <!-- Frequency -->
+                    <div class="flex justify-between items-center p-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg">
+                        <div>
+                            <span class="text-gray-900 dark:text-white font-medium">Frequency</span>
+                        </div>
+                        <select id="target-frequency-select" class="px-3 py-2 bg-gray-50 dark:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50">
+                            <!-- options injected by targetSection.js buildTargetFrequencyOptions() -->
+                        </select>
+                    </div>
+                    
+                    <!-- Target Value -->
+                    <div class="flex justify-between items-center p-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg">
+                        <div>
+                            <span class="text-gray-900 dark:text-white font-medium">Target Value</span>
+                        </div>
+                        <input type="number" id="target-value-input" value="1" min="1" class="w-20 px-3 py-2 bg-gray-50 dark:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50 text-center">
+                    </div>
+                    
+                    <!-- Default Increment -->
+                    <div class="flex justify-between items-center p-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg">
+                        <div>
+                            <span class="text-gray-900 dark:text-white font-medium">Default Increment</span>
+                        </div>
+                        <input type="number" id="default-increment-input" value="1" min="1" class="w-20 px-3 py-2 bg-gray-50 dark:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50 text-center">
+                    </div>
+                    
+                    <!-- Unit -->
+                    <div class="flex justify-between items-center p-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg">
+                        <div>
+                            <span class="text-gray-900 dark:text-white font-medium">Unit</span>
+                        </div>
+                        <select id="target-unit-select" class="px-3 py-2 bg-gray-50 dark:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50">
+                            <option value="none">None</option>
+                            <!-- options injected by targetSection.js buildTargetUnitOptions() -->
+                        </select>
+                    </div>
+                    
+                    <!-- Example Display -->
+                    <div class="p-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg">
+                        <span id="target-example-text" class="text-gray-500 dark:text-gray-400 text-sm">Example: 1 times each daily</span>
+                    </div>
+                </div>
+                
+                <!-- Settings Section - Moved to bottom -->
+                <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+                    <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Settings</h3>
+                    
+                    <!-- Pause Habit Toggle -->
+                    <div class="flex justify-between items-center p-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg">
+                        <div>
+                            <span class="text-gray-900 dark:text-white font-medium">Pause Habit</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="pause-habit-toggle" class="sr-only peer">
+                            <div class="w-12 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-ios-blue shadow-lg"></div>
+                        </label>
+                    </div>
+                    
+                    <!-- Active on Holidays Toggle -->
+                    <div class="flex justify-between items-center p-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg">
+                        <div>
+                            <span class="text-gray-900 dark:text-white font-medium">Active on Holidays</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="holidays-toggle" class="sr-only peer">
+                            <div class="w-12 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-ios-orange shadow-lg"></div>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Delete Button (shown only in edit mode) -->
+                <button id="delete-habit-btn" class="w-full py-3 px-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors hidden">
+                    Delete Habit
+                </button>
+                
+            <!-- Modal Footer Padding -->
+            <!-- Removed blank spacer div -->
+            </div>
+                </div>
+            </div>
+            
+    <!-- Icon Selection Modal -->
+    <div id="icon-selection-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1004] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
+        <div class="modal-content bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col transform transition-all duration-300 scale-95 opacity-0 modal-animate">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-center p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white">Choose Icon</h2>
+            </div>
+            
+            <!-- Icon Grid -->
+            <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800 p-6">
+                <!-- Icon buttons are injected dynamically by iconPicker.js -->
+                <div id="icon-grid" class="grid grid-cols-6 gap-3"></div>
+            </div>
+            
+            <!-- Modal Footer -->
+            <div class="flex gap-3 p-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button id="cancel-icon" class="flex-1 py-3 px-4 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    Cancel
+                </button>
+                <button id="select-icon" class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-ios-blue to-blue-600 text-white font-medium hover:from-blue-600 hover:to-blue-700 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all" disabled>
+                    Select Icon
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Holiday Periods Modal (moved before main script so it exists when JS runs) -->
+    <div id="holiday-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1002] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate flex flex-col">
+        <!-- Header -->
+        <div class="modal-header flex justify-between items-center px-6 py-1 bg-white/90 dark:bg-gray-800/90 border-b border-gray-200/50 dark:border-gray-700/50 flex-shrink-0 rounded-t-2xl backdrop-blur-xl">
+          <button id="cancel-holiday" class="px-4 py-2 text-ios-blue hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 font-medium">Cancel</button>
+          <button id="done-holiday" class="px-4 py-2 text-ios-blue rounded-lg font-medium hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-200">Done</button>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
+          <div class="p-3 space-y-4">
+            <!-- Title -->
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Holiday Periods</h2>
+
+            <!-- Periods List Card -->
+            <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl" id="period-list">
+              <!-- Dynamic rows via JS -->
+            </div>
+
+            <!-- Controls Card -->
+            <div class="p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl space-y-2">
+              <button id="add-period-btn" class="w-full flex items-center gap-2 text-ios-blue font-medium hover:bg-gray-100/40 dark:hover:bg-gray-700/40 rounded-lg py-3 px-3 transition-all duration-200">
+                <span class="material-icons text-white bg-green-600 rounded-full inline-flex items-center justify-center w-5 h-5 text-sm leading-none">add</span>
+                <span>Add Holiday Period</span>
+              </button>
+              <button id="delete-all-periods" class="w-full flex items-center gap-2 text-red-600 font-medium hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg py-3 px-3 transition-all duration-200">
+                <span class="material-icons text-red-600 inline-flex items-center justify-center w-5 h-5 leading-none">delete</span>
+                <span>Clear All Holiday Periods</span>
+              </button>
+            </div>
+
+            <!-- Bottom Padding -->
+            <!-- Removed blank spacer div -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Holiday Period Form Modal -->
+    <div id="holiday-period-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1003] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate flex flex-col">
+        <!-- Header -->
+        <div class="modal-header flex justify-between items-center px-6 py-1 bg-white/90 dark:bg-gray-800/90 border-b border-gray-200/50 dark:border-gray-700/50 flex-shrink-0 rounded-t-2xl backdrop-blur-xl">
+          <button id="cancel-period" class="px-4 py-2 text-ios-blue hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 font-medium">Cancel</button>
+          <button id="save-period" class="px-4 py-2 text-ios-blue rounded-lg font-medium opacity-50 transition-all duration-200 hover:bg-gray-100/50 dark:hover:bg-gray-800/50" disabled>Save</button>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
+          <div class="p-3 space-y-4">
+            <!-- Title -->
+            <h2 id="period-form-title" class="text-2xl font-bold text-gray-900 dark:text-white">New Holiday Period</h2>
+
+            <!-- Details Card -->
+            <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+              <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Details</h3>
+              <input id="period-label-input" placeholder="Period title" class="w-full px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 h-12">
+              <div class="flex gap-2">
+                <input type="date" id="period-start-input" class="flex-1 px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 h-12">
+                <input type="date" id="period-end-input" class="flex-1 px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 h-12">
+              </div>
+            </div>
+          </div>
+          <!-- Removed blank spacer div -->
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Add Activity Modal -->
+    <div id="add-activity-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1002] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate flex flex-col">
+        <!-- Modal Header -->
+        <div class="modal-header flex justify-between items-center px-6 py-1 bg-white/90 dark:bg-gray-800/90 border-b border-gray-200/50 dark:border-gray-700/50 flex-shrink-0 rounded-t-2xl backdrop-blur-xl">
+          <button id="cancel-add-activity" class="px-4 py-2 text-ios-blue hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 font-medium">Cancel</button>
+          <button id="save-add-activity" class="px-4 py-2 text-ios-blue rounded-lg font-medium opacity-50 transition-all duration-200 hover:bg-gray-100/50 dark:hover:bg-gray-800/50" disabled>Add</button>
+        </div>
+        
+        <!-- Modal Content - Scrollable -->
+        <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
+          <form id="add-activity-form" class="p-3 space-y-4">
+            <!-- Modal Title -->
+            <div>
+              <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">New Activity</h2>
+              <p class="text-gray-600 dark:text-gray-400 text-sm">Add a new activity to track your fitness progress</p>
+            </div>
+            
+            <!-- Details Section -->
+            <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+              <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Details</h3>
+              
+              <!-- Activity Name -->
+              <input 
+                id="activity-name-input"
+                name="activity-name" 
+                maxlength="32" 
+                required 
+                placeholder="Activity name" 
+                class="w-full px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 h-12"
+              >
+              
+              <!-- Category Dropdown -->
+              <div class="relative">
+                <select id="activity-category-select" name="activity-category" required class="w-full px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 appearance-none h-12">
+                  <!-- Options injected by JS -->
+                </select>
+                <svg class="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 9l-7 7-7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              
+              <!-- Icon Field -->
+              <div class="flex items-center justify-between px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl h-12 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors" id="activity-icon-selector-btn">
+                <span class="text-gray-600 dark:text-gray-400">Choose an icon</span>
+                <div id="activity-selected-icon-display" class="w-8 h-8 rounded-lg bg-gradient-to-br from-ios-blue to-blue-600 flex items-center justify-center text-white font-medium text-lg shadow-sm">
+                  🏃‍♂️
+                </div>
+              </div>
+            </div>
+            
+            <!-- Muscle Group Section (conditional for Strength Training) -->
+            <div id="muscle-group-section" class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl hidden">
+              <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Muscle Group</h3>
+              
+              <!-- Muscle Group Dropdown -->
+              <div class="relative">
+                <select id="muscle-group-select" name="muscle-group" class="w-full px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 appearance-none h-12">
+                  <option value="" disabled selected>Muscle Group</option>
+                  <option value="chest">Chest</option>
+                  <option value="triceps">Triceps</option>
+                  <option value="back">Back</option>
+                  <option value="biceps">Biceps</option>
+                  <option value="forearm">Forearm</option>
+                  <option value="shoulders">Shoulders</option>
+                  <option value="abs">Abs</option>
+                  <option value="legs">Legs</option>
+                </select>
+                <svg class="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 9l-7 7-7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+            
+            <!-- Tracking Type Section -->
+            <div id="tracking-type-section" class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+              <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Tracking Type</h3>
+              
+              <!-- Toggle Buttons -->
+              <div class="flex rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 p-1">
+                <button id="sets-reps-toggle" type="button" class="flex-1 py-2 px-4 text-sm font-medium rounded-md transition-all text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Sets/Reps</button>
+                <button id="time-toggle" type="button" class="flex-1 py-2 px-4 text-sm font-medium rounded-md transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 shadow-sm">Time</button>
+              </div>
+            </div>
+            
+            <!-- Units Section (conditional for Sets/Reps) -->
+            <div id="units-section" class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl hidden">
+              <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Units</h3>
+              
+              <!-- Units Dropdown -->
+              <div class="relative">
+                <select id="units-select" name="units" class="w-full px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 appearance-none h-12">
+                  <option value="none">None</option>
+                  <option value="kg">Weight (Kg)</option>
+                  <option value="seconds">Time (s)</option>
+                  <option value="minutes">Time (Mins)</option>
+                </select>
+                <svg class="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 9l-7 7-7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+            
+            <!-- Delete Button (shown only in edit mode) -->
+            <button id="delete-activity-btn" class="w-full py-3 px-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors hidden">
+              Delete Activity
+            </button>
+            
+            <!-- Bottom Padding -->
+            <!-- Removed blank spacer div -->
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity Details Modal -->
+    <div id="activity-details-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1003] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate flex flex-col">
+        <!-- Modal Header -->
+        <div class="modal-header flex justify-between items-center px-6 py-1 bg-white/90 dark:bg-gray-800/90 border-b border-gray-200/50 dark:border-gray-700/50 flex-shrink-0 rounded-t-2xl backdrop-blur-xl">
+          <button id="cancel-activity-details" class="px-4 py-2 text-ios-blue hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 font-medium">Cancel</button>
+          <span class="text-lg font-semibold text-gray-900 dark:text-white">Activity Details</span>
+          <button id="save-activity-details" class="px-4 py-2 text-ios-blue rounded-lg font-medium hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-200">Record</button>
+        </div>
+        <!-- Modal Content -->
+        <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
+          <form id="activity-details-form" class="p-6 space-y-5">
+            <!-- Activity Info Display -->
+            <div class="activity-info-display flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+              <div id="activity-details-icon" class="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"></div>
+              <div>
+                <h3 id="activity-details-name" class="font-semibold text-gray-900 dark:text-white"></h3>
+                <p id="activity-details-category" class="text-sm text-gray-600 dark:text-gray-400"></p>
+              </div>
+            </div>
+            
+            <!-- Time-based tracking section -->
+            <div id="time-tracking-section" class="space-y-5">
+              <!-- Duration -->
+              <div class="space-y-3">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Duration</label>
+                <div class="flex gap-2">
+                  <input type="number" id="activity-duration-input" name="activity-duration" min="1" max="999" placeholder="30" class="flex-1 px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 h-12">
+                  <select id="duration-unit-select" class="px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 h-12 min-w-[100px]">
+                    <option value="minutes">Minutes</option>
+                    <option value="hours">Hours</option>
+                    <option value="seconds">Seconds</option>
+                  </select>
+                </div>
+              </div>
+              
+              <!-- Intensity (optional) -->
+              <div>
+                <label for="activity-intensity-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Intensity (optional)</label>
+                <select id="activity-intensity-select" name="activity-intensity" class="w-full px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 h-12">
+                  <option value="">Select intensity</option>
+                  <option value="light">Light</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="vigorous">Vigorous</option>
+                </select>
+              </div>
+            </div>
+            
+            <!-- Sets/Reps tracking section -->
+            <div id="sets-reps-tracking-section" class="hidden">
+              <div class="space-y-3">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Sets & Reps</label>
+                <div id="sets-container" class="space-y-3">
+                  <!-- Sets will be dynamically added here -->
+                </div>
+                <button type="button" id="add-set-btn" class="w-full py-3 px-4 bg-ios-blue/10 text-ios-blue rounded-xl font-medium hover:bg-ios-blue/20 transition-colors flex items-center justify-center gap-2">
+                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                  </svg>
+                  Add Set
+                </button>
+              </div>
+            </div>
+            
+            <!-- Notes -->
+            <div>
+              <label for="activity-notes-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional)</label>
+              <textarea id="activity-notes-input" name="activity-notes" rows="3" maxlength="200" placeholder="How did it feel? Any observations?" class="w-full px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 resize-none"></textarea>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timer Modal -->
+    <div id="timer-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1003] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate flex flex-col">
+        <!-- Modal Header -->
+        <div class="modal-header flex justify-between items-center px-6 py-4 bg-white/90 dark:bg-gray-800/90 border-b border-gray-200/50 dark:border-gray-700/50 flex-shrink-0 rounded-t-2xl backdrop-blur-xl">
+          <h2 class="text-xl font-bold text-gray-900 dark:text-white">Timer</h2>
+          <button id="close-timer-modal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path d="M6 18L18 6M6 6l12 12" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
+          <div class="p-6 space-y-6">
+            <!-- Large Time Display -->
+            <div class="timer-display text-center mb-8">
+              <div id="timer-time-display" class="text-6xl font-mono font-bold text-gray-900 dark:text-white mb-2">
+                00:00
+              </div>
+              <div id="timer-status" class="text-lg text-gray-600 dark:text-gray-400">
+                Ready to start
+              </div>
+            </div>
+            
+            <!-- Control Buttons -->
+            <div class="timer-controls flex justify-center gap-4 mb-6">
+              <button id="timer-start-stop-btn" class="w-16 h-16 rounded-full bg-ios-blue text-white flex items-center justify-center text-2xl shadow-lg hover:bg-blue-600 transition-colors">
+                <span class="material-icons">play_arrow</span>
+              </button>
+              <button id="timer-reset-btn" class="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center text-2xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                <span class="material-icons">restart_alt</span>
+              </button>
+            </div>
+            
+            <!-- Lap Times List -->
+            <div id="lap-times-container" class="lap-times-list hidden">
+              <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Lap Times</h3>
+                <div class="text-right">
+                  <div id="total-session-time" class="text-lg font-bold text-gray-900 dark:text-white">--</div>
+                  <div class="text-xs text-gray-500 dark:text-gray-400">Total Time</div>
+                </div>
+              </div>
+              <div id="lap-times-list" class="space-y-2 max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800 relative">
+                <!-- Lap times will be added here dynamically -->
+              </div>
+            </div>
+            
+            <!-- Lap Controls Section -->
+            <div class="lap-controls flex justify-center">
+              <button id="record-lap-btn" class="py-3 px-6 bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 rounded-xl font-medium hover:bg-green-200 dark:hover:bg-green-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                Record Lap
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Templates for dynamic placeholders and spinners -->
+    <template id="fitness-view-placeholder">
+      <header class="app-header flex justify-between items-center h-11 px-4 sm:px-6 lg:px-8 border-b border-gray-200 dark:border-gray-700 w-full">
+        <button class="back-btn text-ios-blue text-lg lg:text-xl">←</button>
+        <h1 class="app-title text-lg font-semibold lg:text-xl">Fitness</h1>
+        <button class="add-btn text-ios-blue text-2xl lg:text-3xl">+</button>
+      </header>
+      <div class="placeholder-content text-center py-16 px-4 sm:px-6 lg:px-8 text-gray-500">
+        <div class="w-16 h-16 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center lg:w-20 lg:h-20">
+          <svg class="w-8 h-8 lg:w-10 lg:h-10" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+          </svg>
+        </div>
+        <p class="text-lg font-medium lg:text-xl">Fitness tracking will be built here</p>
+      </div>
+    </template>
+    <template id="stats-view-placeholder">
+      <header class="app-header flex justify-between items-center h-11 px-4 sm:px-6 lg:px-8 border-b border-gray-200 dark:border-gray-700 w-full">
+        <button class="back-btn text-ios-blue text-lg lg:text-xl">←</button>
+        <h1 class="app-title text-lg font-semibold lg:text-xl">Statistics</h1>
+        <button class="add-btn text-ios-blue text-2xl lg:text-3xl">+</button>
+      </header>
+      <div class="placeholder-content text-center py-16 px-4 sm:px-6 lg:px-8 text-gray-500">
+        <div class="w-16 h-16 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center lg:w-20 lg:h-20">
+          <svg class="w-8 h-8 lg:w-10 lg:h-10" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/>
+            <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"/>
+          </svg>
+        </div>
+        <p class="text-lg font-medium lg:text-xl">Statistics and analytics will be built here</p>
+      </div>
+    </template>
+    <template id="home-loading-spinner">
+      <div id="home-loading" class="flex flex-col items-center justify-center flex-grow py-10 text-gray-400">
+        <svg class="animate-spin w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+        <p class="text-sm">Loading Home...</p>
+      </div>
+    </template>
+    <template id="habits-loading-spinner">
+      <div id="habits-loading" class="flex flex-col items-center justify-center flex-grow py-10 text-gray-400">
+        <svg class="animate-spin w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+        <p class="text-sm">Loading Habits...</p>
+      </div>
+    </template>
+
+</body>
+</html> 
