@@ -37,64 +37,71 @@ export function initializeNavigation() {
   async function loadModule(moduleName) {
     if (moduleStates[moduleName].loaded || moduleStates[moduleName].loading) return;
     moduleStates[moduleName].loading = true;
-    let viewId, spinnerId, templateId, importPath, moduleExport, initFn;
+    let viewId, spinnerId, templateId;
     switch (moduleName) {
       case 'home':
         viewId = 'home-view';
         spinnerId = 'home-loading';
         templateId = 'home-loading-spinner';
-        importPath = '../features/home/HomeModule.js';
-        moduleExport = 'HomeModule';
-        initFn = 'init';
+        try {
+          const { HomeModule } = await import('../features/home/HomeModule.js');
+          await HomeModule.init();
+        } catch (error) {
+          console.error('Error loading home module:', error);
+          moduleStates[moduleName].error = error;
+        }
         break;
       case 'habits':
         viewId = 'habits-view';
         spinnerId = 'habits-loading';
         templateId = 'habits-loading-spinner';
-        importPath = '../features/habits/HabitsModule.js';
-        moduleExport = 'HabitsModule';
-        initFn = 'init';
+        try {
+          const { HabitsModule } = await import('../features/habits/HabitsModule.js');
+          await HabitsModule.init();
+        } catch (error) {
+          console.error('Error loading habits module:', error);
+          moduleStates[moduleName].error = error;
+        }
         break;
       case 'fitness':
         viewId = 'fitness-view';
         spinnerId = null; // No spinner template for fitness yet
         templateId = null;
-        importPath = '../features/fitness/FitnessModule.js';
-        moduleExport = 'FitnessModule';
-        initFn = 'init';
+        try {
+          const { FitnessModule } = await import('../features/fitness/FitnessModule.js');
+          await FitnessModule.init();
+        } catch (error) {
+          console.error('Error loading fitness module:', error);
+          moduleStates[moduleName].error = error;
+        }
         break;
       case 'stats':
         viewId = 'stats-view';
         spinnerId = null; // No spinner template for stats yet
         templateId = null;
-        importPath = '../features/stats/stats.js';
-        moduleExport = 'StatsModule';
-        initFn = 'initializeStats';
+        try {
+          const stats = await import('../features/stats/stats.js');
+          await stats.initializeStats();
+        } catch (error) {
+          console.error('Error loading stats module:', error);
+          moduleStates[moduleName].error = error;
+        }
         break;
       default:
         return;
     }
     const view = document.getElementById(viewId);
-    let spinner;
     if (view && spinnerId && !view.querySelector(`#${spinnerId}`) && templateId) {
       const template = document.getElementById(templateId);
       if (template) {
-        spinner = template.content.cloneNode(true).firstElementChild;
+        const spinner = template.content.cloneNode(true).firstElementChild;
         view.appendChild(spinner);
+        // remove spinner once loaded
+        setTimeout(() => spinner.remove(), 500);
       }
     }
-    try {
-      const mod = await import(importPath);
-
-      await mod[moduleExport][initFn]();
-      moduleStates[moduleName].loaded = true;
-    } catch (error) {
-      console.error(`Error loading ${moduleName} modules:`, error);
-      moduleStates[moduleName].error = error;
-    } finally {
-      moduleStates[moduleName].loading = false;
-      spinner?.remove();
-    }
+    moduleStates[moduleName].loaded = true;
+    moduleStates[moduleName].loading = false;
   }
 
   // Enhanced view switching with performance monitoring
