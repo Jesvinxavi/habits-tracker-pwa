@@ -65,7 +65,7 @@ export function destroySortables() {
 
 export function toggleReorderMode() {
   reorderActive = !reorderActive;
-  const btns = document.querySelectorAll('.reorder-btn');
+  const btns = document.querySelectorAll('[data-button-id="reorder"]');
   setReorderBtnLabel(reorderActive);
 
   if (reorderActive) {
@@ -136,11 +136,15 @@ export function toggleReorderMode() {
 }
 
 export function setReorderBtnLabel(isDone) {
-  const iconHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  const listIconHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
   </svg>`;
+  const tickIconHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+  const iconHTML = isDone ? tickIconHTML : listIconHTML;
   const label = isDone ? 'Done' : 'Reorder';
-  document.querySelectorAll('.reorder-btn').forEach((btn) => {
+  document.querySelectorAll('[data-button-id="reorder"]').forEach((btn) => {
     btn.innerHTML = `${iconHTML}<span class="ml-1.5">${label}</span>`;
     btn.classList.add('font-semibold');
     if (!btn.style.minWidth) btn.style.minWidth = '90px';
@@ -151,7 +155,7 @@ export function setReorderBtnLabel(isDone) {
 // (initializeReorder in main.js just calls this function.)
 export function initializeReorder() {
   // Ensure initial styling for reorder buttons (bold & fixed width)
-  document.querySelectorAll('.reorder-btn').forEach((btn) => {
+  document.querySelectorAll('[data-button-id="reorder"]').forEach((btn) => {
     btn.classList.add('font-semibold');
     if (!btn.style.minWidth) btn.style.minWidth = '90px';
   });
