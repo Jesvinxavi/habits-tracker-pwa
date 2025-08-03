@@ -1,4 +1,4 @@
-import { dispatch, Actions } from '../core/state.js';
+import { dispatch, Actions, getState } from '../core/state.js';
 
 export function initializeNavigation() {
   const tabItems = document.querySelectorAll('.tab-item');
@@ -134,8 +134,15 @@ export function initializeNavigation() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       if (viewId === 'home-view') {
-        const calEl = document.querySelector('#home-view hh-calendar[state-key="selectedDate"]');
-        calEl?.setDate?.(today, { smooth: true });
+        // Calculate the appropriate "today" using centralized smart date selection
+        const currentGroup = getState().selectedGroup || 'daily';
+        const { calculateSmartDateForGroupISO } = await import('../shared/dateSelection.js');
+        
+        const appropriateTodayISO = calculateSmartDateForGroupISO(getState().habits, currentGroup, today);
+        
+        // Update the state with the appropriate date for the current group
+        dispatch(Actions.setSelectedDate(appropriateTodayISO));
+        
         window.HomeModule?.refresh?.();
       } else if (viewId === 'fitness-view') {
         const { getLocalMidnightISOString } = await import('../shared/datetime.js');

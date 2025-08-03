@@ -127,8 +127,15 @@ export class HHCalendar extends HTMLElement {
 
         // Check against anchor date to prevent going before the first available day
         const anchor = this._getAnchorDate(stateKey, group);
+        
         if (anchor && cur < anchor) {
-          cur = new Date(anchor);
+          // Use the exact first tile date instead of anchor for perfect alignment
+          const firstTile = this.querySelector('.day-item');
+          if (firstTile && firstTile.dataset.date) {
+            cur = new Date(firstTile.dataset.date);
+          } else {
+            cur = new Date(anchor);
+          }
         }
 
         // Update global state via dispatched action so other views update too

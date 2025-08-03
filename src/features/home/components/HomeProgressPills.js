@@ -12,6 +12,7 @@ import {
   isHabitScheduledOnDate, 
   isHabitSkippedToday 
 } from '../schedule.js';
+import { calculateSmartDateForGroup } from '../../../shared/dateSelection.js';
 
 const GROUPS = ['daily', 'weekly', 'monthly', 'yearly'];
 
@@ -30,34 +31,36 @@ export function updateProgressPills() {
   // Always rebuild pills from scratch for simplicity and correctness
   container.innerHTML = '';
 
-  const selectedDate = new Date(getState().selectedDate);
+  const today = new Date();
 
   GROUPS.forEach((group) => {
     if (group === getState().selectedGroup) {
       return; // don't show pill for current group
     }
 
-    // Use the original period-based progress calculation
-    const progress = getGroupProgress(group, selectedDate);
+    // Calculate the appropriate "today" date for this specific group
+    const groupTodayDate = calculateSmartDateForGroup(getState().habits, group, today);
+    
+    // Use the group's "today" date for progress calculation and habit checking
+    const progress = getGroupProgress(group, groupTodayDate);
 
-    // Additional check: for consistency with daily progress behavior,
-    // ensure that there are habits belonging to this group that have any presence
-    // on the current selected date (either scheduled or target-based)
+    // Check if there are habits belonging to this group that have any presence
+    // on the group's "today" date (either scheduled or target-based)
     const groupHabits = getState().habits.filter((h) => belongsToSelectedGroup(h, group));
     
     // Check if any habits in this group are either:
-    // 1. Scheduled on the selected date and not skipped, OR
+    // 1. Scheduled on the group's today date and not skipped, OR
     // 2. Target-based (which means they're always "present" for their period)
     const hasRelevantHabits = groupHabits.some((habit) => {
       const isTarget = typeof habit.target === 'number' && habit.target > 0;
       
       // Target-based habits are always relevant for their group
       if (isTarget) {
-        return !habit.paused && !isHabitSkippedToday(habit, selectedDate);
+        return !habit.paused && !isHabitSkippedToday(habit, groupTodayDate);
       }
       
-      // Schedule-only habits must be scheduled on this date and not skipped
-      return isHabitScheduledOnDate(habit, selectedDate) && !isHabitSkippedToday(habit, selectedDate);
+      // Schedule-only habits must be scheduled on this group's today date and not skipped
+      return isHabitScheduledOnDate(habit, groupTodayDate) && !isHabitSkippedToday(habit, groupTodayDate);
     });
 
     // For daily group: show pill if there are relevant habits, regardless of progress.active

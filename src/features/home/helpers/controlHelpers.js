@@ -25,7 +25,7 @@ function handleGroupPillMove(e, startX, startY, isSwiping) {
   }
 }
 
-function handleGroupPillEnd(e, startX, startY, isSwiping) {
+async function handleGroupPillEnd(e, startX, startY, isSwiping) {
   if (!isSwiping.value || !startX.value) return;
   const currentX = e.type === 'touchend' ? e.changedTouches[0].clientX : e.clientX;
   const deltaX = currentX - startX.value;
@@ -34,7 +34,14 @@ function handleGroupPillEnd(e, startX, startY, isSwiping) {
     const direction = deltaX > 0 ? -1 : 1;
     const nextGroup = findNextGroupWithHabits(getState().selectedGroup, direction);
     if (nextGroup !== getState().selectedGroup) {
-      dispatch(Actions.setSelectedGroup(nextGroup));
+      // Calculate the appropriate "today" date using centralized smart date selection
+      const today = new Date();
+      const { calculateSmartDateForGroupISO } = await import('../../../shared/dateSelection.js');
+      
+      const appropriateDateISO = calculateSmartDateForGroupISO(getState().habits, nextGroup, today);
+      
+      // Use combined action to update both group and date atomically
+      dispatch(Actions.setGroupAndDate(nextGroup, appropriateDateISO));
     }
   }
 

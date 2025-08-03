@@ -11,6 +11,8 @@ import {
 import { centerOnSelector } from '../../components/scrollHelpers.js';
 import { MONTH_NAMES_SHORT as MONTHS, DAY_NAMES_SHORT as DAYS } from '../../shared/constants.js';
 import { isRestDay } from '../../features/fitness/restDays.js';
+import { belongsToSelectedGroup } from './schedule.js';
+import { calculateSmartDateForGroup } from '../../shared/dateSelection.js';
 
 /**
  * @typedef {Object} CalendarController
@@ -112,7 +114,7 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
             if (!Number.isNaN(ts)) {
               const utcDate = new Date(ts);
               d = new Date(utcDate.getFullYear(), utcDate.getMonth(), utcDate.getDate());
-            }
+        }
           }
           return !acc || (d && d < acc) ? d : acc;
         }, null);
@@ -121,31 +123,24 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
         return earliestActivityDate || new Date();
       }
 
-      // For home calendar, find the earliest habit creation date to prevent showing
-      // tiles before the first habit was created
-      const earliestHabitDate = (getState().habits || []).reduce((acc, h) => {
-        let d = null;
-        if (h.createdAt) {
-          // Parse timezone-safe creation date
-          d = new Date(h.createdAt);
-        } else if (typeof h.id === 'string' && /^\d{13}/.test(h.id)) {
-          // Extract timestamp from habit ID and create local date
-          const ts = parseInt(h.id.slice(0, 13), 10);
-          if (!Number.isNaN(ts)) {
-            const utcDate = new Date(ts);
-            // Convert to local date to avoid timezone issues
-            d = new Date(utcDate.getFullYear(), utcDate.getMonth(), utcDate.getDate());
+      // For home calendar, use centralized smart date selection for finding earliest valid period
+      const earliestValidDate = new Date(Math.min(
+        ...getState().habits.map(h => {
+          if (h.createdAt) return new Date(h.createdAt);
+          if (typeof h.id === 'string' && /^\d{13}/.test(h.id)) {
+            const ts = parseInt(h.id.slice(0, 13), 10);
+            if (!Number.isNaN(ts)) return new Date(ts);
           }
-        }
-        return !acc || (d && d < acc) ? d : acc;
-      }, null);
-
-      // Return the earliest habit date or today if no habits exist
-      return earliestHabitDate || new Date();
+          return new Date();
+        })
+      ));
+      
+      return calculateSmartDateForGroup(getState().habits, group, earliestValidDate);
     }
 
     const earliestDate = getEarliestDate();
-    const earliestPeriodStart = getPeriodStart(earliestDate, group);
+    // getEarliestDate() now returns the correct period start, no need to call getPeriodStart again
+    const earliestPeriodStart = earliestDate;
 
     // Always reset anchor to earliest period each time build runs (prevents drift when switching groups)
     _groupAnchors[group] = new Date(earliestPeriodStart);
@@ -251,11 +246,14 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
   function updateClasses() {
     // For fitness calendar, always use 'daily' for selection logic
     const group = stateKey === 'fitnessSelectedDate' ? 'daily' : getState().selectedGroup || 'daily';
-    weekDays.querySelectorAll('.day-item').forEach((el) => {
-      const d = new Date(el.dataset.date);
-      const isSel = isSamePeriod(d, getStateDate(), group);
-      const isToday = isSamePeriod(d, new Date(), group);
-      el.classList.toggle('current-day', isSel);
+    const currentStateDate = getStateDate();
+    
+          weekDays.querySelectorAll('.day-item').forEach((el) => {
+        const d = new Date(el.dataset.date);
+        const isSel = isSamePeriod(d, currentStateDate, group);
+        const isToday = isSamePeriod(d, new Date(), group);
+        
+        el.classList.toggle('current-day', isSel);
       el.classList.toggle('today', isToday && !isSel);
       // Update numbers/names if month/day may have changed (e.g. locale change)
       // For fitness calendar, always use daily labels
@@ -410,14 +408,26 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
           }
         }
       }
+      
       const anchor = _groupAnchors[grp] ? new Date(_groupAnchors[grp]) : null;
-      if (anchor && cur < anchor) {
-        cur = new Date(anchor);
+      
+      if (anchor && getPeriodStart(cur, grp) < anchor) {
+        // When navigation goes before the first tile, use the exact first tile date
+        const firstTile = weekDays.querySelector('.day-item');
+        if (firstTile && firstTile.dataset.date) {
+          cur = new Date(firstTile.dataset.date);
+        } else {
+          // Fallback to anchor if no tiles exist yet
+          cur = new Date(anchor);
+        }
+      } else {
+        // Always ensure the calculated date aligns with the proper period for this group
+        // This ensures the selectedDate matches what tiles actually represent
+        cur = getPeriodStart(cur, grp);
       }
-      setStateDate(cur);
-      updateClasses();
-      const selEl = weekDays.querySelector('.day-item.current-day');
-      if (selEl) center(selEl);
+      // Use setDate() instead of separate calls to ensure proper sequencing
+      // This prevents timing issues between state updates and visual updates
+      setDate(cur);
     });
   });
 
@@ -464,24 +474,21 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
       } else {
         const currentGroup = getState().selectedGroup;
         if (currentGroup !== lastGroupRef) {
-          // reset anchor for new group to earliest period
-          const earliestDate = (getState().habits || []).reduce((acc, h) => {
-            let d = null;
-            if (h.createdAt) {
-              // Parse timezone-safe creation date
-              d = new Date(h.createdAt);
-            } else if (typeof h.id === 'string' && /^\d{13}/.test(h.id)) {
-              // Extract timestamp from habit ID and create local date
-              const ts = parseInt(h.id.slice(0, 13), 10);
-              if (!Number.isNaN(ts)) {
-                const utcDate = new Date(ts);
-                // Convert to local date to avoid timezone issues
-                d = new Date(utcDate.getFullYear(), utcDate.getMonth(), utcDate.getDate());
+          // reset anchor for new group using centralized smart date selection
+          const earliestValidDate = new Date(Math.min(
+            ...getState().habits.map(h => {
+              if (h.createdAt) return new Date(h.createdAt);
+              if (typeof h.id === 'string' && /^\d{13}/.test(h.id)) {
+                const ts = parseInt(h.id.slice(0, 13), 10);
+                if (!Number.isNaN(ts)) return new Date(ts);
               }
-            }
-            return !acc || (d && d < acc) ? d : acc;
-          }, null) || new Date();
-          _groupAnchors[currentGroup] = getPeriodStart(earliestDate, currentGroup);
+              return new Date();
+            })
+          ));
+          
+          const earliestValidPeriodStart = calculateSmartDateForGroup(getState().habits, currentGroup, earliestValidDate);
+          
+          _groupAnchors[currentGroup] = new Date(earliestValidPeriodStart);
           buildDays();
           lastGroupRef = currentGroup;
         }
@@ -538,7 +545,7 @@ function getCalendarLabels(date, forceGroup = null) {
 }
 
 // Return the first date representing the current period for the given group
-function getPeriodStart(date, group = getState().selectedGroup || 'daily') {
+export function getPeriodStart(date, group = getState().selectedGroup || 'daily') {
   const d = new Date(date);
   switch (group) {
     case 'weekly': {

@@ -253,11 +253,14 @@ export const HomeHeader = {
         const dir = delta < 0 ? +1 : -1; // left swipe -> next (+1)
         const nextGroup = this._findNextGroupWithHabits(getState().selectedGroup, dir);
 
-        // Keep the current selected date - don't change it when switching groups
-        const currentSelectedDate = getState().selectedDate;
+        // Calculate the appropriate "today" date using centralized smart date selection
+        const today = new Date();
+        const { calculateSmartDateForGroupISO } = await import('../../../shared/dateSelection.js');
+        
+        const appropriateDateISO = calculateSmartDateForGroupISO(getState().habits, nextGroup, today);
 
         // Use combined action to update both group and date atomically
-        dispatch(Actions.setGroupAndDate(nextGroup, currentSelectedDate));
+        dispatch(Actions.setGroupAndDate(nextGroup, appropriateDateISO));
 
         if (this.callbacks.onGroupChange) {
           this.callbacks.onGroupChange(nextGroup);

@@ -207,9 +207,53 @@
   color: #9ca3af;
 }
 /* Moved from index.html inline <style> on 2025-06-17 */
-.js-loading body {
+/* Enhanced loading states - Hide app content and show loading screen */
+.js-loading .app-container {
+  display: none;
+}
+
+.js-loading .loading-screen {
+  display: flex;
+}
+
+/* When not loading, hide the loading screen */
+.loading-screen {
+  display: none;
+}
+
+/* Smooth fade-in transition when app loads */
+.app-container {
   opacity: 0;
-  transition: none;
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* Show app content with fade-in effect */
+html:not(.js-loading) .app-container {
+  opacity: 1;
+}
+
+/* Loading screen animations */
+.loading-screen {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+[data-theme="dark"] .loading-screen {
+  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+}
+
+.loading-icon {
+  animation: loading-pulse 2s ease-in-out infinite;
+}
+
+@keyframes loading-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
 }
 .day-item {
   position: relative;

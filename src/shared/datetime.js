@@ -27,16 +27,22 @@ export function getISOWeekNumber(date) {
  * @param {'daily'|'weekly'|'monthly'|'yearly'} group
  */
 export function isSamePeriod(a, b, group = 'daily') {
+  // Normalize both dates to match tile storage format (local midnight as UTC)
+  const localA = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+  const localB = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+  const dateA = new Date(Date.UTC(localA.getFullYear(), localA.getMonth(), localA.getDate()));
+  const dateB = new Date(Date.UTC(localB.getFullYear(), localB.getMonth(), localB.getDate()));
+  
   switch (group) {
     case 'weekly':
-      return a.getFullYear() === b.getFullYear() && getISOWeekNumber(a) === getISOWeekNumber(b);
+      return dateA.getFullYear() === dateB.getFullYear() && getISOWeekNumber(dateA) === getISOWeekNumber(dateB);
     case 'monthly':
-      return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+      return dateA.getFullYear() === dateB.getFullYear() && dateA.getMonth() === dateB.getMonth();
     case 'yearly':
-      return a.getFullYear() === b.getFullYear();
+      return dateA.getFullYear() === dateB.getFullYear();
     case 'daily':
     default:
-      return a.toDateString() === b.toDateString();
+      return dateA.toDateString() === dateB.toDateString();
   }
 }
 

@@ -70,9 +70,14 @@ export const HomeHabitsList = {
     // Clear previous dynamic content
     this.container.innerHTML = '';
 
-    const date = new Date(getState().selectedDate);
+    const rawDate = new Date(getState().selectedDate);
     const group = getState().selectedGroup;
-
+    
+    // Normalize the date to match how calendar tiles store dates (local midnight as UTC)
+    const normalizedLocal = new Date(rawDate.getFullYear(), rawDate.getMonth(), rawDate.getDate());
+    // Convert to the same format as tile dataset.date (local midnight represented as UTC midnight)
+    const date = new Date(Date.UTC(normalizedLocal.getFullYear(), normalizedLocal.getMonth(), normalizedLocal.getDate()));
+    
     // Filter habits
     const habits = getState().habits.filter(
       (h) => belongsToSelectedGroup(h, group) && isHabitScheduledOnDate(h, date)

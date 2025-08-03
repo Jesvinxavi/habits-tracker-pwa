@@ -11,7 +11,11 @@ import {
 /* -------------------------------------------------------------------------- */
 
 export function calculateProgressForCurrentContext() {
-  const dateObj = new Date(getState().selectedDate);
+  const rawDateObj = new Date(getState().selectedDate);
+  
+  // Normalize the date to match how calendar tiles store dates (local midnight as UTC)
+  const normalizedLocal = new Date(rawDateObj.getFullYear(), rawDateObj.getMonth(), rawDateObj.getDate());
+  const dateObj = new Date(Date.UTC(normalizedLocal.getFullYear(), normalizedLocal.getMonth(), normalizedLocal.getDate()));
 
   // 1) Habits that belong to the currently selected group
   // 2) Are actually scheduled for the selected date (takes holiday mode into account)

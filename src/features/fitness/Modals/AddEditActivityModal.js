@@ -622,14 +622,14 @@ export const AddEditActivityModal = {
         okText: 'Delete',
         cancelText: 'Cancel',
         onOK: () => {
-          deleteActivity(activityId);
-          closeModal('add-activity-modal');
+      deleteActivity(activityId);
+      closeModal('add-activity-modal');
 
-          // Trigger refresh of search panel to reflect the deletion
-          const event = new CustomEvent('ActivityDeleted', {
-            detail: { activityId },
-          });
-          document.dispatchEvent(event);
+      // Trigger refresh of search panel to reflect the deletion
+      const event = new CustomEvent('ActivityDeleted', {
+        detail: { activityId },
+      });
+      document.dispatchEvent(event);
         },
       });
     });
