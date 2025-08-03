@@ -22,7 +22,7 @@ export function mountSearchInput(onSearchChange, onExpand, onCollapse) {
       <svg class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <input id="fitness-activity-search" type="text" placeholder="Search activities..." class="w-full pl-10 pr-10 py-3 bg-transparent text-gray-700 dark:text-gray-300 rounded-xl border-none outline-none focus:ring-0 transition-colors cursor-pointer placeholder-gray-500 dark:placeholder-gray-400" autocomplete="off" spellcheck="false">
+      <input id="fitness-activity-search" type="text" placeholder="Search activities..." class="w-full pl-10 pr-10 py-2 bg-transparent text-gray-700 dark:text-gray-300 rounded-xl border-none outline-none focus:ring-0 transition-colors cursor-pointer placeholder-gray-500 dark:placeholder-gray-400" autocomplete="off" spellcheck="false">
       <button id="close-search-btn" class="absolute right-3 top-1/2 transform -translate-y-1/2 w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors hidden rounded-full hover:bg-gray-200 dark:hover:bg-gray-600">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>

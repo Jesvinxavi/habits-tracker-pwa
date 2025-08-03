@@ -70,8 +70,6 @@ export const HomeHabitsList = {
     // Clear previous dynamic content
     this.container.innerHTML = '';
 
-
-
     const date = new Date(getState().selectedDate);
     const group = getState().selectedGroup;
 

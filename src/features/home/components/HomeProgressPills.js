@@ -3,10 +3,15 @@
 // This module encapsulates the DOM logic for the small progress pills
 // that appear next to the main circular progress ring.
 
-import { getState } from '../../../core/state.js';
+import { getState, dispatch, Actions } from '../../../core/state.js';
 import { getProgressColor } from './ProgressRing.js';
 import { getGroupProgress } from '../../../selectors/progress.js';
 import { capitalize } from '../../../shared/common.js';
+import { 
+  belongsToSelectedGroup, 
+  isHabitScheduledOnDate, 
+  isHabitSkippedToday 
+} from '../schedule.js';
 
 const GROUPS = ['daily', 'weekly', 'monthly', 'yearly'];
 
@@ -25,22 +30,51 @@ export function updateProgressPills() {
   // Always rebuild pills from scratch for simplicity and correctness
   container.innerHTML = '';
 
-  const today = new Date(); // period calculation reference
+  const selectedDate = new Date(getState().selectedDate);
 
   GROUPS.forEach((group) => {
-    if (group === getState().selectedGroup) return; // don't show pill for current group
+    if (group === getState().selectedGroup) {
+      return; // don't show pill for current group
+    }
 
-    const progress = getGroupProgress(group, today);
+    // Use the original period-based progress calculation
+    const progress = getGroupProgress(group, selectedDate);
 
-    // Only show pill if there are active habits (not paused, skipped, or hidden due to holidays)
-    if (progress.active === 0) {
+    // Additional check: for consistency with daily progress behavior,
+    // ensure that there are habits belonging to this group that have any presence
+    // on the current selected date (either scheduled or target-based)
+    const groupHabits = getState().habits.filter((h) => belongsToSelectedGroup(h, group));
+    
+    // Check if any habits in this group are either:
+    // 1. Scheduled on the selected date and not skipped, OR
+    // 2. Target-based (which means they're always "present" for their period)
+    const hasRelevantHabits = groupHabits.some((habit) => {
+      const isTarget = typeof habit.target === 'number' && habit.target > 0;
+      
+      // Target-based habits are always relevant for their group
+      if (isTarget) {
+        return !habit.paused && !isHabitSkippedToday(habit, selectedDate);
+      }
+      
+      // Schedule-only habits must be scheduled on this date and not skipped
+      return isHabitScheduledOnDate(habit, selectedDate) && !isHabitSkippedToday(habit, selectedDate);
+    });
+
+    // For daily group: show pill if there are relevant habits, regardless of progress.active
+    // For other groups: show pill if there are active habits AND relevant habits  
+    const shouldShowPill = group === 'daily' 
+      ? hasRelevantHabits 
+      : (progress.active > 0 && hasRelevantHabits);
+
+    if (!shouldShowPill) {
       return;
     }
 
+    // Create pill element with original styling
     const pill = document.createElement('span');
-    pill.setAttribute('data-group', group); // Add data attribute for easier removal
+    pill.setAttribute('data-group', group);
     pill.className =
-      'progress-pill relative overflow-hidden py-1.5 rounded-full text-xs font-medium';
+      'progress-pill relative overflow-hidden py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all duration-200 hover:scale-105';
     pill.textContent = `${capitalize(group)} (${progress.percentage}%)`;
 
     // Apply progress fill based on percentage thresholds
@@ -60,11 +94,14 @@ export function updateProgressPills() {
     pill.style.lineHeight = '1.2';
     pill.style.paddingLeft = '0';
     pill.style.paddingRight = '0';
+
+    // Handle pill click to switch to that group
+    pill.addEventListener('click', () => {
+      dispatch(Actions.setSelectedGroup(group));
+    });
+
     container.appendChild(pill);
   });
-
-  // Hide container entirely if no pills
-  container.style.display = container.children.length ? 'flex' : 'none';
 }
 
 // Cache invalidation function for when the date changes

@@ -85,6 +85,7 @@ export const ActionTypes = {
   // Date/Navigation actions
   SET_SELECTED_DATE: 'SET_SELECTED_DATE',
   SET_SELECTED_GROUP: 'SET_SELECTED_GROUP',
+  SET_GROUP_AND_DATE: 'SET_GROUP_AND_DATE',
   SET_FITNESS_SELECTED_DATE: 'SET_FITNESS_SELECTED_DATE',
 
   // Holiday actions
@@ -156,6 +157,10 @@ export const Actions = {
 
   setSelectedDate: (date) => ({ type: ActionTypes.SET_SELECTED_DATE, payload: date }),
   setSelectedGroup: (group) => ({ type: ActionTypes.SET_SELECTED_GROUP, payload: group }),
+  setGroupAndDate: (group, date) => ({ 
+    type: ActionTypes.SET_GROUP_AND_DATE, 
+    payload: { group, date } 
+  }),
   setFitnessSelectedDate: (date) => ({
     type: ActionTypes.SET_FITNESS_SELECTED_DATE,
     payload: date,
@@ -381,6 +386,13 @@ function reducer(state, action) {
       return {
         ...state,
         selectedGroup: action.payload,
+      };
+
+    case ActionTypes.SET_GROUP_AND_DATE:
+      return {
+        ...state,
+        selectedGroup: action.payload.group,
+        selectedDate: action.payload.date,
       };
 
     case ActionTypes.SET_FITNESS_SELECTED_DATE:

@@ -48,8 +48,8 @@ export class HHCalendar extends HTMLElement {
         if (!this._autoScrolled) {
           requestAnimationFrame(() => {
             this._api?.scrollToSelected?.({ instant: false });
+            this._autoScrolled = true;
           });
-          this._autoScrolled = true;
         }
       });
     } else {
@@ -125,6 +125,12 @@ export class HHCalendar extends HTMLElement {
           }
         }
 
+        // Check against anchor date to prevent going before the first available day
+        const anchor = this._getAnchorDate(stateKey, group);
+        if (anchor && cur < anchor) {
+          cur = new Date(anchor);
+        }
+
         // Update global state via dispatched action so other views update too
         const { getLocalMidnightISOString } = await import('../shared/datetime.js');
         if (stateKey === 'fitnessSelectedDate') {
@@ -150,6 +156,88 @@ export class HHCalendar extends HTMLElement {
     // ensure helpers ready
     this._applyVirtualWindow();
     this._setupResizeObserver();
+  }
+
+  // Helper method to get the anchor date for preventing navigation before first day
+  _getAnchorDate(stateKey, group) {
+    // For fitness calendar, find the earliest activity date or use today as fallback
+    if (stateKey === 'fitnessSelectedDate') {
+      // Find the earliest activity creation date
+      const earliestActivityDate = (getState().activities || []).reduce((acc, activity) => {
+        let d = null;
+        if (activity.createdAt) {
+          d = new Date(activity.createdAt);
+        } else if (typeof activity.id === 'string' && /^\d{13}/.test(activity.id)) {
+          const ts = parseInt(activity.id.slice(0, 13), 10);
+          if (!Number.isNaN(ts)) {
+            const utcDate = new Date(ts);
+            d = new Date(utcDate.getFullYear(), utcDate.getMonth(), utcDate.getDate());
+          }
+        }
+        return !acc || (d && d < acc) ? d : acc;
+      }, null);
+
+      // If we have activities, use the earliest activity date; otherwise use today
+      if (earliestActivityDate) {
+        return this._getPeriodStart(earliestActivityDate, 'daily');
+      }
+      
+      // Fallback to today if no activities exist
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return this._getPeriodStart(today, 'daily');
+    }
+
+    // For home calendar, find the earliest habit creation date
+    const earliestHabitDate = (getState().habits || []).reduce((acc, h) => {
+      let d = null;
+      if (h.createdAt) {
+        d = new Date(h.createdAt);
+      } else if (typeof h.id === 'string' && /^\d{13}/.test(h.id)) {
+        const ts = parseInt(h.id.slice(0, 13), 10);
+        if (!Number.isNaN(ts)) {
+          const utcDate = new Date(ts);
+          d = new Date(utcDate.getFullYear(), utcDate.getMonth(), utcDate.getDate());
+        }
+      }
+      return !acc || (d && d < acc) ? d : acc;
+    }, null);
+
+    if (earliestHabitDate) {
+      return this._getPeriodStart(earliestHabitDate, group);
+    }
+
+    // Fallback to today if no habits exist
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return this._getPeriodStart(today, group);
+  }
+
+  // Helper method to get period start date
+  _getPeriodStart(date, group) {
+    const d = new Date(date);
+    switch (group) {
+      case 'weekly': {
+        // Monday as first day of week
+        const day = d.getDay();
+        const diff = (day + 6) % 7; // 0 (Sun)->6, 1 (Mon)->0 ...
+        d.setDate(d.getDate() - diff);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }
+      case 'monthly':
+        d.setDate(1);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      case 'yearly':
+        d.setMonth(0, 1);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      case 'daily':
+      default:
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }
   }
 
   /* ----------------- Virtual Window ------------------ */

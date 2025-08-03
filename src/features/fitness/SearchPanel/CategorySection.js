@@ -22,10 +22,7 @@ export function buildCategorySection(category, activities = null, muscleGroups =
   // Build edit button matching habits page style
   const editBtn = `
     <button class="search-edit-category-btn w-8 h-8 rounded-full flex items-center justify-center ml-2" data-category-id="${category.id}" style="background-color:${category.color}">
-      <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" stroke-width="2"/>
-        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2"/>
-      </svg>
+      <span class="material-icons text-white text-lg">edit</span>
     </button>
   `;
 
@@ -39,7 +36,7 @@ export function buildCategorySection(category, activities = null, muscleGroups =
         ([mg, list]) => `
       <div class="muscle-group mb-2">
         ${buildMuscleGroupHeader(mg)}
-        <div class="category-activities pl-6">
+        <div class="category-activities pl-2 mt-0.5">
           ${list.map((activity) => buildActivityTile(activity, category)).join('')}
         </div>
       </div>
@@ -49,7 +46,7 @@ export function buildCategorySection(category, activities = null, muscleGroups =
   } else if (activities) {
     // Handle regular activities
     activitiesContent = `
-      <div class="category-activities pl-6">
+      <div class="category-activities pl-2 mt-0.5">
         ${activities.map((activity) => buildActivityTile(activity, category)).join('')}
       </div>
     `;
@@ -57,17 +54,17 @@ export function buildCategorySection(category, activities = null, muscleGroups =
 
   return `
     <div class="search-category-section mb-4" data-category-id="${category.id}" id="${categoryId}">
-      <div class="search-category-header-wrapper flex items-center">
-        <div class="search-category-header flex items-center justify-between px-4 py-1 rounded-t-xl cursor-pointer select-none flex-grow" style="background:${category.color}20;">
+      <div class="flex items-center gap-2">
+        <div class="search-category-header flex items-center justify-between px-4 py-2 rounded-xl cursor-pointer select-none flex-grow" style="background:${hexToRgba(category.color, 0.25)};">
           <div class="category-title flex items-center gap-2">
-            <span class="text-lg" aria-hidden="true">${category.icon}</span>
-            <span class="font-semibold text-gray-900 dark:text-white">${category.name}</span>
+            <span class="text-base" aria-hidden="true">${category.icon}</span>
+            <span class="font-semibold text-base leading-none text-gray-900 dark:text-white">${category.name}</span>
           </div>
           ${expandBtn}
         </div>
-        <div class="-ml-2">${editBtn}</div>
+        ${editBtn}
       </div>
-      <div class="search-category-content">
+      <div class="search-category-content mt-0.5">
         ${activitiesContent}
       </div>
     </div>
@@ -82,9 +79,9 @@ export function buildCategorySection(category, activities = null, muscleGroups =
  */
 function buildActivityTile(activity, category) {
   return `
-    <div style="margin-bottom: 0.25rem;">
-      <div class="search-activity-item activity-card flex items-center px-3 py-2 rounded-xl w-full transition-colors focus:outline-none focus:ring-2 focus:ring-ios-blue focus:ring-offset-2 dark:focus:ring-offset-gray-800" style="border: 3px solid ${category.color}; background-color: ${hexToRgba(category.color, 0.05)};" data-activity-id="${activity.id}">
-        <div class="activity-icon w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center mr-3 text-xl" style="border: 2px solid ${category.color}; color: ${category.color};" aria-hidden="true">
+    <div style="margin-bottom: 0.125rem;">
+      <div class="search-activity-item activity-card flex items-center px-3 py-2 rounded-xl w-full transition-colors focus:outline-none focus:ring-2 focus:ring-ios-blue focus:ring-offset-2 dark:focus:ring-offset-gray-800" style="border: 2.5px solid ${category.color}; background-color: ${hexToRgba(category.color, 0.05)};" data-activity-id="${activity.id}">
+        <div class="activity-icon w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center mr-3 text-xl" style="background-color: ${category.color}20;" aria-hidden="true">
           ${activity.icon || category.icon}
         </div>
         <div class="activity-content flex-grow text-left">

@@ -105,11 +105,11 @@ function createHabitItem(habit, category, isLast) {
   const metaHTML = `<div class="habit-meta flex flex-wrap gap-1 text-gray-600 dark:text-gray-400 text-xs -mt-1">${chips.join('')}</div>`;
 
   return `
-    <div class="flex flex-row items-stretch habit-row w-full mb-1">
+    <div class="flex flex-row items-stretch habit-row w-full mb-0.5">
       <div class="habit-drag-handle drag-handle hidden w-7 h-12 flex items-center justify-center cursor-grab text-gray-400 mr-1">
         <span class="material-icons text-2xl leading-none">drag_handle</span>
       </div>
-      <div class="habit-item flex items-center px-4 py-1.5 bg-white dark:bg-gray-800 border-[3px] rounded-xl ${borderClass} flex-grow w-full" style="border-color: ${category.color}" data-habit-id="${habit.id}">
+      <div class="habit-item flex items-center px-4 py-1.5 bg-white dark:bg-gray-800 border-[2.5px] rounded-xl ${borderClass} flex-grow w-full" style="border-color: ${category.color}" data-habit-id="${habit.id}">
         <div class="habit-icon w-8 h-8 rounded-lg flex items-center justify-center mr-4 text-xl" style="background-color: ${category.color}20;">
           ${habit.icon || '📋'}
         </div>
@@ -147,10 +147,7 @@ function createCategorySection(category, habits) {
     </button>`;
 
   const editBtn = `<button class="edit-category-btn w-8 h-8 rounded-full flex items-center justify-center" data-category-id="${category.id}" style="background-color:${category.color}">
-      <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" stroke-width="2"/>
-        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2"/>
-      </svg>
+      <span class="material-icons text-white text-lg">edit</span>
     </button>`;
 
   return `<div class="category-section mb-4" data-category-id="${category.id}">
@@ -158,15 +155,16 @@ function createCategorySection(category, habits) {
         <div class="category-drag-handle drag-handle hidden w-7 h-12 flex items-center justify-center cursor-grab text-gray-400">
           <span class="material-icons text-2xl leading-none">drag_handle</span>
         </div>
-        <div class="category-header flex items-center justify-between px-4 py-0 rounded-t-2xl cursor-pointer select-none flex-grow" style="background:${hexToRgba(category.color, 0.25)};">
-          <div class="category-title flex items-center gap-3">
-            <span class="font-semibold text-lg leading-none text-black py-1.5">${category.name}</span>
+        <div class="category-header flex items-center justify-between px-4 py-2 rounded-xl cursor-pointer select-none flex-grow" style="background:${hexToRgba(category.color, 0.25)};">
+          <div class="category-title flex items-center gap-2">
+            <div class="w-4 h-4 rounded-md flex-shrink-0" style="background-color:${category.color}"></div>
+            <span class="font-semibold text-base leading-none text-black">${category.name}</span>
           </div>
           ${arrowBtn}
         </div>
         ${editBtn}
       </div>
-      <div class="category-habits pl-6">${habitsHTML}</div>
+      <div class="category-habits pl-2 mt-0.5">${habitsHTML}</div>
     </div>`;
 }
 

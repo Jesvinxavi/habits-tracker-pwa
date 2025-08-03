@@ -253,43 +253,11 @@ export const HomeHeader = {
         const dir = delta < 0 ? +1 : -1; // left swipe -> next (+1)
         const nextGroup = this._findNextGroupWithHabits(getState().selectedGroup, dir);
 
-        dispatch(Actions.setSelectedGroup(nextGroup));
-        // Set selectedDate to the start of the current period for the new group
-        // This ensures weekly/monthly/yearly groups show the current week/month/year
-        const today = new Date();
-        let periodStart;
+        // Keep the current selected date - don't change it when switching groups
+        const currentSelectedDate = getState().selectedDate;
 
-        switch (nextGroup) {
-          case 'weekly': {
-            // Monday as first day of week
-            const day = today.getDay();
-            const diff = (day + 6) % 7; // 0 (Sun)->6, 1 (Mon)->0 ...
-            periodStart = new Date(today);
-            periodStart.setDate(today.getDate() - diff);
-            periodStart.setHours(0, 0, 0, 0);
-            break;
-          }
-          case 'monthly': {
-            periodStart = new Date(today.getFullYear(), today.getMonth(), 1);
-            periodStart.setHours(0, 0, 0, 0);
-            break;
-          }
-          case 'yearly': {
-            periodStart = new Date(today.getFullYear(), 0, 1);
-            periodStart.setHours(0, 0, 0, 0);
-            break;
-          }
-          case 'daily':
-          default: {
-            periodStart = new Date(today);
-            periodStart.setHours(0, 0, 0, 0);
-            break;
-          }
-        }
-
-        // Use timezone-safe local midnight ISO to prevent timezone issues
-        const { getLocalMidnightISOString } = await import('../../../shared/datetime.js');
-        dispatch(Actions.setSelectedDate(getLocalMidnightISOString(periodStart)));
+        // Use combined action to update both group and date atomically
+        dispatch(Actions.setGroupAndDate(nextGroup, currentSelectedDate));
 
         if (this.callbacks.onGroupChange) {
           this.callbacks.onGroupChange(nextGroup);

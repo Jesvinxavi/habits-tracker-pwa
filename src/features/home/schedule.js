@@ -43,6 +43,41 @@ function getAnchorDate(habit) {
 }
 
 export function isHabitScheduledOnDate(habit, date) {
+  // First check if the date is before the habit was created
+  const checkDate = new Date(date);
+  if (isNaN(checkDate)) return false;
+
+  // Extract creation date from habit
+  let creationDate = null;
+  
+  // Try to get creation date from createdAt field
+  if (habit.createdAt) {
+    creationDate = new Date(habit.createdAt);
+  } 
+  // Fallback: extract from habit ID (timestamp + random string)
+  else if (typeof habit.id === 'string' && /^[0-9]{13}/.test(habit.id)) {
+    const ts = parseInt(habit.id.slice(0, 13), 10);
+    if (!Number.isNaN(ts)) {
+      creationDate = new Date(ts);
+    }
+  }
+
+  // If we have a valid creation date, check if the requested date is before it
+  // Simple date comparison - if the check date is before the creation date, reject
+  if (creationDate && !isNaN(creationDate)) {
+    // Normalize both dates to midnight for proper comparison
+    const normalizedCreationDate = new Date(creationDate);
+    normalizedCreationDate.setHours(0, 0, 0, 0);
+    
+    const normalizedCheckDate = new Date(checkDate);
+    normalizedCheckDate.setHours(0, 0, 0, 0);
+    
+    if (normalizedCheckDate < normalizedCreationDate) {
+      return false;
+    }
+  }
+
+  // Proceed with normal scheduling logic
   return ScheduleEngine.isDue(habit, date);
 }
 

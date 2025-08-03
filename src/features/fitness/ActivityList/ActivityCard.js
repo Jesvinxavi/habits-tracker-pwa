@@ -34,7 +34,7 @@ export const ActivityCard = {
         <button class="restore-btn absolute top-0 right-0 h-full bg-red-600 text-white font-semibold rounded-xl w-1/5 touch-manipulation" aria-label="Delete ${record.activityName} activity">Delete</button>
         <div class="swipe-slide transition-transform bg-white dark:bg-gray-800 rounded-xl w-full relative z-1 touch-pan-y">
           <div class="activity-card relative flex items-start px-3 py-2 rounded-xl w-full mb-0" style="border: 3px solid ${category.color}; background-color: ${hexToRgba(category.color, 0.05)};">
-            <div class="activity-icon w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center mr-3 text-xl" style="border: 2px solid ${category.color}; color: ${category.color};" aria-hidden="true">
+            <div class="activity-icon w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center mr-3 text-xl" style="background-color: ${category.color}20;" aria-hidden="true">
               ${activityIcon}
             </div>
             <div class="activity-content flex-grow text-left">

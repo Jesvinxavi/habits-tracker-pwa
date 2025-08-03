@@ -2,6 +2,7 @@
 import { buildMuscleGroupHeader } from '../helpers/muscleHelpers.js';
 import { groupActivitiesByMuscleGroup } from '../activities.js';
 import { ActivityCard } from './ActivityCard.js';
+import { hexToRgba } from '../../../shared/color.js';
 
 /**
  * CategoryGroup component for organizing activities by category
@@ -22,10 +23,10 @@ export const CategoryGroup = {
       const groupedByMG = groupActivitiesByMuscleGroup(records);
       return `
         <div class="category-group mb-4">
-          <div class="category-header flex items-center gap-2 px-4 py-2 rounded-t-xl" style="background:${category.color}20;">
+          <div class="category-header flex items-center gap-2 px-4 py-2 rounded-xl mt-1" style="background:${hexToRgba(category.color, 0.25)};">
             <div class="category-title flex items-center gap-2">
               <span class="text-lg" aria-hidden="true">${category.icon}</span>
-              <span class="font-semibold text-gray-900 dark:text-white">${category.name}</span>
+              <span class="font-semibold text-base text-gray-900 dark:text-white">${category.name}</span>
             </div>
           </div>
           ${Object.entries(groupedByMG)
@@ -33,7 +34,7 @@ export const CategoryGroup = {
               ([mg, list]) => `
             <div class="muscle-group mb-2">
               ${buildMuscleGroupHeader(mg)}
-              <div class="category-activities pl-6">
+              <div class="category-activities pl-2 mt-1">
                 ${list.map((record) => ActivityCard.build(record, category, callbacks)).join('')}
               </div>
             </div>
@@ -46,13 +47,13 @@ export const CategoryGroup = {
       // Regular category group
       return `
         <div class="category-group mb-4" style="overflow: visible;">
-          <div class="category-header flex items-center gap-2 px-4 py-2 rounded-t-xl" style="background:${category.color}20;">
+          <div class="category-header flex items-center gap-2 px-4 py-2 rounded-xl" style="background:${hexToRgba(category.color, 0.25)};">
             <div class="category-title flex items-center gap-2">
               <span class="text-lg" aria-hidden="true">${category.icon}</span>
-              <span class="font-semibold text-gray-900 dark:text-white">${category.name}</span>
+              <span class="font-semibold text-base text-gray-900 dark:text-white">${category.name}</span>
             </div>
           </div>
-          <div class="category-activities pl-6" style="overflow: visible;">
+          <div class="category-activities pl-2 mt-1" style="overflow: visible;">
             ${records
               .map((record) => {
                 const item = ActivityCard.build(record, category, callbacks);

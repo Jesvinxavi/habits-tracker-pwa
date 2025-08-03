@@ -19,7 +19,7 @@ export function mountHeaderBar(options = {}) {
   
   const headerBar = document.createElement('div');
   headerBar.className =
-    'app-header flex justify-between items-center h-11 px-4 sm:px-6 lg:px-8 border-b border-gray-200 dark:border-gray-700 border-opacity-50 w-full pt-1.5';
+    'app-header flex justify-between items-center h-11 px-4 sm:px-6 lg:px-8 w-full pt-1.5';
 
   // Build header content based on configuration
   let headerContent = '';

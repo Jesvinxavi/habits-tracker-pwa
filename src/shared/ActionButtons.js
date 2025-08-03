@@ -23,7 +23,7 @@ export function mountActionButtons(options = {}) {
   const { type = 'habits', callbacks = {} } = options;
   
   const actionButtons = document.createElement('div');
-  actionButtons.className = 'action-buttons flex gap-3 mb-1 px-4 pt-1';
+  actionButtons.className = 'action-buttons flex gap-3 mb-1 px-4 pt-2';
 
   if (type === 'habits') {
     actionButtons.innerHTML = `

@@ -17,8 +17,6 @@ export function initializeNavigation() {
     stats: { loaded: false, loading: false, error: null },
   };
 
-  const moduleMap = import.meta.glob('../features/**/+(HomeModule|HabitsModule|FitnessModule).js');
-
   function ensurePlaceholder(viewId) {
     let el = document.getElementById(viewId);
     if (!el) {
@@ -40,19 +38,13 @@ export function initializeNavigation() {
     if (moduleStates[moduleName].loaded || moduleStates[moduleName].loading) return;
     moduleStates[moduleName].loading = true;
     let viewId, spinnerId, templateId;
-    const modulePathMap = {
-      home: '../features/home/HomeModule.js',
-      habits: '../features/habits/HabitsModule.js',
-      fitness: '../features/fitness/FitnessModule.js',
-      stats: '../features/stats/stats.js',
-    };
     switch (moduleName) {
       case 'home':
         viewId = 'home-view';
         spinnerId = 'home-loading';
         templateId = 'home-loading-spinner';
         try {
-          const { HomeModule } = await moduleMap[modulePathMap.home]();
+          const { HomeModule } = await import('../features/home/HomeModule.js');
           await HomeModule.init();
         } catch (error) {
           console.error('Error loading home module:', error);
@@ -64,7 +56,7 @@ export function initializeNavigation() {
         spinnerId = 'habits-loading';
         templateId = 'habits-loading-spinner';
         try {
-          const { HabitsModule } = await moduleMap[modulePathMap.habits]();
+          const { HabitsModule } = await import('../features/habits/HabitsModule.js');
           await HabitsModule.init();
         } catch (error) {
           console.error('Error loading habits module:', error);
@@ -76,7 +68,7 @@ export function initializeNavigation() {
         spinnerId = null; // No spinner template for fitness yet
         templateId = null;
         try {
-          const { FitnessModule } = await moduleMap[modulePathMap.fitness]();
+          const { FitnessModule } = await import('../features/fitness/FitnessModule.js');
           await FitnessModule.init();
         } catch (error) {
           console.error('Error loading fitness module:', error);
@@ -187,20 +179,31 @@ export function initializeNavigation() {
   // Advanced prefetching with intersection observer
 
   function prefetchModule(moduleName) {
-    const modulePathMap = {
-      home: '../features/home/HomeModule.js',
-      habits: '../features/habits/HabitsModule.js',
-      fitness: '../features/fitness/FitnessModule.js',
-      stats: '../features/stats/stats.js',
-    };
-
     const prefetchState = `_${moduleName}Prefetched`;
     if (window[prefetchState] || moduleStates[moduleName]?.loaded) return;
 
     window[prefetchState] = true;
 
     // Fire and forget – this will cache the chunks
-    moduleMap[modulePathMap[moduleName]]().catch((err) => {
+    let importPromise;
+    switch (moduleName) {
+      case 'home':
+        importPromise = import('../features/home/HomeModule.js');
+        break;
+      case 'habits':
+        importPromise = import('../features/habits/HabitsModule.js');
+        break;
+      case 'fitness':
+        importPromise = import('../features/fitness/FitnessModule.js');
+        break;
+      case 'stats':
+        importPromise = import('../features/stats/stats.js');
+        break;
+      default:
+        return;
+    }
+
+    importPromise.catch((err) => {
       console.warn(`Failed to prefetch ${moduleName} module:`, err);
       window[prefetchState] = false; // Reset on error
     });

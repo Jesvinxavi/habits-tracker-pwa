@@ -63,7 +63,7 @@ function buildHeaderBar() {
 
   const header = document.createElement('header');
   header.className =
-    'app-header flex justify-between items-center h-11 px-4 sm:px-6 lg:px-8 border-b border-gray-200 dark:border-gray-700 border-opacity-50 w-full';
+    'app-header flex justify-between items-center h-11 px-4 sm:px-6 lg:px-8 w-full pt-1.5';
 
   header.innerHTML = `
     <div></div>

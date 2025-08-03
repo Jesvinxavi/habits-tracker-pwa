@@ -15,7 +15,7 @@ export function mountSearchPanel(callbacks = {}) {
       <svg class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <input id="activity-search" placeholder="Search activities..." class="w-full pl-10 pr-4 py-3 bg-transparent text-gray-700 dark:text-gray-300 rounded-xl border-none outline-none focus:ring-0 transition-colors cursor-pointer placeholder-gray-500 dark:placeholder-gray-400" autocomplete="off" spellcheck="false">
+      <input id="activity-search" placeholder="Search activities..." class="w-full pl-10 pr-4 py-2 bg-transparent text-gray-700 dark:text-gray-300 rounded-xl border-none outline-none focus:ring-0 transition-colors cursor-pointer placeholder-gray-500 dark:placeholder-gray-400" autocomplete="off" spellcheck="false">
     </div>
   `;
 

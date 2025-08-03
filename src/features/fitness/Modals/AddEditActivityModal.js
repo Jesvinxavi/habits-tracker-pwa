@@ -614,16 +614,25 @@ export const AddEditActivityModal = {
   },
 
   _handleDeleteActivity(activityId) {
-    if (confirm('Are you sure you want to delete this activity? This action cannot be undone.')) {
-      deleteActivity(activityId);
-      closeModal('add-activity-modal');
+    // Use the shared confirmation dialog for consistent style
+    import('../../../components/ConfirmDialog.js').then(({ showConfirm }) => {
+      showConfirm({
+        title: 'Delete Activity?',
+        message: 'This activity will be permanently removed. This action cannot be undone.',
+        okText: 'Delete',
+        cancelText: 'Cancel',
+        onOK: () => {
+          deleteActivity(activityId);
+          closeModal('add-activity-modal');
 
-      // Trigger refresh of search panel to reflect the deletion
-      const event = new CustomEvent('ActivityDeleted', {
-        detail: { activityId },
+          // Trigger refresh of search panel to reflect the deletion
+          const event = new CustomEvent('ActivityDeleted', {
+            detail: { activityId },
+          });
+          document.dispatchEvent(event);
+        },
       });
-      document.dispatchEvent(event);
-    }
+    });
   },
 
   _handleMuscleGroupVisibility() {

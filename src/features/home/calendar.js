@@ -100,16 +100,25 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
 
     // Determine earliest period for calendar generation
     function getEarliestDate() {
-      // For fitness calendar, use the currently selected fitness date as the anchor –
-      // this is effectively the "first" day (installation day).
-      // No days before this will be generated, matching Home calendars.
+      // For fitness calendar, find the earliest activity creation date to prevent showing
+      // tiles before the first activity was created, similar to home calendar logic
       if (stateKey === 'fitnessSelectedDate') {
-        const sel = getStateDate();
-        if (sel && !isNaN(sel)) {
-          return new Date(sel);
-        }
-        // Fallback to today if somehow invalid
-        return new Date();
+        const earliestActivityDate = (getState().activities || []).reduce((acc, activity) => {
+          let d = null;
+          if (activity.createdAt) {
+            d = new Date(activity.createdAt);
+          } else if (typeof activity.id === 'string' && /^\d{13}/.test(activity.id)) {
+            const ts = parseInt(activity.id.slice(0, 13), 10);
+            if (!Number.isNaN(ts)) {
+              const utcDate = new Date(ts);
+              d = new Date(utcDate.getFullYear(), utcDate.getMonth(), utcDate.getDate());
+            }
+          }
+          return !acc || (d && d < acc) ? d : acc;
+        }, null);
+
+        // Return the earliest activity date or today if no activities exist
+        return earliestActivityDate || new Date();
       }
 
       // For home calendar, find the earliest habit creation date to prevent showing
