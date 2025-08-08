@@ -3,6 +3,13 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'vite.config.js'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 # Allow this workflow to write to GitHub Pages
@@ -36,6 +43,9 @@ jobs:
           NODE_ENV: production
           REPO_NAME: ${{ github.event.repository.name }}
         run: npm run build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
