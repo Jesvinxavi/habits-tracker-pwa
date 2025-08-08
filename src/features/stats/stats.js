@@ -21,7 +21,6 @@ import {
 import { formatDuration } from '../../shared/datetime.js';
 import { isHoliday } from '../../features/holidays/holidays.js';
 import { isRestDay } from '../../features/fitness/restDays.js';
-import { calculateRollingCompletionRate as calculateRollingCompletionRateHelper } from '../habits/helpers/habitStats.js';
 
 // Current stats view state - 'habits' or 'fitness'
 let currentStatsView = 'habits';

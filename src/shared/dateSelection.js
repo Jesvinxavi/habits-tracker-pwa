@@ -1,6 +1,4 @@
-import { getState } from '../core/state.js';
 import { belongsToSelectedGroup, isHabitScheduledOnDate } from '../features/home/schedule.js';
-import { getPeriodStart } from '../shared/datetime.js';
 
 /**
  * Calculates the appropriate "today" date for a specific habit group.

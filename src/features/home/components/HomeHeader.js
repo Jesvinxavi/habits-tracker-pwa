@@ -3,9 +3,6 @@ import * as scheduleUtils from '../schedule.js';
 import { getState, dispatch, Actions } from '../../../core/state.js';
 import { capitalize } from '../../../shared/common.js';
 import { dateToKey } from '../../../shared/datetime.js';
-import { getCurrentContextProgress } from '../../../selectors/progress.js';
-import { updateProgressRing } from './ProgressRing.js';
-import { updateProgressPills } from './HomeProgressPills.js';
 
 // Map each group to a Material Design icon name
 const GROUP_ICONS = {

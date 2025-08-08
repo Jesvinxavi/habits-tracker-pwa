@@ -24,6 +24,9 @@ async function bootstrap() {
     // Load data first, then initialize UI components
     await loadDataFromLocalStorage();
 
+    // Proactively clear any persisted last-active tab so app always opens to Home
+    try { localStorage.removeItem('activeHabitTrackerTab'); } catch (_) {}
+
     // Initialize core components
     await initializeTheme();
     await initializeNavigation();

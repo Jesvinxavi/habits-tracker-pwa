@@ -8,7 +8,6 @@ import {
   belongsToSelectedGroup,
   isHabitSkippedToday,
 } from '../home/schedule.js';
-import { formatLastPerformed } from '../../shared/datetime.js';
 import { handleHabitStatsClick } from './modals/HabitStatsModal.js';
 
 

@@ -11,7 +11,6 @@ import {
 import { centerOnSelector } from '../../components/scrollHelpers.js';
 import { MONTH_NAMES_SHORT as MONTHS, DAY_NAMES_SHORT as DAYS } from '../../shared/constants.js';
 import { isRestDay } from '../../features/fitness/restDays.js';
-import { belongsToSelectedGroup } from './schedule.js';
 import { calculateSmartDateForGroup } from '../../shared/dateSelection.js';
 
 /**
@@ -86,6 +85,23 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
         { instant }
       );
     }
+  }
+
+  // Fallback: wait until the selected tile exists and has width > 0, then center.
+  function centerSelectedWhenReady(maxTries = 20) {
+    let tries = 0;
+    const tryCenter = () => {
+      const sel = weekDays.querySelector('.day-item.current-day');
+      const ready = sel && sel.offsetWidth > 0;
+      if (ready) {
+        // Immediate center, then a smooth refinement
+        scrollToSelected({ instant: true });
+        setTimeout(() => scrollToSelected({ instant: false }), 80);
+        return;
+      }
+      if (tries++ < maxTries) requestAnimationFrame(tryCenter);
+    };
+    requestAnimationFrame(tryCenter);
   }
 
   function setDate(dateObj) {
@@ -215,8 +231,7 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
       // advance to next period
       advanceDate(date, group, +1);
     }
-    // Reset scroll position so leading padding works as intended
-    weekDays.scrollLeft = 0;
+    // Ensure leading padding so first tile can appear centered when at start
     const firstTile = weekDays.querySelector('.day-item');
     if (firstTile) {
       let contW = container.getBoundingClientRect().width;
@@ -340,8 +355,26 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
     // d. Resolve ready promise
     _resolveReady();
 
-    // e. Call scrollToSelected with instant
+    // e. Perform robust centering after layout settles
+    //    1) immediate center (no animation)
+    //    2) re-apply classes and center again
+    //    3) follow-up smooth center after a brief delay
     scrollToSelected({ instant: true });
+    requestAnimationFrame(() => {
+      updateClasses();
+      scrollToSelected({ instant: true });
+      setTimeout(() => {
+        scrollToSelected({ instant: false });
+      }, 90);
+      // 4) Final guard: wait for selected tile readiness and center
+      centerSelectedWhenReady();
+
+      // 5) Fitness-specific extra guards: retry centering a few times post-init
+      if (stateKey === 'fitnessSelectedDate') {
+        const retryDelays = [120, 220, 350];
+        retryDelays.forEach((ms) => setTimeout(() => centerSelectedWhenReady(), ms));
+      }
+    });
   }
 
   // Start mounting process
@@ -461,6 +494,10 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
         updateClasses();
         const selEl = weekDays.querySelector('.day-item.current-day');
         if (selEl) center(selEl);
+        // Guard centering for fitness view as well
+        centerSelectedWhenReady();
+        // Additional delayed retries for fitness calendar where layout can be slower
+        [120, 220].forEach((ms) => setTimeout(() => centerSelectedWhenReady(), ms));
       } else {
         const currentGroup = getState().selectedGroup;
         if (currentGroup !== lastGroupRef) {
@@ -475,6 +512,8 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
         updateClasses();
         const selEl = weekDays.querySelector('.day-item.current-day');
         if (selEl) center(selEl);
+        // Guard centering for home view too
+        centerSelectedWhenReady();
       }
     },
   };

@@ -68,10 +68,10 @@ export function isHabitScheduledOnDate(habit, date) {
     // Normalise to local-midnight for consistent comparisons
     const normalizedCreationDate = new Date(creationDate);
     normalizedCreationDate.setHours(0, 0, 0, 0);
-
+    
     const normalizedCheckDate = new Date(checkDate);
     normalizedCheckDate.setHours(0, 0, 0, 0);
-
+    
     // Determine effective frequency (targetFrequency takes precedence)
     const freqRaw = habit.targetFrequency || habit.frequency || 'daily';
     const freq = typeof freqRaw === 'string' ? freqRaw.toLowerCase() : freqRaw;

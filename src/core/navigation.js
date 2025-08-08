@@ -165,9 +165,23 @@ export function initializeNavigation() {
     }
   }
 
-  // Default view
-  const savedView = localStorage.getItem('activeHabitTrackerTab') || 'home-view';
-  setActiveView(savedView);
+  // Force Home on startup (ignore saved tab)
+  setActiveView('home-view');
+
+  // Also enforce Home once per cold start (covers PWA session restore)
+  try {
+    if (!sessionStorage.getItem('bootForcedHome')) {
+      sessionStorage.setItem('bootForcedHome', '0');
+    }
+    window.addEventListener('pageshow', () => {
+      try {
+        if (sessionStorage.getItem('bootForcedHome') !== '1') {
+          setActiveView('home-view');
+          sessionStorage.setItem('bootForcedHome', '1');
+        }
+      } catch (_) {}
+    });
+  } catch (_) {}
 
   tabItems.forEach((item) => {
     item.addEventListener('click', async (e) => {

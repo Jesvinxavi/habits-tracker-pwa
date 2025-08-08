@@ -10,6 +10,7 @@ export class HHCalendar extends HTMLElement {
     super();
     this._api = null;
     this._readyPromise = new Promise((r) => (this._resolveReady = r));
+    this._autoTodayTriggered = false;
   }
 
   static get observedAttributes() {
@@ -56,6 +57,16 @@ export class HHCalendar extends HTMLElement {
             }, 80);
             this._autoScrolled = true;
           });
+        }
+
+        // Programmatically trigger a single 'Today' action after layout settles further.
+        // This forces a rebuild+center via the same code-path as the Today button.
+        if (!this._autoTodayTriggered) {
+          this._autoTodayTriggered = true;
+          setTimeout(() => {
+            const today = new Date();
+            this.setDate(today, { smooth: false });
+          }, 150);
         }
       });
     } else {
@@ -173,7 +184,7 @@ export class HHCalendar extends HTMLElement {
 
   // Helper method to get the anchor date for preventing navigation before first day
   _getAnchorDate(stateKey, group) {
-    // For fitness calendar, find the earliest activity date or use today as fallback
+    // For fitness calendar, find the earliest activity creation date or use today as fallback
     if (stateKey === 'fitnessSelectedDate') {
       // Find the earliest activity creation date
       const earliestActivityDate = (getState().activities || []).reduce((acc, activity) => {

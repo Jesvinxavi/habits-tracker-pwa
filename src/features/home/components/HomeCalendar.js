@@ -40,10 +40,10 @@ export const HomeCalendar = {
     this.calendarEl?.refresh?.();
     // Center selected tile using the calendar API; styling is managed in calendar.js
     if (this.calendarEl?.scrollToSelected) {
-      setTimeout(() => {
-        this.calendarEl.scrollToSelected();
-      }, 10);
-    }
+          setTimeout(() => {
+            this.calendarEl.scrollToSelected();
+          }, 10);
+        }
   },
 
   /**
