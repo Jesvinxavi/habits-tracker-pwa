@@ -20,6 +20,7 @@
     --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.1);
     --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
     --home-inset: 16px; /* horizontal offset for key elements on Home view */
+    --home-inset-reduced: 8px; /* reduced horizontal offset for section headers and habit tiles */
 }
 
 /* Dark mode variables */
@@ -41,6 +42,12 @@
 }
 
 /* .rest-day styles moved to components.css for parity with holiday styling */
+
+/* Home inset utilities */
+.home-inset-reduced {
+    margin-left: var(--home-inset-reduced);
+    margin-right: var(--home-inset-reduced);
+}
 
 * {
     margin: 0;

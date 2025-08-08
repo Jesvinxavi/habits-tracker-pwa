@@ -203,7 +203,7 @@ export const HomeHabitsList = {
       </button>`;
     }
 
-    wrapper.innerHTML = `<div class="section-header flex items-center mb-0.5 home-inset">${headerHTML}</div>`;
+    wrapper.innerHTML = `<div class="section-header flex items-center mb-0.5 home-inset-reduced">${headerHTML}</div>`;
 
     if (list.length === 0) {
       return null;
@@ -688,7 +688,7 @@ export const HomeHabitsList = {
    */
   _createSwipeToRestoreContainer(card, habit) {
     const swipeContainer = document.createElement('div');
-    swipeContainer.className = 'swipe-container relative overflow-visible home-inset';
+    swipeContainer.className = 'swipe-container relative overflow-visible home-inset-reduced';
 
     const restoreBtn = document.createElement('button');
     restoreBtn.className = 'restore-btn absolute top-0 right-0 h-full';
@@ -775,7 +775,7 @@ export const HomeHabitsList = {
    */
   _createSwipeToSkipContainer(card, habit) {
     const swipeContainer = document.createElement('div');
-    swipeContainer.className = 'swipe-container relative overflow-visible home-inset';
+    swipeContainer.className = 'swipe-container relative overflow-visible home-inset-reduced';
 
     const skipBtn = document.createElement('button');
     skipBtn.className = 'skip-btn absolute top-0 right-0 h-full';
