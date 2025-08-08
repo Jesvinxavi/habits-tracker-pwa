@@ -179,9 +179,13 @@ export function initializeNavigation() {
           setActiveView('home-view');
           sessionStorage.setItem('bootForcedHome', '1');
         }
-      } catch (_) {}
+      } catch (error) {
+        console.warn('Failed to handle pageshow event:', error);
+      }
     });
-  } catch (_) {}
+  } catch (error) {
+    console.warn('Failed to initialize bootForcedHome:', error);
+  }
 
   tabItems.forEach((item) => {
     item.addEventListener('click', async (e) => {

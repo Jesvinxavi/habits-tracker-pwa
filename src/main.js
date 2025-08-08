@@ -4,7 +4,6 @@ import { initializeTheme, toggleTheme } from './core/theme.js';
 import { initializeNavigation } from './core/navigation.js';
 import { initializeHabitsForm } from './features/habits/modals/HabitFormModal.js';
 import { initializeInstallPrompt } from './components/InstallPrompt.js';
-import { showUpdateBanner } from './components/UpdatePrompt.js';
 import { initializeFitness } from './features/fitness/FitnessModule.js';
 
 import './features/autoToday.js';
@@ -25,7 +24,11 @@ async function bootstrap() {
     await loadDataFromLocalStorage();
 
     // Proactively clear any persisted last-active tab so app always opens to Home
-    try { localStorage.removeItem('activeHabitTrackerTab'); } catch (_) {}
+    try { 
+      localStorage.removeItem('activeHabitTrackerTab'); 
+    } catch (error) {
+      console.warn('Failed to clear activeHabitTrackerTab:', error);
+    }
 
     // Initialize core components
     await initializeTheme();
