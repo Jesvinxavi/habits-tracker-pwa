@@ -2,8 +2,13 @@ import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 // Dynamically set base path for local/dev vs GitHub Pages
-const isProd = process.env.NODE_ENV === 'production';
-const repoName = 'habits-tracker-pwa'; // Updated to match actual repo name
+const resolvedMode = process.env.MODE || process.env.NODE_ENV || 'development';
+const isProd = resolvedMode === 'production';
+// Allow overriding via REPO_NAME; fall back to GitHub Actions env or package name, then a sensible default
+const repoName = process.env.REPO_NAME
+  || (process.env.GITHUB_REPOSITORY ? process.env.GITHUB_REPOSITORY.split('/')[1] : '')
+  || process.env.npm_package_name
+  || 'healthy-habits-tracker';
 const base = isProd ? `/${repoName}/` : '/'; // '/' for local, '/repo-name/' for GitHub Pages
 const iconsBase = base.endsWith('/') ? base + 'icons/' : base + '/icons/';
 
