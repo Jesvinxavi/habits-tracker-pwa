@@ -3,11 +3,39 @@ import { FitnessView } from './FitnessView.js';
 import { Modals } from './FitnessModals.js';
 import { Timer } from './TimerModule.js';
 import { getState, dispatch, Actions, subscribe } from '../../core/state.js';
-import { getLocalMidnightISOString } from '../../shared/datetime.js';
+import { getLocalMidnightISOString, getLocalISODate } from '../../shared/datetime.js';
 import { FitnessCalendar } from './FitnessCalendar.js';
+import { isRestDay } from './restDays.js';
+import { showConfirm } from '../../components/ConfirmDialog.js';
 
 // Flag to prevent double-initialisation when the module is imported twice (eagerly at boot and lazily via navigation)
 let _initialized = false;
+
+/**
+ * Handles activity click with rest day check
+ * @param {string} activityId - The activity ID
+ */
+function handleActivityClick(activityId) {
+  const selectedDate = getState().fitnessSelectedDate || new Date().toISOString();
+  const isoDate = getLocalISODate(selectedDate);
+  
+  // Check if the selected date is a rest day
+  if (isRestDay(isoDate)) {
+    showConfirm({
+      title: 'Rest Day',
+      message: 'Unable to record activity as selected day is a rest day.',
+      okText: 'OK',
+      cancelText: '',
+      onOK: () => {},
+    });
+    return;
+  }
+  
+  // If not a rest day, proceed with opening activity details
+  Modals.openActivityDetails(activityId);
+}
+
+
 
 /**
  * Initializes the fitness view with all its modular components
@@ -44,10 +72,10 @@ export async function initializeFitness() {
   // Mount the complete fitness view with all components
   await FitnessView.mount(fitnessView, {
     onNewActivity: () => Modals.openAddActivity(),
-    onSearchActivityClick: (activityId) => Modals.openActivityDetails(activityId),
+    onSearchActivityClick: (activityId) => handleActivityClick(activityId),
     onStatsClick: (activityId) => Modals.openStats(activityId),
     onEditClick: (activityId) => Modals.openEditActivity(activityId),
-    onActivityClick: (activityId) => Modals.openActivityDetails(activityId),
+    onActivityClick: (activityId) => handleActivityClick(activityId),
     onDateChange: (date) => {
       // Use timezone-safe local midnight ISO to prevent timezone issues
       dispatch(Actions.setFitnessSelectedDate(getLocalMidnightISOString(date)));
@@ -74,7 +102,7 @@ export async function initializeFitness() {
         if (record) {
           Modals.openActivityDetailsWithRecord(activityId, record);
         } else {
-          Modals.openActivityDetails(activityId);
+          handleActivityClick(activityId);
         }
       });
     },
@@ -93,7 +121,7 @@ export async function initializeFitness() {
       if (record) {
         Modals.openActivityDetailsWithRecord(activityId, record);
       } else {
-        Modals.openActivityDetails(activityId);
+        handleActivityClick(activityId);
       }
     });
     FitnessView.updateTimerButton();
@@ -109,7 +137,7 @@ export async function initializeFitness() {
     if (record) {
       Modals.openActivityDetailsWithRecord(activityId, record);
     } else {
-      Modals.openActivityDetails(activityId);
+      handleActivityClick(activityId);
     }
   });
 
@@ -125,7 +153,7 @@ export async function initializeFitness() {
       if (record) {
         Modals.openActivityDetailsWithRecord(activityId, record);
       } else {
-        Modals.openActivityDetails(activityId);
+        handleActivityClick(activityId);
       }
     });
   });

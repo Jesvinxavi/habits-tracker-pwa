@@ -100,7 +100,9 @@ export function getGroupProgress(group, date = new Date()) {
  */
 export function getCurrentContextProgress() {
   const dateObj = new Date(getState().selectedDate);
-  const habitsHash = JSON.stringify(getState().habits.map(h => ({ id: h.id, completed: h.completed, skipped: h.skipped })));
+  const habitsHash = JSON.stringify(
+    getState().habits.map(h => ({ id: h.id, completed: h.completed, skippedDates: h.skippedDates }))
+  );
   const holidayHash = JSON.stringify(getState().holidayDates);
   
   // Check if we can use cached result

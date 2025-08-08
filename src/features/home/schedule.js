@@ -63,18 +63,41 @@ export function isHabitScheduledOnDate(habit, date) {
   }
 
   // If we have a valid creation date, check if the requested date is before it
-  // Simple date comparison - if the check date is before the creation date, reject
+  // Period-aware guard: reject only when the ENTIRE period precedes habit creation.
   if (creationDate && !isNaN(creationDate)) {
-    // Normalize both dates to midnight for proper comparison
+    // Normalise to local-midnight for consistent comparisons
     const normalizedCreationDate = new Date(creationDate);
     normalizedCreationDate.setHours(0, 0, 0, 0);
-    
+
     const normalizedCheckDate = new Date(checkDate);
     normalizedCheckDate.setHours(0, 0, 0, 0);
-    
-    if (normalizedCheckDate < normalizedCreationDate) {
-      return false;
+
+    // Determine effective frequency (targetFrequency takes precedence)
+    const freqRaw = habit.targetFrequency || habit.frequency || 'daily';
+    const freq = typeof freqRaw === 'string' ? freqRaw.toLowerCase() : freqRaw;
+
+    let periodPrecedesCreation = false;
+    switch (freq) {
+      case 'weekly':
+      case 'biweekly':
+        // Reject when the check week is *earlier* than the creation week
+        periodPrecedesCreation = weeksBetween(normalizedCheckDate, normalizedCreationDate) > 0;
+        break;
+      case 'monthly':
+        periodPrecedesCreation =
+          normalizedCheckDate.getFullYear() < normalizedCreationDate.getFullYear() ||
+          (normalizedCheckDate.getFullYear() === normalizedCreationDate.getFullYear() &&
+            normalizedCheckDate.getMonth() < normalizedCreationDate.getMonth());
+        break;
+      case 'yearly':
+        periodPrecedesCreation = normalizedCheckDate.getFullYear() < normalizedCreationDate.getFullYear();
+        break;
+      case 'daily':
+      default:
+        periodPrecedesCreation = normalizedCheckDate < normalizedCreationDate;
     }
+
+    if (periodPrecedesCreation) return false;
   }
 
   // Proceed with normal scheduling logic

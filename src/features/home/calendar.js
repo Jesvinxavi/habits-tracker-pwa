@@ -124,17 +124,7 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
       }
 
       // For home calendar, use centralized smart date selection for finding earliest valid period
-      const earliestValidDate = new Date(Math.min(
-        ...getState().habits.map(h => {
-          if (h.createdAt) return new Date(h.createdAt);
-          if (typeof h.id === 'string' && /^\d{13}/.test(h.id)) {
-            const ts = parseInt(h.id.slice(0, 13), 10);
-            if (!Number.isNaN(ts)) return new Date(ts);
-          }
-          return new Date();
-        })
-      ));
-      
+      const earliestValidDate = getEarliestHabitDate();
       return calculateSmartDateForGroup(getState().habits, group, earliestValidDate);
     }
 
@@ -475,17 +465,7 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
         const currentGroup = getState().selectedGroup;
         if (currentGroup !== lastGroupRef) {
           // reset anchor for new group using centralized smart date selection
-          const earliestValidDate = new Date(Math.min(
-            ...getState().habits.map(h => {
-              if (h.createdAt) return new Date(h.createdAt);
-              if (typeof h.id === 'string' && /^\d{13}/.test(h.id)) {
-                const ts = parseInt(h.id.slice(0, 13), 10);
-                if (!Number.isNaN(ts)) return new Date(ts);
-              }
-              return new Date();
-            })
-          ));
-          
+          const earliestValidDate = getEarliestHabitDate();
           const earliestValidPeriodStart = calculateSmartDateForGroup(getState().habits, currentGroup, earliestValidDate);
           
           _groupAnchors[currentGroup] = new Date(earliestValidPeriodStart);
@@ -597,6 +577,29 @@ function fixTilePadding(el, group, isSel = false) {
   }
 }
 
+/**
+ * Return the earliest creation date across all habits, or today if none exist.
+ * Guarantees a valid Date object (never Invalid Date).
+ */
+function getEarliestHabitDate() {
+  const habits = (getState().habits || []);
+  let earliest = null;
+
+  for (const h of habits) {
+    let d = null;
+    if (h.createdAt) {
+      d = new Date(h.createdAt);
+    } else if (typeof h.id === 'string' && /^\d{13}/.test(h.id)) {
+      const ts = parseInt(h.id.slice(0, 13), 10);
+      if (!Number.isNaN(ts)) d = new Date(ts);
+    }
+    if (d && !isNaN(d) && (!earliest || d < earliest)) {
+      earliest = d;
+    }
+  }
+
+  return earliest || new Date();
+}
 
 
 // ---------------------------------------------------------------------------

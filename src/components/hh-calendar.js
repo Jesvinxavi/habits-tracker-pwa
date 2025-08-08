@@ -46,8 +46,14 @@ export class HHCalendar extends HTMLElement {
         this._addNavigation();
         this._resolveReady();
         if (!this._autoScrolled) {
+          // Perform a two-step center on first load to account for late layout/padding
           requestAnimationFrame(() => {
-            this._api?.scrollToSelected?.({ instant: false });
+            // Immediate center without animation
+            this._api?.scrollToSelected?.({ instant: true });
+            // Follow-up smooth center after layout settles further
+            setTimeout(() => {
+              this._api?.scrollToSelected?.({ instant: false });
+            }, 80);
             this._autoScrolled = true;
           });
         }

@@ -16,10 +16,12 @@ import {
   isHabitCompleted,
   isHabitScheduledOnDate,
   belongsToSelectedGroup,
+  isHabitSkippedToday,
 } from '../home/schedule.js';
 import { formatDuration } from '../../shared/datetime.js';
 import { isHoliday } from '../../features/holidays/holidays.js';
 import { isRestDay } from '../../features/fitness/restDays.js';
+import { calculateRollingCompletionRate as calculateRollingCompletionRateHelper } from '../habits/helpers/habitStats.js';
 
 // Current stats view state - 'habits' or 'fitness'
 let currentStatsView = 'habits';
@@ -543,12 +545,16 @@ function calculateLongestGroupStreak(dailyHabits) {
     const date = new Date(today);
     date.setDate(today.getDate() - i);
 
-    const scheduled = dailyHabits.filter(h => isHabitScheduledOnDate(h, date));
+    const scheduled = dailyHabits.filter((h) => isHabitScheduledOnDate(h, date));
 
-    if (scheduled.length === 0) continue; // Skip non-active days
+    // Consider only habits that are not explicitly skipped for the day
+    const active = scheduled.filter((h) => !isHabitSkippedToday(h, date));
 
-    const completedCount = scheduled.filter(h => isHabitCompleted(h, date)).length;
-    const is100Percent = completedCount === scheduled.length;
+    // Non-active day (either no scheduled, or all scheduled were skipped) – skip without breaking streak
+    if (active.length === 0) continue;
+
+    const completedCount = active.filter((h) => isHabitCompleted(h, date)).length;
+    const is100Percent = completedCount === active.length;
 
     if (is100Percent) {
       current++;
@@ -679,33 +685,109 @@ function renderHabitStatsSection(container, stats) {
 
   // --- Completion Carousel ---
   // Calculate average completion rates for all daily habits
+  function getEarliestCreationDateForDailyHabits() {
+    const dailyHabits = getState().habits.filter((h) => belongsToSelectedGroup(h, 'daily'));
+    let earliest = null;
+    for (const habit of dailyHabits) {
+      let cd = null;
+      if (habit.createdAt) {
+        const d = new Date(habit.createdAt);
+        if (!isNaN(d)) cd = d;
+      } else if (typeof habit.id === 'string' && /^[0-9]{13}/.test(habit.id)) {
+        const ts = parseInt(habit.id.slice(0, 13), 10);
+        if (!Number.isNaN(ts)) cd = new Date(ts);
+      }
+      if (!cd || isNaN(cd)) continue;
+      if (!earliest || cd < earliest) earliest = cd;
+    }
+    return earliest || new Date();
+  }
+
+  function getDailyGroupCountsForDate(dateObj) {
+    const date = new Date(dateObj);
+    const dailyHabits = getState().habits.filter((h) => belongsToSelectedGroup(h, 'daily'));
+    const active = dailyHabits.filter((h) => isHabitScheduledOnDate(h, date) && !isHabitSkippedToday(h, date));
+    const completed = active.filter((h) => isHabitCompleted(h, date));
+    return { active: active.length, completed: completed.length };
+  }
+
+  function getDailyGroupPercentageForDate(dateObj) {
+    const { active, completed } = getDailyGroupCountsForDate(dateObj);
+    if (active === 0) return 0;
+    return (completed / active) * 100;
+  }
+
+  function calculateRollingGroupCompletion(windowDays) {
+    const today = new Date();
+    const earliest = getEarliestCreationDateForDailyHabits();
+
+    // Count past days (before today) with any completion (>0 completed)
+    let pastCompletedDays = 0;
+    const maxLookback = Math.max(0, Math.floor((today - earliest) / (1000 * 60 * 60 * 24)));
+    for (let i = 1; i <= maxLookback; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const { completed } = getDailyGroupCountsForDate(d);
+      if (completed > 0) pastCompletedDays++;
+    }
+
+    // If we have enough completed days to fill the window (plus today), use standard last-N-days average
+    if (1 + pastCompletedDays >= windowDays) {
+      let sum = 0;
+      for (let i = 0; i < windowDays; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        sum += getDailyGroupPercentageForDate(d);
+      }
+      return sum / windowDays;
+    }
+
+    // Otherwise, include today + most recent past days with any completion until we reach windowDays
+    const selectedDates = [new Date(today)];
+    for (let i = 1; i <= maxLookback && selectedDates.length < windowDays; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const { completed } = getDailyGroupCountsForDate(d);
+      if (completed > 0) selectedDates.push(d);
+    }
+
+    if (selectedDates.length === 0) return 0;
+    let sum = 0;
+    for (const d of selectedDates) sum += getDailyGroupPercentageForDate(d);
+    return sum / selectedDates.length;
+  }
+
+  function calculateAllTimeGroupCompletion() {
+    const today = new Date();
+    const earliest = getEarliestCreationDateForDailyHabits();
+    const totalDays = Math.max(0, Math.floor((today - earliest) / (1000 * 60 * 60 * 24))) + 1;
+    if (totalDays <= 0) return 0;
+    let sum = 0;
+    let countedDays = 0;
+    for (let i = 0; i < totalDays; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const { active } = getDailyGroupCountsForDate(d);
+      if (active > 0) {
+        sum += getDailyGroupPercentageForDate(d);
+        countedDays++;
+      }
+    }
+    return countedDays > 0 ? sum / countedDays : 0;
+  }
+
   const periods = [
     {
       label: '7d',
-      rate:
-        stats.dailyHabits.length > 0
-          ? stats.dailyHabits
-              .map((h) => safeCalculation(() => calculateHabitCompletionRate(h, 7), 0))
-              .reduce((sum, r) => sum + r, 0) / stats.dailyHabits.length
-          : 0,
+      rate: safeCalculation(() => calculateRollingGroupCompletion(7), 0),
     },
     {
       label: '30d',
-      rate:
-        stats.dailyHabits.length > 0
-          ? stats.dailyHabits
-              .map((h) => safeCalculation(() => calculateHabitCompletionRate(h, 30), 0))
-              .reduce((sum, r) => sum + r, 0) / stats.dailyHabits.length
-          : 0,
+      rate: safeCalculation(() => calculateRollingGroupCompletion(30), 0),
     },
     {
       label: 'All Time',
-      rate:
-        stats.dailyHabits.length > 0
-          ? stats.dailyHabits
-              .map((h) => safeCalculation(() => calculateHabitCompletionRate(h, 3650), 0))
-              .reduce((sum, r) => sum + r, 0) / stats.dailyHabits.length
-          : 0,
+      rate: safeCalculation(() => calculateAllTimeGroupCompletion(), 0),
     },
   ];
 

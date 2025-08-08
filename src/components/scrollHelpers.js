@@ -17,15 +17,8 @@ export function centerHorizontally(el, { instant = false } = {}) {
       const diff = el.offsetLeft - (parent.clientWidth - el.clientWidth) / 2;
       const max = parent.scrollWidth - parent.clientWidth;
 
-      // Handle edge cases for first few tiles
-      let scrollLeft = Math.max(0, Math.min(diff, max));
-
-      // If the tile is one of the first few and we can't center it properly,
-      // scroll to the beginning but ensure the tile is still visible
-      if (diff < 0 && el.offsetLeft < parent.clientWidth / 2) {
-        // For first few tiles, ensure they're visible but don't try to center beyond what's possible
-        scrollLeft = 0;
-      }
+      // Compute target scroll position and clamp to bounds
+      const scrollLeft = Math.max(0, Math.min(diff, max));
 
       parent.scrollTo({
         left: scrollLeft,
