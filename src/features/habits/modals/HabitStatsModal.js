@@ -146,33 +146,23 @@ export function buildHabitStatsContent(habit, stats, category) {
             <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Total Completions</div>
           </div>
           <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-            <div class="stat-value text-2xl font-bold text-gray-900 dark:text-white">${stats.weeklyAverage.toFixed(1)}</div>
-            <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Per Week Average</div>
+            <div class="stat-value text-2xl font-bold text-gray-900 dark:text-white">${stats.completionRateTotal.toFixed(1)}%</div>
+            <div class="stat-label text-xs text-gray-500 dark:text-gray-400">All-Time Completion</div>
           </div>
         </div>
       </div>
   `;
 
   // Completion rates section with carousel
-  const completionPeriods = [
-    {
-      days: 7,
-      label: '7d',
-      rate: stats.completionRate7d,
-    },
-    {
-      days: 30,
-      label: '30d',
-      rate: stats.completionRate30d,
-    },
-    {
-      days: stats.daysTracked,
-      label: 'All Time',
-      rate: stats.completionRateTotal,
-    },
-  ];
+  const periodLabels = stats.group === 'daily'
+    ? [{ label: '7d', rate: stats.completionRate7d }, { label: '30d', rate: stats.completionRate30d }, { label: 'All Time', rate: stats.completionRateTotal }]
+    : stats.group === 'weekly'
+      ? [{ label: '4w', rate: stats.completionRate7d }, { label: '12w', rate: stats.completionRate30d }, { label: 'All Time', rate: stats.completionRateTotal }]
+      : stats.group === 'monthly'
+        ? [{ label: '3m', rate: stats.completionRate7d }, { label: '12m', rate: stats.completionRate30d }, { label: 'All Time', rate: stats.completionRateTotal }]
+        : [{ label: '3y', rate: stats.completionRate7d }, { label: '10y', rate: stats.completionRate30d }, { label: 'All Time', rate: stats.completionRateTotal }];
 
-  const completionCarouselHTML = renderHabitCompletionCarousel(completionPeriods);
+  const completionCarouselHTML = renderHabitCompletionCarousel(periodLabels);
 
   content += `
     <div class="stats-section">
@@ -181,7 +171,7 @@ export function buildHabitStatsContent(habit, stats, category) {
       <div class="grid grid-cols-2 gap-4 mt-4">
         <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
           <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${stats.daysTracked}</div>
-          <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Days Tracked</div>
+          <div class="stat-label text-xs text-gray-500 dark:text-gray-400">${stats.trackedUnitLabel}</div>
         </div>
         <div class="stat-card bg-orange-50 dark:bg-orange-900 p-3 rounded-lg">
           <div class="stat-value text-xl font-bold text-orange-600 dark:text-orange-300">${stats.totalSkipped}</div>
@@ -222,7 +212,7 @@ export function buildHabitStatsContent(habit, stats, category) {
       <div class="grid grid-cols-2 gap-4">
         <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
           <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${stats.recentActivity}</div>
-          <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Last 30 Days</div>
+          <div class="stat-label text-xs text-gray-500 dark:text-gray-400">${stats.group === 'daily' ? 'Last 30 Days' : stats.group === 'weekly' ? 'Last 12 Weeks' : stats.group === 'monthly' ? 'Last 6 Months' : 'Last 3 Years'}</div>
         </div>
         <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
           <div class="stat-value text-sm font-bold text-gray-900 dark:text-white break-words">${lastCompletedText}</div>
