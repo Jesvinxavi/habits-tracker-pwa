@@ -337,7 +337,7 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
     const picked = new Date(dayEl.dataset.date);
     setStateDate(picked);
     updateClasses();
-    center(dayEl);
+    // Defer centering to the refresh/render path to avoid double animations
   }
 
   /* -------------------- init -------------------- */

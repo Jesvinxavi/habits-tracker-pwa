@@ -27,9 +27,11 @@ export function centerHorizontally(el, { instant = false } = {}) {
         scrollLeft = 0;
       }
 
+      // Avoid starting a new smooth scroll if we're already very close to target to prevent jitter
+      const near = Math.abs(parent.scrollLeft - scrollLeft) < 2;
       parent.scrollTo({
-        left: scrollLeft,
-        behavior: instant ? 'auto' : 'smooth',
+        left: near ? parent.scrollLeft : scrollLeft,
+        behavior: instant || near ? 'auto' : 'smooth',
       });
     })
   );

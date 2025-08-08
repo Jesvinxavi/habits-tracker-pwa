@@ -38,12 +38,12 @@ export const HomeCalendar = {
    */
   render() {
     this.calendarEl?.refresh?.();
-    // Center selected tile using the calendar API; styling is managed in calendar.js
+    // Center selected tile using the calendar API; ensure single smooth scroll
     if (this.calendarEl?.scrollToSelected) {
-          setTimeout(() => {
-            this.calendarEl.scrollToSelected();
-          }, 10);
-        }
+      requestAnimationFrame(() => {
+        this.calendarEl.scrollToSelected({ instant: false });
+      });
+    }
   },
 
   /**
