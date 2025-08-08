@@ -10,6 +10,15 @@ on:
       - 'package.json'
       - 'vite.config.js'
       - '.github/workflows/deploy.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'vite.config.js'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 # Allow this workflow to write to GitHub Pages
@@ -23,7 +32,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Run ESLint
+        run: npm run lint
+
   build:
+    name: Build
+    needs: lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -45,14 +72,18 @@ jobs:
         run: npm run build
 
       - name: Configure Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
   deploy:
+    name: Deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
