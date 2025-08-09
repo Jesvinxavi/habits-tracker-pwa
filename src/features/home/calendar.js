@@ -56,6 +56,15 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
     _resolveReady = resolve;
   });
 
+  // Coalesced smooth centering (fitness-specific) to avoid competing scroll animations
+  let _centerTimeoutId = null;
+  function scheduleSmoothCenter(delayMs = 0) {
+    if (_centerTimeoutId) clearTimeout(_centerTimeoutId);
+    _centerTimeoutId = setTimeout(() => {
+      scrollToSelected({ instant: false });
+    }, delayMs);
+  }
+
   function getStateDate() {
     return new Date(getState()[stateKey]);
   }
@@ -94,9 +103,12 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
       const sel = weekDays.querySelector('.day-item.current-day');
       const ready = sel && sel.offsetWidth > 0;
       if (ready) {
-        // Immediate center, then a smooth refinement
-        scrollToSelected({ instant: true });
-        setTimeout(() => scrollToSelected({ instant: false }), 80);
+        // Single smooth center to avoid choppy multiple scrolls
+        if (stateKey === 'fitnessSelectedDate') {
+          scheduleSmoothCenter(0);
+        } else {
+          scrollToSelected({ instant: false });
+        }
         return;
       }
       if (tries++ < maxTries) requestAnimationFrame(tryCenter);
@@ -117,46 +129,19 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
     const group = stateKey === 'fitnessSelectedDate' ? 'daily' : getState().selectedGroup || 'daily';
 
     // Determine earliest period for calendar generation
-          function getEarliestDate() {
-        // For fitness calendar, find the earliest recorded activity date (preferred),
-        // then fallback to earliest activity creation date, then today.
-        if (stateKey === 'fitnessSelectedDate') {
-          // 1) Earliest recorded activity date from recordedActivities keys (YYYY-MM-DD)
-          const recorded = getState().recordedActivities || {};
-          let earliestRecorded = null;
-          for (const key of Object.keys(recorded)) {
-            // Guard for valid YYYY-MM-DD keys only
-            if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
-              const d = new Date(key);
-              if (!isNaN(d) && (!earliestRecorded || d < earliestRecorded)) {
-                earliestRecorded = d;
-              }
-            }
-          }
-
-          // 2) Earliest activity definition creation date
-          const earliestActivityDate = (getState().activities || []).reduce((acc, activity) => {
-            let d = null;
-            if (activity.createdAt) {
-              d = new Date(activity.createdAt);
-            } else if (typeof activity.id === 'string' && /^\d{13}/.test(activity.id)) {
-              const ts = parseInt(activity.id.slice(0, 13), 10);
-              if (!Number.isNaN(ts)) {
-                const utcDate = new Date(ts);
-                d = new Date(utcDate.getFullYear(), utcDate.getMonth(), utcDate.getDate());
-              }
-            }
-            return !acc || (d && d < acc) ? d : acc;
-          }, null);
-
-          const candidate = earliestRecorded || earliestActivityDate || new Date();
-          return candidate;
-        }
-
-        // For home calendar, use centralized smart date selection for finding earliest valid period
-        const earliestValidDate = getEarliestHabitDate();
-        return calculateSmartDateForGroup(getState().habits, group, earliestValidDate);
+    function getEarliestDate() {
+      // Fitness calendar: anchor to the very first time the app was opened, regardless of activities
+      if (stateKey === 'fitnessSelectedDate') {
+        const firstOpen = getState().appFirstOpenDate ? new Date(getState().appFirstOpenDate) : null;
+        const safeFirst = firstOpen && !isNaN(firstOpen) ? firstOpen : new Date();
+        safeFirst.setHours(0, 0, 0, 0);
+        return safeFirst;
       }
+
+      // For home calendar, use centralized smart date selection for finding earliest valid period
+      const earliestValidDate = getEarliestHabitDate();
+      return calculateSmartDateForGroup(getState().habits, group, earliestValidDate);
+    }
 
     const earliestDate = getEarliestDate();
     // getEarliestDate() now returns the correct period start, no need to call getPeriodStart again
@@ -165,27 +150,21 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
     // Always reset anchor to earliest period each time build runs (prevents drift when switching groups)
     _groupAnchors[group] = new Date(earliestPeriodStart);
 
-    // Ensure we start at the very first period for this calendar
     const start = new Date(_groupAnchors[group]);
 
     // Generate a fixed number of periods for each group for consistent UX
     const periodCounts = {
-      daily: stateKey === 'fitnessSelectedDate' ? 540 : 180, // 18 months for fitness to better cover long histories
+      // For fitness, generate dynamic count from first-open to today, with small future buffer
+      daily:
+        stateKey === 'fitnessSelectedDate'
+          ? Math.max(30, Math.ceil((new Date().setHours(0,0,0,0) - new Date(start).getTime()) / (24 * 60 * 60 * 1000)) + 14)
+          : 180,
       weekly: 156, // 3 years
       monthly: 36, // 3 years
       yearly: 40, // 40 years
     };
 
-    // For fitness calendar daily view, ensure we generate enough tiles to cover from earliest to today
-    let periodsToGenerate = periodCounts[group] || 180;
-    if (stateKey === 'fitnessSelectedDate' && group === 'daily') {
-      const startDay = new Date(start);
-      const today = new Date();
-      startDay.setHours(0,0,0,0);
-      today.setHours(0,0,0,0);
-      const diffDays = Math.max(0, Math.round((today - startDay) / (1000*60*60*24)) + 1);
-      periodsToGenerate = Math.max(periodsToGenerate, diffDays);
-    }
+    const periodsToGenerate = periodCounts[group] || 180;
 
     let date = new Date(start);
 
@@ -361,7 +340,13 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
     const picked = new Date(dayEl.dataset.date);
     setStateDate(picked);
     updateClasses();
-    // Defer centering to the refresh/render path to avoid double animations
+    // Smoothly center the newly selected tile
+    requestAnimationFrame(() => {
+      scrollToSelected({ instant: false });
+      // Guard for late layout: refine after a tick
+      setTimeout(() => scrollToSelected({ instant: false }), 90);
+      centerSelectedWhenReady();
+    });
   }
 
   /* -------------------- init -------------------- */
@@ -379,26 +364,20 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
     // d. Resolve ready promise
     _resolveReady();
 
-    // e. Perform robust centering after layout settles
-    //    1) immediate center (no animation)
-    //    2) re-apply classes and center again
-    //    3) follow-up smooth center after a brief delay
-    scrollToSelected({ instant: true });
-    requestAnimationFrame(() => {
-      updateClasses();
+    // e. Perform centering after layout settles
+    if (stateKey === 'fitnessSelectedDate') {
+      // Single smooth center for fitness to avoid stacked animations
+      scheduleSmoothCenter(60);
+    } else {
+      // Keep robust sequence for home
       scrollToSelected({ instant: true });
-      setTimeout(() => {
-        scrollToSelected({ instant: false });
-      }, 90);
-      // 4) Final guard: wait for selected tile readiness and center
-      centerSelectedWhenReady();
-
-      // 5) Fitness-specific extra guards: retry centering a few times post-init
-      if (stateKey === 'fitnessSelectedDate') {
-        const retryDelays = [120, 220, 350];
-        retryDelays.forEach((ms) => setTimeout(() => centerSelectedWhenReady(), ms));
-      }
-    });
+      requestAnimationFrame(() => {
+        updateClasses();
+        scrollToSelected({ instant: true });
+        setTimeout(() => scrollToSelected({ instant: false }), 90);
+        centerSelectedWhenReady();
+      });
+    }
   }
 
   // Start mounting process
@@ -407,76 +386,80 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
   weekDays.addEventListener('click', handleClick);
 
   // Optional nav arrows inside the container
-  container.querySelectorAll('.nav-arrow').forEach((arrow) => {
-    arrow.addEventListener('click', () => {
-      let cur = getStateDate();
-      // For fitness calendar, always use 'daily' group for proper day-by-day navigation
-      const grp = stateKey === 'fitnessSelectedDate' ? 'daily' : getState().selectedGroup || 'daily';
-      const isPrev = arrow.classList.contains('prev-week');
-      const isNext = arrow.classList.contains('next-week');
+  // Skip internal nav binding when inside hh-calendar; wrapper handles nav smoothly
+  const inCustomElement = container.closest('hh-calendar');
+  if (!inCustomElement) {
+    container.querySelectorAll('.nav-arrow').forEach((arrow) => {
+      arrow.addEventListener('click', () => {
+        let cur = getStateDate();
+        // For fitness calendar, always use 'daily' group for proper day-by-day navigation
+        const grp = stateKey === 'fitnessSelectedDate' ? 'daily' : getState().selectedGroup || 'daily';
+        const isPrev = arrow.classList.contains('prev-week');
+        const isNext = arrow.classList.contains('next-week');
 
-      if (isPrev || isNext) {
-        const dir = isPrev ? -1 : +1;
-        switch (grp) {
-          case 'weekly':
-            cur.setDate(cur.getDate() + dir * 28); // 4 weeks
-            break;
-          case 'monthly':
-            cur.setMonth(cur.getMonth() + dir * 6); // 6 months
-            break;
-          case 'yearly':
-            cur.setFullYear(cur.getFullYear() + dir * 5); // 5 years
-            break;
-          case 'daily':
-          default:
-            cur.setDate(cur.getDate() + dir * 7); // 1 week
-            break;
-        }
-      } else if (arrow.classList.contains('prev-day') || arrow.classList.contains('next-day')) {
-        const dirDay = arrow.classList.contains('prev-day') ? -1 : +1;
-        // For fitness calendar, always move by single day regardless of group
-        // For home calendar, respect the group settings
-        if (stateKey === 'fitnessSelectedDate') {
-          cur.setDate(cur.getDate() + dirDay);
-        } else {
+        if (isPrev || isNext) {
+          const dir = isPrev ? -1 : +1;
           switch (grp) {
             case 'weekly':
-              cur.setDate(cur.getDate() + dirDay * 7);
+              cur.setDate(cur.getDate() + dir * 28); // 4 weeks
               break;
             case 'monthly':
-              cur.setMonth(cur.getMonth() + dirDay);
+              cur.setMonth(cur.getMonth() + dir * 6); // 6 months
               break;
             case 'yearly':
-              cur.setFullYear(cur.getFullYear() + dirDay);
+              cur.setFullYear(cur.getFullYear() + dir * 5); // 5 years
               break;
             case 'daily':
             default:
-              cur.setDate(cur.getDate() + dirDay);
+              cur.setDate(cur.getDate() + dir * 7); // 1 week
+              break;
+          }
+        } else if (arrow.classList.contains('prev-day') || arrow.classList.contains('next-day')) {
+          const dirDay = arrow.classList.contains('prev-day') ? -1 : +1;
+          // For fitness calendar, always move by single day regardless of group
+          // For home calendar, respect the group settings
+          if (stateKey === 'fitnessSelectedDate') {
+            cur.setDate(cur.getDate() + dirDay);
+          } else {
+            switch (grp) {
+              case 'weekly':
+                cur.setDate(cur.getDate() + dirDay * 7);
+                break;
+              case 'monthly':
+                cur.setMonth(cur.getMonth() + dirDay);
+                break;
+              case 'yearly':
+                cur.setFullYear(cur.getFullYear() + dirDay);
+                break;
+              case 'daily':
+              default:
+                cur.setDate(cur.getDate() + dirDay);
+            }
           }
         }
-      }
-      
-      const anchor = _groupAnchors[grp] ? new Date(_groupAnchors[grp]) : null;
-      
-      if (anchor && getPeriodStart(cur, grp) < anchor) {
-        // When navigation goes before the first tile, use the exact first tile date
-        const firstTile = weekDays.querySelector('.day-item');
-        if (firstTile && firstTile.dataset.date) {
-          cur = new Date(firstTile.dataset.date);
+        
+        const anchor = _groupAnchors[grp] ? new Date(_groupAnchors[grp]) : null;
+        
+        if (anchor && getPeriodStart(cur, grp) < anchor) {
+          // When navigation goes before the first tile, use the exact first tile date
+          const firstTile = weekDays.querySelector('.day-item');
+          if (firstTile && firstTile.dataset.date) {
+            cur = new Date(firstTile.dataset.date);
+          } else {
+            // Fallback to anchor if no tiles exist yet
+            cur = new Date(anchor);
+          }
         } else {
-          // Fallback to anchor if no tiles exist yet
-          cur = new Date(anchor);
+          // Always ensure the calculated date aligns with the proper period for this group
+          // This ensures the selectedDate matches what tiles actually represent
+          cur = getPeriodStart(cur, grp);
         }
-      } else {
-        // Always ensure the calculated date aligns with the proper period for this group
-        // This ensures the selectedDate matches what tiles actually represent
-        cur = getPeriodStart(cur, grp);
-      }
-      // Use setDate() instead of separate calls to ensure proper sequencing
-      // This prevents timing issues between state updates and visual updates
-      setDate(cur);
+        // Use setDate() instead of separate calls to ensure proper sequencing
+        // This prevents timing issues between state updates and visual updates
+        setDate(cur);
+      });
     });
-  });
+  }
 
   // Today button – jump back to real today
   const todayBtn = container.querySelector('.today-btn');
@@ -485,8 +468,13 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
       const today = new Date();
       setStateDate(today);
       updateClasses();
-      const selEl = weekDays.querySelector('.day-item.current-day');
-      if (selEl) center(selEl);
+      if (stateKey === 'fitnessSelectedDate') {
+        scheduleSmoothCenter(0);
+      } else {
+        scrollToSelected({ instant: true });
+        setTimeout(() => scrollToSelected({ instant: false }), 90);
+        centerSelectedWhenReady();
+      }
     });
   }
 
@@ -516,12 +504,7 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
           buildDays();
         }
         updateClasses();
-        const selEl = weekDays.querySelector('.day-item.current-day');
-        if (selEl) center(selEl);
-        // Guard centering for fitness view as well
-        centerSelectedWhenReady();
-        // Additional delayed retries for fitness calendar where layout can be slower
-        [120, 220].forEach((ms) => setTimeout(() => centerSelectedWhenReady(), ms));
+        // Avoid auto-centering here to prevent competing scroll animations; callers decide when to scroll
       } else {
         const currentGroup = getState().selectedGroup;
         if (currentGroup !== lastGroupRef) {

@@ -94,6 +94,14 @@ export function loadDataFromLocalStorage() {
         // Use dispatch to import data
         dispatch(Actions.importData(parsedData));
 
+        // Ensure appFirstOpenDate exists and never moves forward once set
+        const state = getState();
+        if (!state.appFirstOpenDate) {
+          const today = new Date();
+          const localTodayIso = getLocalMidnightISOString(today);
+          dispatch(Actions.setAppFirstOpenDate(localTodayIso));
+        }
+
         // Always reset date fields to today on startup so the calendar defaults to current date
         const today = new Date();
         const localTodayIso = getLocalMidnightISOString(today);
@@ -107,6 +115,10 @@ export function loadDataFromLocalStorage() {
       }
     } else {
       // No stored data; still ensure holiday utilities have correct caches (empty but synced)
+      // First run: set appFirstOpenDate to today (local midnight ISO)
+      const today = new Date();
+      const localTodayIso = getLocalMidnightISOString(today);
+      dispatch(Actions.setAppFirstOpenDate(localTodayIso));
     }
     // Mark load complete so subsequent state changes are persisted
     _hasLoaded = true;
@@ -123,6 +135,12 @@ export function loadDataFromLocalStorage() {
           dispatch(Actions.setSelectedDate(localTodayIso));
           dispatch(Actions.setFitnessSelectedDate(localTodayIso));
           dispatch(Actions.setSelectedGroup('daily'));
+
+          // Preserve previously set appFirstOpenDate; if missing in IDB payload, ensure it's set
+          const stateAfterIDB = getState();
+          if (!stateAfterIDB.appFirstOpenDate) {
+            dispatch(Actions.setAppFirstOpenDate(localTodayIso));
+          }
         }
         resolve(); // Resolve after IndexedDB check completes
       })

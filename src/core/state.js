@@ -16,6 +16,8 @@ const initialState = {
   currentDate: getLocalDateISO(),
   selectedDate: getLocalDateISO(),
   fitnessSelectedDate: getLocalDateISO(),
+  // First ever local-midnight ISO date string when the app was first opened
+  appFirstOpenDate: getLocalDateISO(),
   selectedGroup: 'daily',
   holidayDates: [],
   holidayPeriods: [],
@@ -87,6 +89,7 @@ export const ActionTypes = {
   SET_SELECTED_GROUP: 'SET_SELECTED_GROUP',
   SET_GROUP_AND_DATE: 'SET_GROUP_AND_DATE',
   SET_FITNESS_SELECTED_DATE: 'SET_FITNESS_SELECTED_DATE',
+  SET_APP_FIRST_OPEN_DATE: 'SET_APP_FIRST_OPEN_DATE',
 
   // Holiday actions
   ADD_HOLIDAY_PERIOD: 'ADD_HOLIDAY_PERIOD',
@@ -163,6 +166,10 @@ export const Actions = {
   }),
   setFitnessSelectedDate: (date) => ({
     type: ActionTypes.SET_FITNESS_SELECTED_DATE,
+    payload: date,
+  }),
+  setAppFirstOpenDate: (date) => ({
+    type: ActionTypes.SET_APP_FIRST_OPEN_DATE,
     payload: date,
   }),
 
@@ -399,6 +406,12 @@ function reducer(state, action) {
       return {
         ...state,
         fitnessSelectedDate: action.payload,
+      };
+
+    case ActionTypes.SET_APP_FIRST_OPEN_DATE:
+      return {
+        ...state,
+        appFirstOpenDate: action.payload,
       };
 
     case ActionTypes.SET_HOLIDAY_DATES:

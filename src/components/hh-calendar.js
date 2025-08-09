@@ -184,42 +184,12 @@ export class HHCalendar extends HTMLElement {
 
   // Helper method to get the anchor date for preventing navigation before first day
   _getAnchorDate(stateKey, group) {
-    // For fitness calendar, find the earliest recorded activity date (preferred), then
-    // earliest activity creation date, else fallback to today.
+    // For fitness calendar, find the earliest activity creation date or use today as fallback
     if (stateKey === 'fitnessSelectedDate') {
-      // 1) Earliest recorded activity date from recordedActivities keys (YYYY-MM-DD)
-      const recorded = getState().recordedActivities || {};
-      let earliestRecorded = null;
-      for (const key of Object.keys(recorded)) {
-        if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
-          const d = new Date(key);
-          if (!isNaN(d) && (!earliestRecorded || d < earliestRecorded)) {
-            earliestRecorded = d;
-          }
-        }
-      }
-
-      // 2) Earliest activity creation date
-      const earliestActivityDate = (getState().activities || []).reduce((acc, activity) => {
-        let d = null;
-        if (activity.createdAt) {
-          d = new Date(activity.createdAt);
-        } else if (typeof activity.id === 'string' && /^\d{13}/.test(activity.id)) {
-          const ts = parseInt(activity.id.slice(0, 13), 10);
-          if (!Number.isNaN(ts)) {
-            const utcDate = new Date(ts);
-            d = new Date(utcDate.getFullYear(), utcDate.getMonth(), utcDate.getDate());
-          }
-        }
-        return !acc || (d && d < acc) ? d : acc;
-      }, null);
-
-      const anchor = earliestRecorded || earliestActivityDate || (() => {
-        const t = new Date();
-        t.setHours(0, 0, 0, 0);
-        return t;
-      })();
-      return this._getPeriodStart(anchor, 'daily');
+      const firstOpen = getState().appFirstOpenDate ? new Date(getState().appFirstOpenDate) : null;
+      const safeFirst = firstOpen && !isNaN(firstOpen) ? firstOpen : new Date();
+      safeFirst.setHours(0, 0, 0, 0);
+      return this._getPeriodStart(safeFirst, 'daily');
     }
 
     // For home calendar, find the earliest habit creation date
@@ -291,7 +261,17 @@ export class HHCalendar extends HTMLElement {
       monthly: 3650, // ~10 years
       yearly: 36500, // ~100 years
     };
-    const spanDays = rangeMap[group] || 365;
+    let spanDays = rangeMap[group] || 365;
+    // For fitness, ensure the first-ever tile (appFirstOpenDate) remains within the virtual window
+    if (stateKey === 'fitnessSelectedDate') {
+      const firstOpen = getState().appFirstOpenDate ? new Date(getState().appFirstOpenDate) : null;
+      if (firstOpen && !isNaN(firstOpen)) {
+        const msPerDay = 24 * 60 * 60 * 1000;
+        const diff = Math.ceil((centerDate.setHours(0,0,0,0) - new Date(firstOpen.setHours(0,0,0,0)).getTime()) / msPerDay);
+        // Ensure window covers from the first tile up to center date, plus a small buffer
+        spanDays = Math.max(spanDays, diff + 14);
+      }
+    }
 
     const windowStart = new Date(centerDate);
     windowStart.setDate(windowStart.getDate() - spanDays);
