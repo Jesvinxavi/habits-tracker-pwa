@@ -184,9 +184,22 @@ export class HHCalendar extends HTMLElement {
 
   // Helper method to get the anchor date for preventing navigation before first day
   _getAnchorDate(stateKey, group) {
-    // For fitness calendar, find the earliest activity creation date or use today as fallback
+    // For fitness calendar, find the earliest recorded activity date (preferred), then
+    // earliest activity creation date, else fallback to today.
     if (stateKey === 'fitnessSelectedDate') {
-      // Find the earliest activity creation date
+      // 1) Earliest recorded activity date from recordedActivities keys (YYYY-MM-DD)
+      const recorded = getState().recordedActivities || {};
+      let earliestRecorded = null;
+      for (const key of Object.keys(recorded)) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+          const d = new Date(key);
+          if (!isNaN(d) && (!earliestRecorded || d < earliestRecorded)) {
+            earliestRecorded = d;
+          }
+        }
+      }
+
+      // 2) Earliest activity creation date
       const earliestActivityDate = (getState().activities || []).reduce((acc, activity) => {
         let d = null;
         if (activity.createdAt) {
@@ -201,15 +214,12 @@ export class HHCalendar extends HTMLElement {
         return !acc || (d && d < acc) ? d : acc;
       }, null);
 
-      // If we have activities, use the earliest activity date; otherwise use today
-      if (earliestActivityDate) {
-        return this._getPeriodStart(earliestActivityDate, 'daily');
-      }
-      
-      // Fallback to today if no activities exist
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return this._getPeriodStart(today, 'daily');
+      const anchor = earliestRecorded || earliestActivityDate || (() => {
+        const t = new Date();
+        t.setHours(0, 0, 0, 0);
+        return t;
+      })();
+      return this._getPeriodStart(anchor, 'daily');
     }
 
     // For home calendar, find the earliest habit creation date

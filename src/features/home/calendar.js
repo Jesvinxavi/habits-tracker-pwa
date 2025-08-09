@@ -117,32 +117,46 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
     const group = stateKey === 'fitnessSelectedDate' ? 'daily' : getState().selectedGroup || 'daily';
 
     // Determine earliest period for calendar generation
-    function getEarliestDate() {
-      // For fitness calendar, find the earliest activity creation date to prevent showing
-      // tiles before the first activity was created, similar to home calendar logic
-      if (stateKey === 'fitnessSelectedDate') {
-        const earliestActivityDate = (getState().activities || []).reduce((acc, activity) => {
-          let d = null;
-          if (activity.createdAt) {
-            d = new Date(activity.createdAt);
-          } else if (typeof activity.id === 'string' && /^\d{13}/.test(activity.id)) {
-            const ts = parseInt(activity.id.slice(0, 13), 10);
-            if (!Number.isNaN(ts)) {
-              const utcDate = new Date(ts);
-              d = new Date(utcDate.getFullYear(), utcDate.getMonth(), utcDate.getDate());
-        }
+          function getEarliestDate() {
+        // For fitness calendar, find the earliest recorded activity date (preferred),
+        // then fallback to earliest activity creation date, then today.
+        if (stateKey === 'fitnessSelectedDate') {
+          // 1) Earliest recorded activity date from recordedActivities keys (YYYY-MM-DD)
+          const recorded = getState().recordedActivities || {};
+          let earliestRecorded = null;
+          for (const key of Object.keys(recorded)) {
+            // Guard for valid YYYY-MM-DD keys only
+            if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+              const d = new Date(key);
+              if (!isNaN(d) && (!earliestRecorded || d < earliestRecorded)) {
+                earliestRecorded = d;
+              }
+            }
           }
-          return !acc || (d && d < acc) ? d : acc;
-        }, null);
 
-        // Return the earliest activity date or today if no activities exist
-        return earliestActivityDate || new Date();
+          // 2) Earliest activity definition creation date
+          const earliestActivityDate = (getState().activities || []).reduce((acc, activity) => {
+            let d = null;
+            if (activity.createdAt) {
+              d = new Date(activity.createdAt);
+            } else if (typeof activity.id === 'string' && /^\d{13}/.test(activity.id)) {
+              const ts = parseInt(activity.id.slice(0, 13), 10);
+              if (!Number.isNaN(ts)) {
+                const utcDate = new Date(ts);
+                d = new Date(utcDate.getFullYear(), utcDate.getMonth(), utcDate.getDate());
+              }
+            }
+            return !acc || (d && d < acc) ? d : acc;
+          }, null);
+
+          const candidate = earliestRecorded || earliestActivityDate || new Date();
+          return candidate;
+        }
+
+        // For home calendar, use centralized smart date selection for finding earliest valid period
+        const earliestValidDate = getEarliestHabitDate();
+        return calculateSmartDateForGroup(getState().habits, group, earliestValidDate);
       }
-
-      // For home calendar, use centralized smart date selection for finding earliest valid period
-      const earliestValidDate = getEarliestHabitDate();
-      return calculateSmartDateForGroup(getState().habits, group, earliestValidDate);
-    }
 
     const earliestDate = getEarliestDate();
     // getEarliestDate() now returns the correct period start, no need to call getPeriodStart again
@@ -151,17 +165,27 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
     // Always reset anchor to earliest period each time build runs (prevents drift when switching groups)
     _groupAnchors[group] = new Date(earliestPeriodStart);
 
+    // Ensure we start at the very first period for this calendar
     const start = new Date(_groupAnchors[group]);
 
     // Generate a fixed number of periods for each group for consistent UX
     const periodCounts = {
-      daily: stateKey === 'fitnessSelectedDate' ? 270 : 180, // 9 months for fitness, 6 months for habits
+      daily: stateKey === 'fitnessSelectedDate' ? 540 : 180, // 18 months for fitness to better cover long histories
       weekly: 156, // 3 years
       monthly: 36, // 3 years
       yearly: 40, // 40 years
     };
 
-    const periodsToGenerate = periodCounts[group] || 180;
+    // For fitness calendar daily view, ensure we generate enough tiles to cover from earliest to today
+    let periodsToGenerate = periodCounts[group] || 180;
+    if (stateKey === 'fitnessSelectedDate' && group === 'daily') {
+      const startDay = new Date(start);
+      const today = new Date();
+      startDay.setHours(0,0,0,0);
+      today.setHours(0,0,0,0);
+      const diffDays = Math.max(0, Math.round((today - startDay) / (1000*60*60*24)) + 1);
+      periodsToGenerate = Math.max(periodsToGenerate, diffDays);
+    }
 
     let date = new Date(start);
 
