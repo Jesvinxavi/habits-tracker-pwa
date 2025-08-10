@@ -166,8 +166,9 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
     const buffer = 14; // small forward buffer
 
     // For fitness (daily-only), keep dynamic with modest minimum to ensure scroll room
+    let periodCounts;
     if (stateKey === 'fitnessSelectedDate') {
-      var periodCounts = {
+      periodCounts = {
         daily: Math.max(30, daysDiff + buffer),
         weekly: 0,
         monthly: 0,
@@ -176,7 +177,7 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
     } else {
       // Home: ensure enough tiles to comfortably scroll across all groups
       const minHome = { daily: 180, weekly: 104, monthly: 24, yearly: 15 };
-      var periodCounts = {
+      periodCounts = {
         daily: Math.max(minHome.daily, daysDiff + buffer),
         weekly: Math.max(minHome.weekly, weeksDiff + Math.ceil(buffer / 7)),
         monthly: Math.max(minHome.monthly, monthsDiff + 1),
