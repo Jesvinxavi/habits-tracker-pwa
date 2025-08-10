@@ -143,14 +143,20 @@ export function initializeNavigation() {
         // Update the state with the appropriate date for the current group
         dispatch(Actions.setSelectedDate(appropriateTodayISO));
         
+        // After refresh, center smoothly on selected tile
         window.HomeModule?.refresh?.();
+        requestAnimationFrame(() => {
+          document
+            .querySelector('#home-view hh-calendar[state-key="selectedDate"]')
+            ?.scrollToSelected?.({ instant: false });
+        });
       } else if (viewId === 'fitness-view') {
         const { getLocalMidnightISOString } = await import('../shared/datetime.js');
         const localToday = getLocalMidnightISOString(today);
         dispatch(Actions.setFitnessSelectedDate(localToday));
-        document
-          .querySelector('#fitness-view hh-calendar[state-key="fitnessSelectedDate"]')
-          ?.refresh?.();
+        const cal = document.querySelector('#fitness-view hh-calendar[state-key="fitnessSelectedDate"]');
+        cal?.refresh?.();
+        requestAnimationFrame(() => cal?.scrollToSelected?.({ instant: false }));
       }
     }
     // Use generic loader for all modules

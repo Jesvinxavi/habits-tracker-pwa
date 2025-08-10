@@ -138,9 +138,12 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
         return safeFirst;
       }
 
-      // For home calendar, use centralized smart date selection for finding earliest valid period
-      const earliestValidDate = getEarliestHabitDate();
-      return calculateSmartDateForGroup(getState().habits, group, earliestValidDate);
+      // Home calendar: also anchor to the app's first open date to preserve the very first tile
+      const firstOpenHome = getState().appFirstOpenDate ? new Date(getState().appFirstOpenDate) : null;
+      const safeFirstHome = firstOpenHome && !isNaN(firstOpenHome) ? firstOpenHome : new Date();
+      safeFirstHome.setHours(0, 0, 0, 0);
+      // For non-daily groups, earliest period should start at that group's boundary
+      return getPeriodStart(safeFirstHome, group);
     }
 
     const earliestDate = getEarliestDate();
@@ -153,16 +156,33 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
     const start = new Date(_groupAnchors[group]);
 
     // Generate a fixed number of periods for each group for consistent UX
-    const periodCounts = {
-      // For fitness, generate dynamic count from first-open to today, with small future buffer
-      daily:
-        stateKey === 'fitnessSelectedDate'
-          ? Math.max(30, Math.ceil((new Date().setHours(0,0,0,0) - new Date(start).getTime()) / (24 * 60 * 60 * 1000)) + 14)
-          : 180,
-      weekly: 156, // 3 years
-      monthly: 36, // 3 years
-      yearly: 40, // 40 years
-    };
+    const now = new Date();
+    now.setHours(0,0,0,0);
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const daysDiff = Math.max(0, Math.ceil((now.getTime() - new Date(start).getTime()) / msPerDay));
+    const weeksDiff = Math.max(0, Math.ceil(daysDiff / 7));
+    const monthsDiff = Math.max(0, (now.getFullYear() - new Date(start).getFullYear()) * 12 + (now.getMonth() - new Date(start).getMonth()));
+    const yearsDiff = Math.max(0, now.getFullYear() - new Date(start).getFullYear());
+    const buffer = 14; // small forward buffer
+
+    // For fitness (daily-only), keep dynamic with modest minimum to ensure scroll room
+    if (stateKey === 'fitnessSelectedDate') {
+      var periodCounts = {
+        daily: Math.max(30, daysDiff + buffer),
+        weekly: 0,
+        monthly: 0,
+        yearly: 0,
+      };
+    } else {
+      // Home: ensure enough tiles to comfortably scroll across all groups
+      const minHome = { daily: 180, weekly: 104, monthly: 24, yearly: 15 };
+      var periodCounts = {
+        daily: Math.max(minHome.daily, daysDiff + buffer),
+        weekly: Math.max(minHome.weekly, weeksDiff + Math.ceil(buffer / 7)),
+        monthly: Math.max(minHome.monthly, monthsDiff + 1),
+        yearly: Math.max(minHome.yearly, yearsDiff + 1),
+      };
+    }
 
     const periodsToGenerate = periodCounts[group] || 180;
 
@@ -366,8 +386,9 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
 
     // e. Perform centering after layout settles
     if (stateKey === 'fitnessSelectedDate') {
-      // Single smooth center for fitness to avoid stacked animations
-      scheduleSmoothCenter(60);
+      // Ensure we don't visually center the first tile; jump to today immediately, then refine once
+      scrollToSelected({ instant: true });
+      scheduleSmoothCenter(80);
     } else {
       // Keep robust sequence for home
       scrollToSelected({ instant: true });
@@ -521,6 +542,10 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
         if (selEl) center(selEl);
         // Guard centering for home view too
         centerSelectedWhenReady();
+        // Additional smooth center to improve perceived centering on weekly/monthly/yearly
+        if (currentGroup !== 'daily') {
+          requestAnimationFrame(() => scrollToSelected({ instant: false }));
+        }
       }
     },
   };
