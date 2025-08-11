@@ -444,7 +444,15 @@ async function handleSaveHabit() {
   }
 
   if (editingHabitId) {
-    dispatch(Actions.updateHabit(editingHabitId, habitObj));
+    // On edit, preserve identity and history fields
+    const updates = { ...habitObj };
+    delete updates.id;
+    delete updates.createdAt;
+    delete updates.completed;
+    delete updates.progress;
+    delete updates.skippedDates;
+
+    dispatch(Actions.updateHabit(editingHabitId, updates));
   } else {
     dispatch(Actions.addHabit(habitObj));
   }

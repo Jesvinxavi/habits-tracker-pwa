@@ -42,25 +42,63 @@ function getAnchorDate(habit) {
   return new Date(0); // epoch fallback – keeps maths deterministic
 }
 
+// Helper: derive the earliest meaningful start date for a habit from any evidence
+function _getEarliestStartDate(habit) {
+  const candidates = [];
+
+  // createdAt
+  if (habit?.createdAt) {
+    const d = new Date(habit.createdAt);
+    if (!isNaN(d)) {
+      d.setHours(0, 0, 0, 0);
+      candidates.push(d);
+    }
+  }
+
+  // ID timestamp (numeric 13-digit prefix)
+  if (typeof habit?.id === 'string' && /^[0-9]{13}/.test(habit.id)) {
+    const ts = parseInt(habit.id.slice(0, 13), 10);
+    if (!Number.isNaN(ts)) {
+      const d = new Date(ts);
+      d.setHours(0, 0, 0, 0);
+      candidates.push(d);
+    }
+  }
+
+  // Earliest from completed keys (YYYY-MM-DD) and skippedDates
+  let earliestData = null;
+  if (habit && typeof habit.completed === 'object' && habit.completed !== null) {
+    for (const key of Object.keys(habit.completed)) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+        const d = new Date(key);
+        if (!isNaN(d) && (earliestData === null || d < earliestData)) earliestData = d;
+      }
+    }
+  }
+  if (Array.isArray(habit?.skippedDates)) {
+    for (const key of habit.skippedDates) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+        const d = new Date(key);
+        if (!isNaN(d) && (earliestData === null || d < earliestData)) earliestData = d;
+      }
+    }
+  }
+  if (earliestData) {
+    earliestData.setHours(0, 0, 0, 0);
+    candidates.push(earliestData);
+  }
+
+  if (candidates.length === 0) return null;
+  return new Date(Math.min(...candidates.map((d) => d.getTime())));
+}
+
 export function isHabitScheduledOnDate(habit, date) {
   // First check if the date is before the habit was created
   const checkDate = new Date(date);
   if (isNaN(checkDate)) return false;
 
-  // Extract creation date from habit
-  let creationDate = null;
-  
-  // Try to get creation date from createdAt field
-  if (habit.createdAt) {
-    creationDate = new Date(habit.createdAt);
-  } 
-  // Fallback: extract from habit ID (timestamp + random string)
-  else if (typeof habit.id === 'string' && /^[0-9]{13}/.test(habit.id)) {
-    const ts = parseInt(habit.id.slice(0, 13), 10);
-    if (!Number.isNaN(ts)) {
-      creationDate = new Date(ts);
-    }
-  }
+  // Compute effective creation/start date as the earliest available evidence
+  const creationDate = _getEarliestStartDate(habit);
 
   // If we have a valid creation date, check if the requested date is before it
   // Period-aware guard: reject only when the ENTIRE period precedes habit creation.

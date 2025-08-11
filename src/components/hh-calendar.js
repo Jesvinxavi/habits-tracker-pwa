@@ -192,29 +192,63 @@ export class HHCalendar extends HTMLElement {
       return this._getPeriodStart(safeFirst, 'daily');
     }
 
-    // For home calendar, find the earliest habit creation date
+    // For home calendar, find the earliest habit date from any evidence
     const earliestHabitDate = (getState().habits || []).reduce((acc, h) => {
-      let d = null;
+      const candidates = [];
       if (h.createdAt) {
-        d = new Date(h.createdAt);
-      } else if (typeof h.id === 'string' && /^\d{13}/.test(h.id)) {
+        const d = new Date(h.createdAt);
+        if (!isNaN(d)) {
+          d.setHours(0, 0, 0, 0);
+          candidates.push(d);
+        }
+      }
+      if (typeof h.id === 'string' && /^\d{13}/.test(h.id)) {
         const ts = parseInt(h.id.slice(0, 13), 10);
         if (!Number.isNaN(ts)) {
           const utcDate = new Date(ts);
-          d = new Date(utcDate.getFullYear(), utcDate.getMonth(), utcDate.getDate());
+          const d = new Date(utcDate.getFullYear(), utcDate.getMonth(), utcDate.getDate());
+          d.setHours(0, 0, 0, 0);
+          candidates.push(d);
         }
       }
-      return !acc || (d && d < acc) ? d : acc;
+      // completed keys
+      if (h && typeof h.completed === 'object' && h.completed !== null) {
+        for (const key of Object.keys(h.completed)) {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+            const d = new Date(key);
+            if (!isNaN(d)) {
+              d.setHours(0, 0, 0, 0);
+              candidates.push(d);
+            }
+          }
+        }
+      }
+      // skippedDates
+      if (Array.isArray(h?.skippedDates)) {
+        for (const key of h.skippedDates) {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+            const d = new Date(key);
+            if (!isNaN(d)) {
+              d.setHours(0, 0, 0, 0);
+              candidates.push(d);
+            }
+          }
+        }
+      }
+
+      const minCand = candidates.length ? new Date(Math.min(...candidates.map(d => d.getTime()))) : null;
+      return !acc || (minCand && minCand < acc) ? minCand : acc;
     }, null);
 
     if (earliestHabitDate) {
       return this._getPeriodStart(earliestHabitDate, group);
     }
 
-    // Fallback to today if no habits exist
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return this._getPeriodStart(today, group);
+    // Fallback to app first open date
+    const firstOpen = getState().appFirstOpenDate ? new Date(getState().appFirstOpenDate) : null;
+    const safeFirst = firstOpen && !isNaN(firstOpen) ? firstOpen : new Date();
+    safeFirst.setHours(0, 0, 0, 0);
+    return this._getPeriodStart(safeFirst, group);
   }
 
   // Helper method to get period start date
