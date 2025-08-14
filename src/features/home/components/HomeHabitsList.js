@@ -98,13 +98,32 @@ export const HomeHabitsList = {
     );
     const anytime = incompleteActive.filter((h) => !h.scheduledTime);
     const scheduled = incompleteActive.filter((h) => h.scheduledTime);
+
+    // Sort scheduled habits by time (earliest first); ties by name then id for stability
+    const scheduledSorted = scheduled.slice().sort((a, b) => {
+      const toMinutes = (t) => {
+        if (!t || typeof t !== 'string') return Number.POSITIVE_INFINITY;
+        const [hh, mm] = t.split(':');
+        const h = parseInt(hh, 10);
+        const m = parseInt(mm, 10);
+        if (Number.isNaN(h) || Number.isNaN(m)) return Number.POSITIVE_INFINITY;
+        return h * 60 + m;
+      };
+      const diff = toMinutes(a.scheduledTime) - toMinutes(b.scheduledTime);
+      if (diff !== 0) return diff;
+      const nameA = (a.name || '').toLowerCase();
+      const nameB = (b.name || '').toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return (a.id || '').localeCompare(b.id || '');
+    });
     const completedArr = habits.filter((h) => isHabitCompleted(h, date));
 
     // Build sections
     const frag = document.createDocumentFragment();
 
     const anytimeSection = this._buildSection('Anytime', anytime);
-    const schedSection = this._buildSection('Scheduled', scheduled);
+    const schedSection = this._buildSection('Scheduled', scheduledSorted);
     const completedSection = this._buildSection('Completed', completedArr);
     const skippedSection = this._buildSection('Skipped', skippedArr);
 
