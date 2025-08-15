@@ -1203,5 +1203,68 @@ body {
     }
 }
 
+/* Section pills header and pill styles */
+.section-pills-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    overflow-x: auto;
+}
+
+.section-pills-header::-webkit-scrollbar {
+    display: none;
+}
+
+.section-pills-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    background: #9ca3af; /* default grey */
+    color: #fff;
+    border: 1px solid rgba(0,0,0,0.15);
+    font-weight: 600;
+    font-size: 12px;
+    line-height: 1;
+    transition: transform 150ms ease, padding 150ms ease, background-color 150ms ease;
+    white-space: nowrap;
+}
+
+.section-pill-btn.selected {
+    background: var(--primary-color);
+    transform: scale(1.06);
+    padding: 6px 12px;
+}
+
+.section-pill-btn--completed:not(.selected) {
+    background: var(--success-color);
+}
+.section-pill-btn--skipped:not(.selected) {
+    background: var(--warning-color);
+}
+
+.section-pill-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    border-radius: 9999px;
+    background: #fff;
+    color: #000;
+    font-size: 11px;
+    font-weight: 800;
+}
+
 
 

@@ -6,23 +6,19 @@ import { hexToRgba, tintedLinearGradient } from '../../../shared/color.js';
 import { dateToKey } from '../../../shared/datetime.js';
 import { sectionVisibility } from '../helpers/coreHelpers.js';
 import { getPeriodKey } from '../schedule.js';
+import { getCategorizedHabitsForSelectedContext } from '../helpers/habitCategorization.js';
+import { HomeSectionPills } from './HomeSectionPills.js';
 
 // Local aliases for schedule helpers
 const {
-  belongsToSelectedGroup,
-  isHabitScheduledOnDate,
+  // belongsToSelectedGroup, // no longer needed here
+  // isHabitScheduledOnDate, // handled in helper
   isHabitCompleted,
   isHabitSkippedToday,
 } = scheduleUtils;
 
 // Import cache invalidation function
 import { invalidatePillsCache } from './HomeProgressPills.js';
-
-// Track collapse state for Completed & Skipped sections so it persists across re-renders
-const sectionCollapseState = {
-  Completed: false,
-  Skipped: false,
-};
 
 /**
  * HomeHabitsList component that manages habit rendering
@@ -38,6 +34,8 @@ export const HomeHabitsList = {
     this.container = container;
     this.callbacks = callbacks;
     this.isInEditMode = false; // Add edit mode flag
+    this.useTabbedMode = true; // Enable tabbed mode for section switching
+    this.selectedSection = null; // Will be determined on first render
 
     this._createContainer();
     this.render();
@@ -70,72 +68,39 @@ export const HomeHabitsList = {
     // Clear previous dynamic content
     this.container.innerHTML = '';
 
-    const rawDate = new Date(getState().selectedDate);
-    const group = getState().selectedGroup;
+    const { sections } = getCategorizedHabitsForSelectedContext();
     
-    // Normalize the date to match how calendar tiles store dates (local midnight as UTC)
-    const normalizedLocal = new Date(rawDate.getFullYear(), rawDate.getMonth(), rawDate.getDate());
-    // Convert to the same format as tile dataset.date (local midnight represented as UTC midnight)
-    const date = new Date(Date.UTC(normalizedLocal.getFullYear(), normalizedLocal.getMonth(), normalizedLocal.getDate()));
-    
-    // Filter habits
-    const habits = getState().habits.filter(
-      (h) => belongsToSelectedGroup(h, group) && isHabitScheduledOnDate(h, date)
-    );
+    // Total count across all sections
+    const totalCount =
+      sections.Anytime.length +
+      sections.Scheduled.length +
+      sections.Completed.length +
+      sections.Skipped.length;
 
-    // If no habits scheduled, render placeholder
-    if (habits.length === 0) {
-      this._renderEmptyPlaceholder(group);
+    if (totalCount === 0) {
+      this._renderEmptyPlaceholder(getState().selectedGroup);
       return;
     }
 
-    // Categorize habits
-    const skippedArr = habits.filter(
-      (h) => !isHabitCompleted(h, date) && isHabitSkippedToday(h, date)
-    );
-    const incompleteActive = habits.filter(
-      (h) => !isHabitCompleted(h, date) && !isHabitSkippedToday(h, date)
-    );
-    const anytime = incompleteActive.filter((h) => !h.scheduledTime);
-    const scheduled = incompleteActive.filter((h) => h.scheduledTime);
+    // Ensure a valid selection exists
+    this._ensureValidSelection(sections);
 
-    // Sort scheduled habits by time (earliest first); ties by name then id for stability
-    const scheduledSorted = scheduled.slice().sort((a, b) => {
-      const toMinutes = (t) => {
-        if (!t || typeof t !== 'string') return Number.POSITIVE_INFINITY;
-        const [hh, mm] = t.split(':');
-        const h = parseInt(hh, 10);
-        const m = parseInt(mm, 10);
-        if (Number.isNaN(h) || Number.isNaN(m)) return Number.POSITIVE_INFINITY;
-        return h * 60 + m;
-      };
-      const diff = toMinutes(a.scheduledTime) - toMinutes(b.scheduledTime);
-      if (diff !== 0) return diff;
-      const nameA = (a.name || '').toLowerCase();
-      const nameB = (b.name || '').toLowerCase();
-      if (nameA < nameB) return -1;
-      if (nameA > nameB) return 1;
-      return (a.id || '').localeCompare(b.id || '');
-    });
-    const completedArr = habits.filter((h) => isHabitCompleted(h, date));
-
-    // Build sections
+    // Build only the selected section in tabbed mode
     const frag = document.createDocumentFragment();
 
-    const anytimeSection = this._buildSection('Anytime', anytime);
-    const schedSection = this._buildSection('Scheduled', scheduledSorted);
-    const completedSection = this._buildSection('Completed', completedArr);
-    const skippedSection = this._buildSection('Skipped', skippedArr);
+    const title = this.selectedSection;
+    const list = sections[title] || [];
 
-    if (anytimeSection) frag.appendChild(anytimeSection);
-    if (schedSection) frag.appendChild(schedSection);
-    if (completedSection) frag.appendChild(completedSection);
-    if (skippedSection) frag.appendChild(skippedSection);
+    const selectedSectionEl = this._buildSection(title, list);
+    if (selectedSectionEl) frag.appendChild(selectedSectionEl);
 
     this.container.appendChild(frag);
 
     // Adjust container height after rendering
     this._adjustContainerHeight();
+
+    // Sync pills selection with the list-selected section
+    HomeSectionPills.setSelectedSection?.(this.selectedSection, { silent: true });
   },
 
   /**
@@ -187,10 +152,10 @@ export const HomeHabitsList = {
   },
 
   /**
-   * Builds a section of habits
+   * Builds a section of habits (without header/toggle in tabbed mode)
    */
   _buildSection(title, list) {
-    // If section hidden return null early
+    // Respect visibility toggles for Completed/Skipped
     if (
       (title === 'Completed' && !sectionVisibility.Completed) ||
       (title === 'Skipped' && !sectionVisibility.Skipped)
@@ -199,45 +164,28 @@ export const HomeHabitsList = {
     }
 
     const wrapper = document.createElement('div');
-    const isCollapsible = title === 'Completed' || title === 'Skipped';
-    wrapper.className = 'habits-section' + (isCollapsible ? ' collapsible' : '');
-    if (isCollapsible) {
-      wrapper.id = title.toLowerCase() + '-section';
-    }
+    wrapper.className = 'habits-section';
 
-    // Inline padding for tighter vertical spacing
+    // Minimal spacing
     wrapper.style.paddingTop = '0.5rem';
     wrapper.style.paddingBottom = '0.5rem';
 
-    // Header row with optional toggle
-    let headerHTML = `<h3 class="section-label text-base font-semibold m-0">${title}${isCollapsible ? ` <span class="opacity-60">(${list.length})</span>` : ''}</h3>`;
-    if (isCollapsible) {
-      const isCollapsed = sectionCollapseState[title] || false;
-      headerHTML +=
-        '<button class="toggle-section flex items-center gap-1 text-sm font-medium select-none ml-auto self-start p-0 bg-none border-none outline-none cursor-pointer" style="user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;">' +
-        `<span style="user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;">${isCollapsed ? 'Show' : 'Hide'}</span>` +
-        `<svg class="w-4 h-4 transition-transform duration-200" viewBox="0 0 24 24" stroke="currentColor" fill="none" ${isCollapsed ? 'transform rotate-180' : ''}>
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>`;
-    }
-
-    wrapper.innerHTML = `<div class="section-header flex items-center mb-0.5 home-inset-reduced">${headerHTML}</div>`;
-
+    // If empty in tabbed mode, show a simple placeholder
     if (list.length === 0) {
+      if (this.useTabbedMode) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-section-placeholder text-gray-400 text-sm text-center py-6';
+        empty.textContent = `No ${title.toLowerCase()} habits`;
+        wrapper.appendChild(empty);
+        return wrapper;
+      }
       return null;
-    }
-
-    // Apply collapsed state before adding cards
-    if (isCollapsible && sectionCollapseState[title]) {
-      wrapper.classList.add('collapsed');
     }
 
     // Add habit cards
     list.forEach((habit) => {
       const card = this._buildHabitCard(habit);
       if (card) {
-        // Determine if we need swipe functionality
         const date = new Date(getState().selectedDate);
         let cardToAdd = card;
 
@@ -253,25 +201,38 @@ export const HomeHabitsList = {
       }
     });
 
-    // Toggle handler
-    if (isCollapsible) {
-      const toggleBtn = wrapper.querySelector('.toggle-section');
-      if (toggleBtn) {
-        toggleBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const collapsed = wrapper.classList.toggle('collapsed');
-          sectionCollapseState[title] = collapsed;
-
-          // Update arrow rotation and label
-          const svg = toggleBtn.querySelector('svg');
-          if (svg) svg.style.transform = collapsed ? 'rotate(180deg)' : 'rotate(0deg)';
-          const textSpan = toggleBtn.querySelector('span');
-          if (textSpan) textSpan.textContent = collapsed ? 'Show' : 'Hide';
-        });
-      }
-    }
-
     return wrapper;
+  },
+
+  setSelectedSection(section) {
+    const valid = ['Anytime', 'Scheduled', 'Completed', 'Skipped'];
+    if (!valid.includes(section)) return;
+    this.selectedSection = section;
+  },
+
+  _ensureValidSelection(sections) {
+    const validKeys = ['Anytime', 'Scheduled', 'Completed', 'Skipped'];
+    let sel = this.selectedSection;
+    if (!validKeys.includes(sel)) sel = null;
+
+    // If selected is hidden by visibility, invalidate it
+    if (sel === 'Completed' && !sectionVisibility.Completed) sel = null;
+    if (sel === 'Skipped' && !sectionVisibility.Skipped) sel = null;
+
+    // Default selection if invalid or not set
+    if (!sel) {
+      // Prefer Anytime -> Scheduled -> Completed -> Skipped if present (counts > 0),
+      // else fallback to Anytime.
+      const order = ['Anytime', 'Scheduled', 'Completed', 'Skipped'];
+      sel =
+        order.find((k) => {
+          if (k === 'Completed' && !sectionVisibility.Completed) return false;
+          if (k === 'Skipped' && !sectionVisibility.Skipped) return false;
+          return (sections[k] && sections[k].length > 0) || k === 'Anytime';
+        }) || 'Anytime';
+      }
+
+    this.selectedSection = sel;
   },
 
   /**
@@ -533,12 +494,7 @@ export const HomeHabitsList = {
         confirmBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           // exit edit mode
-          card.dataset.editing = '0';
-          this.isInEditMode = false; // Clear edit mode flag
-          editWrapper.remove();
-          const habitContentNodeBack = card.querySelector('.habit-content');
-          if (habitContentNodeBack) habitContentNodeBack.style.display = '';
-          rightWrap.style.display = '';
+          this._exitEditMode(card);
 
           // Save the final progress state using proper dispatch
           dispatch(Actions.setHabitProgress(habit.id, periodKey, curProgress));
@@ -835,6 +791,18 @@ export const HomeHabitsList = {
   },
 
   /**
+   * Bind edit mode exit handler
+   */
+  _exitEditMode(card) {
+    card.dataset.editing = '0';
+    this.isInEditMode = false;
+    const habitContentNode = card.querySelector('.habit-content');
+    if (habitContentNode) habitContentNode.style.display = '';
+    const rightWrap = card.querySelector('.ml-auto.flex.flex-col.items-end');
+    if (rightWrap) rightWrap.style.display = '';
+  },
+
+  /**
    * Unmounts the habits list component
    */
   unmount() {
@@ -842,40 +810,6 @@ export const HomeHabitsList = {
     if (this.container) {
       this.container.innerHTML = '';
     }
-  },
-
-  /**
-   * Adjusts progress for a target habit
-   */
-  _adjustProgress(habitId, max, delta) {
-    // Prevent UI refresh during edit mode
-    if (this.isInEditMode) {
-      const currentState = getState();
-      const habit = currentState.habits.find((hh) => hh.id === habitId);
-      if (!habit) return;
-      const key = getPeriodKey(habit, new Date(currentState.selectedDate));
-      if (typeof habit.progress !== 'object' || habit.progress === null) habit.progress = {};
-      const cur = habit.progress[key] || 0;
-      let next = cur + delta;
-      if (next < 0) next = 0;
-      if (next > max) next = max;
-      habit.progress[key] = next;
-      return;
-    }
-
-    // Normal dispatch for non-edit mode
-    const habit = getState().habits.find((h) => h.id === habitId);
-    if (!habit) return;
-    const key = getPeriodKey(habit, new Date(getState().selectedDate));
-    const cur = habit.progress?.[key] || 0;
-    let next = cur + delta;
-    if (next < 0) next = 0;
-    if (next > max) next = max;
-    dispatch(Actions.updateHabit(habit.id, {
-      progress: {
-        [key]: next,
-      },
-    }));
   },
 };
 

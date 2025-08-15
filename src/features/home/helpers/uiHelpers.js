@@ -3,6 +3,7 @@ import { getPeriodKey } from '../schedule.js';
 import { makeCardSwipable } from '../../../components/swipeableCard.js';
 import { updateSectionVisibility, sectionVisibility as visObj } from './coreHelpers.js';
 import { HomeHabitsList } from '../components/HomeHabitsList.js';
+import { HomeSectionPills } from '../components/HomeSectionPills.js';
 
 /* -------------------------------------------------------------------------- */
 /*  SECTION VISIBILITY HELPERS                                                */
@@ -123,7 +124,10 @@ export function setupMenuToggle() {
           updateSectionVisibility(!visObj.Completed, visObj.Skipped);
           saveSectionVisibility(visObj);
           updateDropdownText();
-          // Immediately refresh list without relying on global HomeView reference
+          HomeSectionPills.render?.();
+          if (typeof HomeHabitsList.setSelectedSection === 'function') {
+            HomeHabitsList.setSelectedSection(HomeSectionPills.getSelectedSection?.() || 'Anytime');
+          }
           HomeHabitsList.render?.();
           break;
         }
@@ -131,6 +135,10 @@ export function setupMenuToggle() {
           updateSectionVisibility(visObj.Completed, !visObj.Skipped);
           saveSectionVisibility(visObj);
           updateDropdownText();
+          HomeSectionPills.render?.();
+          if (typeof HomeHabitsList.setSelectedSection === 'function') {
+            HomeHabitsList.setSelectedSection(HomeSectionPills.getSelectedSection?.() || 'Anytime');
+          }
           HomeHabitsList.render?.();
           break;
         }

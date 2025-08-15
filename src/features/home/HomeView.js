@@ -4,6 +4,7 @@ import { HomeCalendar } from './components/HomeCalendar.js';
 import { HomeProgress } from './components/HomeProgress.js';
 import { HomeHabitsList } from './components/HomeHabitsList.js';
 import { HomeControls } from './components/HomeControls.js';
+import { HomeSectionPills } from './components/HomeSectionPills.js';
 
 /**
  * Main HomeView that orchestrates all home components
@@ -42,6 +43,19 @@ export const HomeView = {
     this.progressContainer = this.container.querySelector('.progress-section');
     this.habitsContainer = this.container.querySelector('.habits-container');
     this.controlsContainer = this.container.querySelector('.habits-header');
+
+    // Ensure a pills header exists between header and habits container
+    let pillsHeader = this.container.querySelector('.section-pills-header');
+    if (!pillsHeader) {
+      pillsHeader = document.createElement('div');
+      pillsHeader.className = 'section-pills-header home-inset-reduced';
+      // Insert after the habits header and before the habits container
+      const headerEl = this.container.querySelector('.habits-header');
+      if (headerEl && this.habitsContainer && headerEl.parentNode) {
+        headerEl.parentNode.insertBefore(pillsHeader, this.habitsContainer);
+      }
+    }
+    this.pillsContainer = pillsHeader;
   },
 
   /**
@@ -61,6 +75,17 @@ export const HomeView = {
 
     // Mount progress
     HomeProgress.mount(this.progressContainer);
+
+    // Mount section pills BEFORE habits list
+    HomeSectionPills.mount(this.pillsContainer, {
+      onSectionChange: (section) => {
+        // When pills selection changes, update list selection
+        if (typeof HomeHabitsList.setSelectedSection === 'function') {
+          HomeHabitsList.setSelectedSection(section);
+          HomeHabitsList.render();
+        }
+      },
+    });
 
     // Mount habits list
     HomeHabitsList.mount(this.habitsContainer, {
@@ -84,6 +109,7 @@ export const HomeView = {
     HomeHeader.render();
     HomeCalendar.render();
     HomeProgress.render();
+    HomeSectionPills.render?.();
     HomeHabitsList.render();
     HomeControls.render();
   },
