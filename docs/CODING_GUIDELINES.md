@@ -8,8 +8,10 @@ Whenever you (or the AI assistant) make a change **refer to this guide first** a
 ## 1. Project Philosophy
 
 1. **Vanilla-first** – The app intentionally avoids heavy frameworks. All dynamic behaviour is implemented with modern browser APIs (ES2020 Modules, DOM, `fetch`, Service Workers). Keep it that way unless there is a _very strong_ reason.
-2. **Progressive Enhancement** – The default experience must work without JavaScript; JS only makes it richer.
-3. **PWA & Offline** – Offline-first is non-negotiable. Changes that break offline support are regressions.
+2. **Honest loading and failure states** – The app requires JavaScript. Keep the
+   branded loader or an explicit authentication/storage error visible until the
+   account-backed interface is safe to display.
+3. **PWA & Offline** – Offline-first is non-negotiable. Persistent commands must commit to the IndexedDB outbox and optimistic cache before changing in-memory state.
 4. **Mobile-first, iOS-inspired UI** – CSS/tailwind choices should always consider small touch screens first.
 5. **Root-cause fixes over workarounds** – When modifying behaviour, change the underlying code or data directly instead of adding transformation layers or wrappers. Indirect solutions are only acceptable when a direct change would introduce regressions that cannot be resolved immediately; in such cases the pull-request must clearly explain (a) why the direct fix breaks, and (b) why the chosen workaround is safest for now.
 
@@ -20,23 +22,17 @@ Whenever you (or the AI assistant) make a change **refer to this guide first** a
 ```
 / (root)
 ├── index.html           # Single entry HTML (no framework templates)
-├── service-worker.js    # PWA cache logic – keep tiny & explicit
 ├── src/                 # All JavaScript source code
 │   ├── main.js          # Bootstraps everything (import-only, NO logic)
 │   ├── core/            # App-wide state & persistence
 │   │   ├── state.js     # Single source of truth – `appData`
-│   │   └── storage.js   # LocalStorage persistence helpers
-│   ├── utils/           # Pure, framework-agnostic helpers (NO DOM)
-│   │   ├── activities.js # Fitness activity management
-│   │   ├── restDays.js  # Rest day tracking utilities
-│   │   └── …
+│   │   ├── offlineDb.js # Confirmed cache, outbox, lease, backups
+│   │   ├── syncEngine.js # Idempotent replay and reconciliation
+│   │   └── migration/   # Pure legacy normalization and merge logic
 │   ├── components/      # Re-usable UI snippets (confirm dialog, modal…)
-│   ├── ui/              # View-layer modules (DOM helpers + event listeners)
-│   │   ├── habits/      # View sub-folders if a view needs many files
-│   │   ├── fitness.js   # Fitness page controller & UI
-│   │   ├── theme.js
-│   │   └── …
-│   └── features/        # Cross-view business logic (e.g. schedule engine)
+│   └── features/        # Home, Habits, Fitness, Holidays, Stats, Profile
+├── convex/              # Authenticated schema, queries, and mutations
+├── tests/               # Unit, migration, Convex, and browser tests
 ├── public/              # Static assets only (styles, icons, manifest…)
 └── docs/                # Project documentation incl. **this file**
 ```
@@ -56,7 +52,9 @@ Whenever you (or the AI assistant) make a change **refer to this guide first** a
 6. **Semicolons**: Required. Always terminate statements.
 7. **Trailing commas**: Allowed on the last item of multi-line object/array literals.
 8. **Hoisting**: Prefer _function declarations_ (`export function foo() {}`) for exported APIs so they are hoisted; use arrow functions for small inner helpers.
-9. **Top-level side-effects**: Keep them _only_ in `main.js`. Other modules must export pure functions.
+9. **Top-level side-effects**: Restrict them to documented startup modules such
+   as `main.js`, `loader.js`, and `autoToday.js`. Domain, migration, and
+   validation helpers must remain side-effect free.
 10. **JSDoc**: Every exported function _must_ carry a concise `/** … */` block describing params and return values.
 
 ---
@@ -68,18 +66,23 @@ Whenever you (or the AI assistant) make a change **refer to this guide first** a
 3. **Always** use `dispatch(Actions.actionName(...))` to change state so subscribers are notified.
 4. **Never** access `appData` directly for reading state - use `Selectors` instead.
 5. Add new persistent fields to `appData` **together** with migration logic inside `ensureHabitIntegrity` (or a dedicated helper).
-6. **Persistence**: LocalStorage (`storage.js`) automatically serialises after `notify()`. Do not write to LocalStorage directly anywhere else.
+6. **Persistence**: In `cloud` mode, Convex is authoritative and `habitsConvexCache` stores confirmed cache/outbox data. Whole-state localStorage/legacy IndexedDB writes are forbidden. `legacy` mode remains available only for safe rollout and recovery.
+7. **Ownership**: Backend functions derive `ownerKey` from `ctx.auth.getUserIdentity()` and never accept it as a public argument.
+8. **Hydration**: Server/cache hydration actions carry a source marker and must never create outgoing operations.
 
 ---
 
 ## 5. UI Modules (`src/ui` & `src/components`)
 
-1. Each module exposes an `initializeX()` that attaches all its listeners. Call it from `main.js` only.
+1. Each feature exposes an initialization boundary. The visible Home feature is
+   initialized during startup; other feature modules are loaded by navigation
+   or on first interaction.
 2. **Pure HTML builders**: Functions like `createHabitItem()` must only _return_ template strings – no DOM side effects.
 3. **DOM mutations**: Performed via `element.insertAdjacentHTML()` or through standard DOM APIs – never use `innerHTML = ...` if avoidable (security).
 4. Keep UI code free of business logic – call utilities from `utils/` and `features/` instead.
 5. **Accessibility**: Buttons need `aria-label`; colour-only indicators must have textual fallback.
-6. **Icons**: Always use the Google **Material Design Icons** font ( `<span class="material-icons">icon_name</span>` ). Avoid custom inline SVGs unless the required symbol is not available in the Material set.
+6. **Icons**: Reuse the established Material Icons or inline SVG patterns. Every
+   icon-only control requires an accessible name.
 
 ### Calendar Components
 
@@ -123,8 +126,10 @@ centerOnSelector(parent, '.day-item.current-day', { instant: false });
 
 ## 6. Styling (Tailwind CSS)
 
-1. Tailwind is loaded via CDN; no build step. Only use **class strings** inside template literals – do _not_ add `<style>` tags in JS.
-2. Custom colours & font families are declared inline in `index.html`'s `tailwind.config` override – extend there if new tokens are required.
+1. Tailwind is compiled locally through PostCSS. Never add the Tailwind CDN
+   runtime to production.
+2. Custom colours, content scanning, and font families are defined in
+   `tailwind.config.cjs`.
 3. Use existing iOS colour variables (`ios-blue`, `ios-orange`, …) to stay on-brand.
 4. Whenever dynamic colours are needed, compute Tailwind utility class via helper maps (`utils/constants.js`).
 
@@ -132,10 +137,10 @@ centerOnSelector(parent, '.day-item.current-day', { instant: false });
 
 ## 7. Service Worker & PWA
 
-1. Increase `CACHE_NAME` when adding cache-worthy assets.
-2. `urlsToCache` must include every _critical_ asset for offline first-load.
-3. Avoid caching large images – rely on network fallback.
-4. Remember to version-bust old caches during the `activate` event.
+1. PWA generation is configured through `vite-plugin-pwa` in `vite.config.js`.
+2. Precache the application shell and static assets only.
+3. Never runtime-cache Clerk or Convex API traffic.
+4. Service-worker updates must not clear IndexedDB account caches or outboxes.
 
 ---
 
@@ -152,8 +157,10 @@ centerOnSelector(parent, '.day-item.current-day', { instant: false });
 
 ## 9. Testing
 
-1. No formal test runner yet; critical logic (helpers in `utils/` & `features/`) must include **inline self-tests** (`console.assert`) wrapped in `if (process.env.NODE_ENV==='test')` style guards (temporary until test setup exists).
-2. Do **not** add DOM-dependent tests here; those belong to end-to-end Cypress tests (future work).
+1. Use Vitest for pure logic, reducers, migration, and IndexedDB behavior.
+2. Use `fake-indexeddb` for deterministic storage tests.
+3. Use Playwright for browser/PWA, authentication-gate, and offline/reconnect flows.
+4. Every persistent mutation requires success, duplicate, stale revision, validation, ownership, parent, tombstone, and cascade coverage.
 
 ---
 
@@ -171,16 +178,15 @@ centerOnSelector(parent, '.day-item.current-day', { instant: false });
 
 ## 11. Linting & Formatting
 
-Currently no automated linter is configured. **Until ESLint/Prettier is added you _must_ self-police** the rules above. PR reviews will reject inconsistent code.
+ESLint, Vitest, Convex type-checking, production build, and Playwright smoke tests run in CI.
 
 ---
 
 ## 12. Future Improvements (track in GitHub Issues)
 
-• Add ESLint + Prettier CI
-• Introduce Vitest for unit testing
-• Migrate inline Tailwind config to `tailwind.config.js` build pipeline for production optimisation
-• Replace Alpine.js with smallest possible reactive helper or custom hook system
+• Expand authenticated browser coverage for reconnect and conflict flows
+• Add self-service export, reset, rollback, and account deletion UI
+• Enable retention maintenance only after production evidence and review
 
 ---
 

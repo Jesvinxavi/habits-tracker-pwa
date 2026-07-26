@@ -1,0 +1,283 @@
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+const migrationStatus = v.union(
+  v.literal("not_started"),
+  v.literal("staging"),
+  v.literal("awaiting_resolution"),
+  v.literal("verifying"),
+  v.literal("completed"),
+  v.literal("failed"),
+);
+
+const shared = {
+  ownerKey: v.string(),
+  generation: v.number(),
+  clientId: v.string(),
+  revision: v.number(),
+  updatedAt: v.number(),
+  updatedByDeviceId: v.string(),
+  deletedAt: v.optional(v.number()),
+};
+
+const sharedIndexes = <T extends ReturnType<typeof defineTable>>(table: T) =>
+  table
+    .index("by_owner_generation", ["ownerKey", "generation"])
+    .index("by_owner_generation_client", ["ownerKey", "generation", "clientId"])
+    .index("by_owner_generation_updatedAt", ["ownerKey", "generation", "updatedAt"]);
+
+export default defineSchema({
+  userProfiles: defineTable({
+    ownerKey: v.string(),
+    activeGeneration: v.number(),
+    dataSchemaVersion: v.number(),
+    appFirstOpenDate: v.string(),
+    migrationStatus,
+    activeMigrationBatchId: v.optional(v.string()),
+    previousGeneration: v.optional(v.number()),
+    migrationCompletedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_owner", ["ownerKey"]),
+
+  userPreferences: defineTable({
+    ownerKey: v.string(),
+    generation: v.number(),
+    darkMode: v.boolean(),
+    hideCompleted: v.boolean(),
+    hideSkipped: v.boolean(),
+    holidayMode: v.boolean(),
+    homeSectionVisibility: v.object({
+      Completed: v.boolean(),
+      Skipped: v.boolean(),
+    }),
+    revision: v.number(),
+    updatedAt: v.number(),
+    updatedByDeviceId: v.string(),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("by_owner_generation", ["ownerKey", "generation"])
+    .index("by_owner_generation_updatedAt", ["ownerKey", "generation", "updatedAt"]),
+
+  habitCategories: sharedIndexes(
+    defineTable({
+      ...shared,
+      name: v.string(),
+      color: v.string(),
+      sortOrder: v.number(),
+    }),
+  ).index("by_owner_generation_order", ["ownerKey", "generation", "sortOrder"]),
+
+  habits: sharedIndexes(
+    defineTable({
+      ...shared,
+      categoryClientId: v.string(),
+      name: v.string(),
+      frequency: v.union(
+        v.literal("daily"),
+        v.literal("weekly"),
+        v.literal("biweekly"),
+        v.literal("monthly"),
+        v.literal("yearly"),
+      ),
+      createdAtISO: v.string(),
+      anchorDateISO: v.optional(v.string()),
+      scheduledTime: v.optional(v.union(v.string(), v.null())),
+      days: v.optional(v.array(v.number())),
+      monthly: v.optional(
+        v.object({
+          interval: v.number(),
+          mode: v.union(v.literal("each"), v.literal("on")),
+          dates: v.optional(v.array(v.number())),
+          combinations: v.optional(v.array(v.string())),
+        }),
+      ),
+      months: v.optional(v.array(v.number())),
+      yearInterval: v.optional(v.number()),
+      paused: v.boolean(),
+      activeOnHolidays: v.boolean(),
+      icon: v.string(),
+      target: v.optional(v.number()),
+      targetFrequency: v.optional(
+        v.union(
+          v.literal("daily"),
+          v.literal("weekly"),
+          v.literal("biweekly"),
+          v.literal("monthly"),
+          v.literal("yearly"),
+        ),
+      ),
+      targetUnit: v.optional(v.string()),
+      defaultIncrement: v.optional(v.number()),
+      sortOrder: v.number(),
+    }),
+  )
+    .index("by_owner_generation_category", ["ownerKey", "generation", "categoryClientId"])
+    .index("by_owner_generation_order", ["ownerKey", "generation", "sortOrder"]),
+
+  habitEntries: sharedIndexes(
+    defineTable({
+      ...shared,
+      habitClientId: v.string(),
+      periodKey: v.string(),
+      periodSortDate: v.string(),
+      completed: v.boolean(),
+      progress: v.number(),
+      skipped: v.boolean(),
+    }),
+  )
+    .index("by_owner_generation_habit", ["ownerKey", "generation", "habitClientId"])
+    .index("by_owner_generation_habit_period", [
+      "ownerKey",
+      "generation",
+      "habitClientId",
+      "periodKey",
+    ])
+    .index("by_owner_generation_sort_date", [
+      "ownerKey",
+      "generation",
+      "periodSortDate",
+    ]),
+
+  holidayPeriods: sharedIndexes(
+    defineTable({
+      ...shared,
+      startISO: v.string(),
+      endISO: v.string(),
+      label: v.string(),
+    }),
+  ).index("by_owner_generation_start", ["ownerKey", "generation", "startISO"]),
+
+  holidaySingles: sharedIndexes(
+    defineTable({ ...shared, dateKey: v.string() }),
+  ).index("by_owner_generation_date", ["ownerKey", "generation", "dateKey"]),
+
+  activityCategories: sharedIndexes(
+    defineTable({
+      ...shared,
+      name: v.string(),
+      color: v.string(),
+      icon: v.string(),
+      sortOrder: v.number(),
+      isSystemDefault: v.boolean(),
+    }),
+  ).index("by_owner_generation_order", ["ownerKey", "generation", "sortOrder"]),
+
+  activities: sharedIndexes(
+    defineTable({
+      ...shared,
+      name: v.string(),
+      categoryClientId: v.string(),
+      icon: v.string(),
+      createdAtISO: v.string(),
+      trackingType: v.union(v.literal("time"), v.literal("sets-reps")),
+      units: v.optional(v.string()),
+      muscleGroup: v.optional(v.string()),
+    }),
+  ).index("by_owner_generation_category", [
+    "ownerKey",
+    "generation",
+    "categoryClientId",
+  ]),
+
+  activityRecords: sharedIndexes(
+    defineTable({
+      ...shared,
+      activityClientId: v.string(),
+      activityNameSnapshot: v.string(),
+      categoryClientIdSnapshot: v.string(),
+      dateKey: v.string(),
+      timestampISO: v.string(),
+      duration: v.optional(v.number()),
+      durationUnit: v.optional(
+        v.union(v.literal("seconds"), v.literal("minutes"), v.literal("hours")),
+      ),
+      intensity: v.optional(v.string()),
+      notes: v.string(),
+      sets: v.optional(
+        v.array(
+          v.object({
+            reps: v.number(),
+            value: v.optional(v.number()),
+            unit: v.string(),
+          }),
+        ),
+      ),
+    }),
+  )
+    .index("by_owner_generation_date", ["ownerKey", "generation", "dateKey"])
+    .index("by_owner_generation_activity", ["ownerKey", "generation", "activityClientId"])
+    .index("by_owner_generation_activity_date", [
+      "ownerKey",
+      "generation",
+      "activityClientId",
+      "dateKey",
+    ]),
+
+  restDays: sharedIndexes(
+    defineTable({ ...shared, dateKey: v.string() }),
+  ).index("by_owner_generation_date", ["ownerKey", "generation", "dateKey"]),
+
+  legacyData: defineTable({
+    ownerKey: v.string(),
+    generation: v.number(),
+    foodLog: v.any(),
+    stats: v.any(),
+    unknownTopLevelFields: v.any(),
+    sourceSchemaVersion: v.number(),
+    updatedAt: v.number(),
+  }).index("by_owner_generation", ["ownerKey", "generation"]),
+
+  processedOperations: defineTable({
+    ownerKey: v.string(),
+    operationId: v.string(),
+    deviceId: v.string(),
+    processedAt: v.number(),
+    mutationName: v.string(),
+    result: v.any(),
+  })
+    .index("by_owner_operation", ["ownerKey", "operationId"])
+    .index("by_processed_at", ["processedAt"]),
+
+  migrationBatches: defineTable({
+    ownerKey: v.string(),
+    batchId: v.string(),
+    deviceId: v.string(),
+    sourceFingerprint: v.string(),
+    appFirstOpenDate: v.string(),
+    baseGeneration: v.number(),
+    targetGeneration: v.number(),
+    expectedCounts: v.any(),
+    expectedChecksums: v.any(),
+    uploadedCounts: v.any(),
+    status: v.union(
+      v.literal("staging"),
+      v.literal("awaiting_resolution"),
+      v.literal("verifying"),
+      v.literal("verified"),
+      v.literal("activated"),
+      v.literal("failed"),
+      v.literal("abandoned"),
+    ),
+    conflictSummary: v.optional(v.any()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    committedAt: v.optional(v.number()),
+  })
+    .index("by_owner_batch", ["ownerKey", "batchId"])
+    .index("by_owner_fingerprint", ["ownerKey", "sourceFingerprint"])
+    .index("by_owner_status", ["ownerKey", "status"]),
+
+  collectionRevisions: defineTable({
+    ownerKey: v.string(),
+    generation: v.number(),
+    collection: v.string(),
+    revision: v.number(),
+    updatedAt: v.number(),
+    updatedByDeviceId: v.string(),
+  }).index("by_owner_generation_collection", [
+    "ownerKey",
+    "generation",
+    "collection",
+  ]),
+});

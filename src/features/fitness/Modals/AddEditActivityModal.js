@@ -356,7 +356,7 @@ export const AddEditActivityModal = {
   /**
    * Handles form submission
    */
-  _handleFormSubmit() {
+  async _handleFormSubmit() {
     const nameInput = document.getElementById('activity-name-input');
     const categorySelect = document.getElementById('activity-category-select');
     const muscleGroupSelect = document.getElementById('muscle-group-select');
@@ -383,9 +383,9 @@ export const AddEditActivityModal = {
       name,
       categoryId,
       icon,
-      muscleGroup,
+      muscleGroup: muscleGroup || null,
       trackingType,
-      units,
+      units: units || null,
     };
 
     // Check if editing or adding
@@ -394,10 +394,12 @@ export const AddEditActivityModal = {
 
     if (editActivityId) {
       // Edit existing activity
-      updateActivity(editActivityId, activity);
+      const saved = await updateActivity(editActivityId, activity);
+      if (!saved) return;
     } else {
       // Add new activity
-      addActivity(activity);
+      const saved = await addActivity(activity);
+      if (!saved) return;
     }
 
     closeModal('add-activity-modal');
@@ -621,15 +623,16 @@ export const AddEditActivityModal = {
         message: 'This activity will be permanently removed. This action cannot be undone.',
         okText: 'Delete',
         cancelText: 'Cancel',
-        onOK: () => {
-      deleteActivity(activityId);
-      closeModal('add-activity-modal');
+        onOK: async () => {
+          const saved = await deleteActivity(activityId);
+          if (!saved) return;
+          closeModal('add-activity-modal');
 
-      // Trigger refresh of search panel to reflect the deletion
-      const event = new CustomEvent('ActivityDeleted', {
-        detail: { activityId },
-      });
-      document.dispatchEvent(event);
+          // Trigger refresh of search panel to reflect the deletion
+          const event = new CustomEvent('ActivityDeleted', {
+            detail: { activityId },
+          });
+          document.dispatchEvent(event);
         },
       });
     });

@@ -93,7 +93,7 @@ function closeEditCategoryModal() {
 
 // -------------------- CRUD --------------------
 
-function addNewCategory() {
+async function addNewCategory() {
   const nameInput = document.getElementById('category-name-input');
   const selectedBtn = document.querySelector('.color-option.ring-2');
   if (!nameInput || !selectedBtn) return;
@@ -102,7 +102,8 @@ function addNewCategory() {
     name: nameInput.value.trim(),
     color: selectedBtn.dataset.color,
   };
-  dispatch(Actions.addCategory(newCat));
+  const saved = await dispatch(Actions.addCategory(newCat));
+  if (!saved) return;
   // Remember this category for preselection
   window._preselectCategoryId = newCat.id;
   closeAddCategoryModal();
@@ -110,17 +111,18 @@ function addNewCategory() {
   import('../HabitsListModule.js').then((m) => m.renderHabitsList());
 }
 
-function updateCategory() {
+async function updateCategory() {
   const modal = document.getElementById('edit-category-modal');
   const catId = modal?.dataset.categoryId;
   if (!catId) return;
   const nameInput = document.getElementById('edit-category-name-input');
   const selectedBtn = document.querySelector('.edit-color-option.ring-2');
   if (!nameInput || !selectedBtn) return;
-  dispatch(Actions.updateCategory(catId, { 
+  const saved = await dispatch(Actions.updateCategory(catId, {
     name: nameInput.value.trim(), 
     color: selectedBtn.dataset.color 
   }));
+  if (!saved) return;
   closeEditCategoryModal();
   populateCategoryDropdown();
   import('../HabitsListModule.js').then((m) => m.renderHabitsList());
@@ -136,8 +138,9 @@ function deleteCategory() {
     message:
       'Deleting this category will also remove all habits it contains. This action cannot be undone.',
     okText: 'Delete',
-    onOK: () => {
-      dispatch(Actions.deleteCategory(catId));
+    onOK: async () => {
+      const saved = await dispatch(Actions.deleteCategory(catId));
+      if (!saved) return;
       closeEditCategoryModal();
       populateCategoryDropdown();
       import('../HabitsListModule.js').then((m) => m.renderHabitsList());

@@ -89,7 +89,7 @@ export const HomeHeader = {
         'relative flex items-center justify-center h-9 bg-gray-200 text-gray-500 rounded-full overflow-hidden select-none mr-4';
       toggle.style.width = '36px';
       toggle.innerHTML =
-        '<span class="plane material-icons absolute left-2 top-1/2 -translate-y-1/2 transition-transform text-2xl">flight</span><span class="label whitespace-nowrap ml-1 text-sm font-medium opacity-0 transition-opacity">Holiday Mode</span>';
+        '<span class="plane material-icons absolute left-2 top-1/2 -translate-y-1/2 transition-transform text-2xl" aria-hidden="true">flight</span><span class="label whitespace-nowrap ml-1 text-sm font-medium opacity-0 transition-opacity">Holiday Mode</span>';
 
       this.headerEl.appendChild(toggle);
     }
@@ -121,6 +121,11 @@ export const HomeHeader = {
       toggle.classList.toggle('bg-gray-200', !isOn);
       toggle.classList.toggle('text-white', isOn);
       toggle.classList.toggle('text-gray-500', !isOn);
+      toggle.setAttribute('aria-pressed', String(isOn));
+      toggle.setAttribute(
+        'aria-label',
+        `${isOn ? 'Disable' : 'Enable'} Holiday Mode for the selected date`
+      );
 
       const planeEl = toggle.querySelector('.plane');
       const labelEl = toggle.querySelector('.label');
@@ -176,7 +181,7 @@ export const HomeHeader = {
     Promise.all([
       import('../../../features/holidays/holidays.js'),
       import('../../../components/ConfirmDialog.js'),
-    ]).then(([hol, { showConfirm }]) => {
+    ]).then(async ([hol, { showConfirm }]) => {
       const { toggleSingleHoliday } = hol;
       const inPeriod = getState().holidayPeriods.some(
         (p) => targetISO >= p.startISO && targetISO <= p.endISO
@@ -195,7 +200,8 @@ export const HomeHeader = {
       }
 
       // Toggle holiday in state
-      toggleSingleHoliday(targetISO);
+      const saved = await toggleSingleHoliday(targetISO);
+      if (!saved) return;
 
       // Explicitly trigger the callback to refresh UI through state subscription
       if (this.callbacks.onHolidayToggle) {

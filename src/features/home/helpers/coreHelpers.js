@@ -1,4 +1,5 @@
 import { getState } from '../../../core/state.js';
+import { isCloudBackend } from '../../../core/dataBackend.js';
 import {
   isHabitCompleted,
   isHabitSkippedToday,
@@ -69,8 +70,14 @@ export let sectionVisibility = {
 
 // Load section visibility from localStorage
 try {
+  if (isCloudBackend()) {
+    sectionVisibility = {
+      ...sectionVisibility,
+      ...(getState().homeSectionVisibility || {}),
+    };
+  }
   const saved = localStorage.getItem('homeSectionVisibility');
-  if (saved) {
+  if (saved && !isCloudBackend()) {
     sectionVisibility = { ...sectionVisibility, ...JSON.parse(saved) };
   }
 } catch (e) {

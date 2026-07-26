@@ -46,8 +46,9 @@ function initModal() {
       message: 'This will remove every holiday period you have added. Continue?',
       okText: 'Delete All',
       cancelText: 'Cancel',
-      onOK: () => {
-        deleteAllPeriods();
+      onOK: async () => {
+        const saved = await deleteAllPeriods();
+        if (!saved) return;
         refreshPeriodList();
       },
     });
@@ -84,23 +85,25 @@ function initPeriodFormModal() {
 
   cancelBtn.addEventListener('click', () => closeModal(modalId));
 
-  saveBtn.addEventListener('click', () => {
+  saveBtn.addEventListener('click', async () => {
     if (saveBtn.disabled) return;
+    let saved;
     if (editingPeriodId) {
       // update existing
-      updatePeriod({
+      saved = await updatePeriod({
         id: editingPeriodId,
         label: labelInput.value.trim(),
         startISO: startInput.value,
         endISO: endInput.value,
       });
     } else {
-      addPeriod({
+      saved = await addPeriod({
         label: labelInput.value.trim(),
         startISO: startInput.value,
         endISO: endInput.value,
       });
     }
+    if (!saved) return;
     closeModal(modalId);
     refreshPeriodList();
   });
@@ -167,8 +170,9 @@ function refreshPeriodList() {
         message: 'Are you sure you want to delete this period? This cannot be undone.',
         okText: 'Delete',
         cancelText: 'Cancel',
-        onOK: () => {
-          deletePeriod(p.id);
+        onOK: async () => {
+          const saved = await deletePeriod(p.id);
+          if (!saved) return;
           refreshPeriodList();
         },
       });

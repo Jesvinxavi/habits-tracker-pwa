@@ -84,8 +84,9 @@ export function renderActivitiesList(onActivityClick) {
 
     html += CategoryGroup.build(category, records, {
       onActivityClick: onActivityClick || activitiesContainer._onActivityClick,
-      onActivityDelete: (recordId) => {
-        deleteRecordedActivity(recordId, iso);
+      onActivityDelete: async (recordId) => {
+        const saved = await deleteRecordedActivity(recordId, iso);
+        if (!saved) return;
         renderActivitiesList(onActivityClick || activitiesContainer._onActivityClick);
       },
       getActivity: getActivity,
@@ -97,8 +98,9 @@ export function renderActivitiesList(onActivityClick) {
   // Bind events for category groups
   CategoryGroup.bindEvents(activitiesContainer, activities, {
     onActivityClick: onActivityClick || activitiesContainer._onActivityClick,
-    onActivityDelete: (recordId) => {
-      deleteRecordedActivity(recordId, iso);
+    onActivityDelete: async (recordId) => {
+      const saved = await deleteRecordedActivity(recordId, iso);
+      if (!saved) return;
       renderActivitiesList(onActivityClick || activitiesContainer._onActivityClick);
     },
     getActivity: getActivity,

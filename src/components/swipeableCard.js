@@ -25,10 +25,6 @@ export function makeCardSwipable(swipeContainer, slideEl, habit, { onRestore = (
     isSwiping = false; // we determine later
     btnWidth = swipeContainer.offsetWidth * 0.2;
     activePointerId = e.pointerId !== undefined ? e.pointerId : null;
-    // capture subsequent moves to this element (pointer events only)
-    if (e.pointerId !== undefined && slideEl.setPointerCapture) {
-      slideEl.setPointerCapture(e.pointerId);
-    }
   }
 
   function onPointerMove(e) {
@@ -43,7 +39,11 @@ export function makeCardSwipable(swipeContainer, slideEl, habit, { onRestore = (
         // Begin horizontal swipe
         isSwiping = true;
         slideEl.style.transition = 'none';
-        // pointer already captured in pointerdown
+        // Capture only after a real horizontal swipe starts. Capturing on
+        // pointerdown retargets ordinary taps away from buttons inside the card.
+        if (e.pointerId !== undefined && slideEl.setPointerCapture) {
+          slideEl.setPointerCapture(e.pointerId);
+        }
       } else {
         return; // let vertical scroll proceed
       }
@@ -59,6 +59,7 @@ export function makeCardSwipable(swipeContainer, slideEl, habit, { onRestore = (
   function onPointerUp(e) {
     if (activePointerId !== null && e.pointerId !== activePointerId) return;
     if (!isSwiping) {
+      activePointerId = null;
       return; // Not a swipe; nothing to snap back
     }
 

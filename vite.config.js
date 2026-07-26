@@ -62,41 +62,27 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Feature-specific chunks
-          'habits-core': [
-            './src/features/habits/HabitsModule.js',
-            './src/features/habits/HabitsView.js',
-            './src/features/habits/HabitsListModule.js',
-          ],
-          'habits-modals': [
-            './src/features/habits/modals/HabitFormModal.js',
-            './src/features/habits/modals/HabitReorderModal.js',
-            './src/features/habits/modals/HabitIconPicker.js',
-          ],
-          'fitness-core': [
-            './src/features/fitness/FitnessModule.js',
-            './src/features/fitness/FitnessView.js',
-          ],
-          'fitness-modals': [
-            './src/features/fitness/Modals/ActivityDetailsModal.js',
-            './src/features/fitness/Modals/AddEditActivityModal.js',
-            './src/features/fitness/Modals/StatsModal.js',
-          ],
-          utils: [
-            './src/shared/common.js',
-            './src/shared/datetime.js',
-            './src/shared/constants.js',
-            './src/features/holidays/holidays.js',
-          ],
-          components: [
-            './src/components/Modal.js',
-            './src/components/ConfirmDialog.js',
-            './src/components/InstallPrompt.js',
-            './src/components/UpdatePrompt.js',
-            './src/shared/HeaderBar.js',
-            './src/shared/ActionButtons.js',
-          ],
+        manualChunks(id) {
+          if (id.includes('/src/features/habits/modals/')) return 'habits-modals';
+          if (id.includes('/src/features/habits/')) return 'habits-core';
+          if (id.includes('/src/features/fitness/Modals/')) return 'fitness-modals';
+          if (id.includes('/src/features/fitness/')) return 'fitness-core';
+          if (
+            id.includes('/src/shared/common.js') ||
+            id.includes('/src/shared/datetime.js') ||
+            id.includes('/src/shared/constants.js') ||
+            id.includes('/src/features/holidays/holidays.js')
+          ) {
+            return 'utils';
+          }
+          if (
+            id.includes('/src/components/') ||
+            id.includes('/src/shared/HeaderBar.js') ||
+            id.includes('/src/shared/ActionButtons.js')
+          ) {
+            return 'components';
+          }
+          return undefined;
         },
         chunkFileNames: (chunkInfo) => {
           const facadeModuleId = chunkInfo.facadeModuleId
@@ -123,7 +109,10 @@ export default defineConfig({
     include: [],
   },
   server: {
+    host: '0.0.0.0',
     port: 3000,
+    strictPort: true,
+    allowedHosts: ['MacBook-Pro.local'],
     open: true,
   },
   preview: {

@@ -63,7 +63,7 @@ export function destroySortables() {
   sortables = [];
 }
 
-export function toggleReorderMode() {
+export async function toggleReorderMode() {
   reorderActive = !reorderActive;
   const btns = document.querySelectorAll('[data-button-id="reorder"]');
   setReorderBtnLabel(reorderActive);
@@ -131,7 +131,7 @@ export function toggleReorderMode() {
       tab.classList.remove('pointer-events-none', 'opacity-50');
     });
 
-    persistOrderToState();
+    await persistOrderToState();
   }
 }
 
@@ -161,7 +161,7 @@ export function initializeReorder() {
   });
 }
 
-function persistOrderToState() {
+async function persistOrderToState() {
   const newCategoriesOrder = [];
   const newHabitsOrder = [];
 
@@ -178,8 +178,14 @@ function persistOrderToState() {
 
   if (!newCategoriesOrder.length && !newHabitsOrder.length) return;
 
-  dispatch(Actions.reorderCategories(newCategoriesOrder));
-  dispatch(Actions.reorderHabits(newHabitsOrder));
+  if (newCategoriesOrder.length) {
+    const saved = await dispatch(Actions.reorderCategories(newCategoriesOrder));
+    if (!saved) return;
+  }
+  if (newHabitsOrder.length) {
+    const saved = await dispatch(Actions.reorderHabits(newHabitsOrder));
+    if (!saved) return;
+  }
 
   import('../HabitsListModule.js').then((m) => m.renderHabitsList());
 }

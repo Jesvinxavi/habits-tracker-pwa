@@ -219,8 +219,9 @@ function bindSearchSectionEvents() {
  * @param {HTMLElement} button - The category edit button
  */
 function handleCategoryColorChange(button) {
-  openCategoryColorPicker(button, (categoryId, newColor, buttonElement) => {
-    updateCategoryColor(categoryId, newColor);
+  openCategoryColorPicker(button, async (categoryId, newColor, buttonElement) => {
+    const saved = await updateCategoryColor(categoryId, newColor);
+    if (!saved) return;
     updateSearchCategoryButton(buttonElement, newColor);
 
     // Don't close search section - let user see the updated color
@@ -233,15 +234,17 @@ function handleCategoryColorChange(button) {
  * @param {string} categoryId - The category ID
  * @param {string} newColor - The new color hex value
  */
-function updateCategoryColor(categoryId, newColor) {
+async function updateCategoryColor(categoryId, newColor) {
   // Update fitness activity categories (not habits categories)
-  dispatch(Actions.updateActivityCategoryColor(categoryId, newColor));
+  const saved = await dispatch(Actions.updateActivityCategoryColor(categoryId, newColor));
+  if (!saved) return false;
 
   // Trigger refresh of the search section to show updated color
   if (isSearchExpanded()) {
     const query = getSearchQuery();
     populateSearchSectionContent(query);
   }
+  return true;
 }
 
 /**

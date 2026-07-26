@@ -2,5 +2,4 @@ public/
 node_modules/
 dist/
 sw.js
-tests/
-debug-test.js 
+debug-test.js

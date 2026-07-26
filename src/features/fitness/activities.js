@@ -22,7 +22,8 @@ export async function addActivity(activityData) {
     ...activityData,
   };
 
-  dispatch(Actions.addActivity(newActivity));
+  const saved = await dispatch(Actions.addActivity(newActivity));
+  if (!saved) return null;
 
   return newActivity;
 }
@@ -30,7 +31,7 @@ export async function addActivity(activityData) {
 /**
  * Record an activity for a specific date
  */
-export function recordActivity(activityId, date, data = {}) {
+export async function recordActivity(activityId, date, data = {}) {
   const activity = getState().activities.find((a) => a.id === activityId);
   if (!activity) return null;
 
@@ -48,7 +49,8 @@ export function recordActivity(activityId, date, data = {}) {
     ...data,
   };
 
-  dispatch(Actions.recordActivity(activityId, date, data));
+  const saved = await dispatch(Actions.recordActivity(activityId, date, record));
+  if (!saved) return null;
 
   return record;
 }
@@ -92,55 +94,25 @@ export function searchActivities(query) {
 /**
  * Delete a recorded activity
  */
-export function deleteRecordedActivity(recordId, date) {
+export async function deleteRecordedActivity(recordId, date) {
   const isoDate = date.slice(0, 10);
-
-  // Use a thunk-style action since we don't have a specific action for this
-  dispatch((dispatch, getState) => {
-    const state = getState();
-    const updatedRecordedActivities = { ...state.recordedActivities };
-    
-    if (updatedRecordedActivities[isoDate]) {
-      updatedRecordedActivities[isoDate] = updatedRecordedActivities[isoDate].filter(
-        (record) => record.id !== recordId
-      );
-
-      // Remove empty date entries
-      if (updatedRecordedActivities[isoDate].length === 0) {
-        delete updatedRecordedActivities[isoDate];
-      }
-    }
-    
-    dispatch(Actions.importData({ recordedActivities: updatedRecordedActivities }));
-  });
+  return dispatch(Actions.deleteRecordedActivity(recordId, isoDate));
 }
 
 /**
  * Update a recorded activity
  */
-export function updateRecordedActivity(recordId, date, data = {}) {
+export async function updateRecordedActivity(recordId, date, data = {}) {
   const isoDate = date.slice(0, 10);
-
-  // Use a thunk-style action since we don't have a specific action for this
-  dispatch((dispatch, getState) => {
-    const state = getState();
-    const updatedRecordedActivities = { ...state.recordedActivities };
-    
-    if (updatedRecordedActivities[isoDate]) {
-      const recordIndex = updatedRecordedActivities[isoDate].findIndex(
-        (record) => record.id === recordId
-      );
-      if (recordIndex !== -1) {
-        // Update the existing record with new data while preserving ID and timestamp
-        updatedRecordedActivities[isoDate][recordIndex] = {
-          ...updatedRecordedActivities[isoDate][recordIndex],
-          ...data,
-        };
-      }
-    }
-    
-    dispatch(Actions.importData({ recordedActivities: updatedRecordedActivities }));
-  });
+  const updates = { ...data };
+  if (Array.isArray(updates.sets)) {
+    updates.duration = null;
+    updates.durationUnit = null;
+    updates.intensity = null;
+  } else if (updates.duration != null) {
+    updates.sets = null;
+  }
+  return dispatch(Actions.updateRecordedActivity(recordId, isoDate, updates));
 }
 
 /**
@@ -181,13 +153,13 @@ export function groupActivitiesByMuscleGroup(items) {
 /**
  * Delete an activity and all its recorded instances
  */
-export function deleteActivity(activityId) {
-  dispatch(Actions.deleteActivity(activityId));
+export async function deleteActivity(activityId) {
+  return dispatch(Actions.deleteActivity(activityId));
 }
 
 /**
  * Update an existing activity
  */
-export function updateActivity(activityId, updates) {
-  dispatch(Actions.updateActivity(activityId, updates));
+export async function updateActivity(activityId, updates) {
+  return dispatch(Actions.updateActivity(activityId, updates));
 }
