@@ -51,13 +51,19 @@ export function inclusiveDayCount(startISO, endISO) {
  * @param {string} startISO First day, YYYY-MM-DD.
  * @param {string} endISO Last day, YYYY-MM-DD.
  * @param {Array<{dayOfWeek: number}>} scheduledDays Schedule entries, 0 = Sunday.
+ * @param {number[]} [restDays] Weekdays the program treats as rest, excluded outright.
  * @returns {string[]} Planned dates in ascending order.
  */
-export function plannedDates(startISO, endISO, scheduledDays = []) {
+export function plannedDates(startISO, endISO, scheduledDays = [], restDays = []) {
   const total = inclusiveDayCount(startISO, endISO);
   if (total === 0 || scheduledDays.length === 0) return [];
 
-  const weekdays = new Set(scheduledDays.map((day) => Number(day.dayOfWeek)));
+  const rest = new Set(restDays.map(Number));
+  const weekdays = new Set(
+    scheduledDays.map((day) => Number(day.dayOfWeek)).filter((day) => !rest.has(day))
+  );
+  if (weekdays.size === 0) return [];
+
   const start = toUtcTime(startISO);
   const dates = [];
   for (let offset = 0; offset < total; offset += 1) {
@@ -65,6 +71,27 @@ export function plannedDates(startISO, endISO, scheduledDays = []) {
     if (weekdays.has(new Date(time).getUTCDay())) dates.push(toKey(time));
   }
   return dates;
+}
+
+/**
+ * Splits the program into consecutive seven-day weeks measured from the start date.
+ * @param {string} startISO First day, YYYY-MM-DD.
+ * @param {string} endISO Last day, YYYY-MM-DD.
+ * @returns {Array<{start: string, end: string, dates: string[]}>} One entry per week.
+ */
+export function programWeeks(startISO, endISO) {
+  const total = inclusiveDayCount(startISO, endISO);
+  if (total === 0) return [];
+  const start = toUtcTime(startISO);
+  const weeks = [];
+  for (let offset = 0; offset < total; offset += 7) {
+    const dates = [];
+    for (let day = offset; day < Math.min(offset + 7, total); day += 1) {
+      dates.push(toKey(start + day * MS_PER_DAY));
+    }
+    weeks.push({ start: dates[0], end: dates[dates.length - 1], dates });
+  }
+  return weeks;
 }
 
 /**
@@ -136,17 +163,52 @@ export function computeProgramProgress({
   };
   if (!program) return empty;
 
-  const planned = plannedDates(program.startDate, program.endDate, program.scheduledDays);
   const position = currentWeek(program.startDate, program.endDate, todayISO);
   const today = toUtcTime(todayISO);
+  const programRestDays = program.restDays || [];
+  const restWeekdays = new Set(programRestDays.map(Number));
 
-  const completedWorkouts = planned.filter((date) => {
+  /**
+   * A date counts as trained when it is not in the future, is not a rest day at
+   * either the program or the calendar level, and holds at least one record.
+   * @param {string} date Date key.
+   * @returns {boolean} Whether the date counts.
+   */
+  const trained = (date) => {
     if (Number.isNaN(today) || toUtcTime(date) > today) return false;
     if (restDays[date]) return false;
+    if (restWeekdays.has(new Date(toUtcTime(date)).getUTCDay())) return false;
     return (recordedActivities[date] || []).length > 0;
-  }).length;
+  };
 
-  const plannedWorkouts = planned.length;
+  const pinned = plannedDates(
+    program.startDate,
+    program.endDate,
+    program.scheduledDays,
+    programRestDays
+  );
+
+  let plannedWorkouts = pinned.length;
+  let completedWorkouts = pinned.filter(trained).length;
+
+  // Freeform adds a weekly quota of sessions that may fall on any non-pinned,
+  // non-rest day. Credit is capped per week so a burst of sessions in one week
+  // cannot cover a later week's target.
+  if (program.scheduleMode === 'freeform') {
+    const quotaPerWeek = (program.anytimeRoutines || []).reduce(
+      (sum, entry) => sum + Math.max(1, Number(entry.count) || 1),
+      0
+    );
+    if (quotaPerWeek > 0) {
+      const pinnedSet = new Set(pinned);
+      programWeeks(program.startDate, program.endDate).forEach((week) => {
+        plannedWorkouts += quotaPerWeek;
+        const flexible = week.dates.filter((date) => !pinnedSet.has(date) && trained(date)).length;
+        completedWorkouts += Math.min(quotaPerWeek, flexible);
+      });
+    }
+  }
+
   const percent =
     plannedWorkouts === 0 ? 0 : Math.round((completedWorkouts / plannedWorkouts) * 100);
 

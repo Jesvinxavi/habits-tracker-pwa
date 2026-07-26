@@ -28,6 +28,9 @@ const initialState = {
     hideCompleted: false,
     hideSkipped: false,
     holidayMode: false,
+    // Off by default: pulling a program's routines into a day writes records, so
+    // it stays an explicit choice until the user opts in.
+    programPreload: false,
   },
   foodLog: [],
   stats: {},
@@ -911,6 +914,7 @@ function reducer(state, action) {
             hideCompleted: canonicalRecord.hideCompleted,
             hideSkipped: canonicalRecord.hideSkipped,
             holidayMode: canonicalRecord.holidayMode,
+            programPreload: Boolean(canonicalRecord.programPreload),
           },
           homeSectionVisibility: canonicalRecord.homeSectionVisibility,
         };

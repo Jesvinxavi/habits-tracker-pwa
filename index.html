@@ -860,11 +860,11 @@
     </div>
 
     <!-- Routine Picker Modal (multi-select, records for the selected day) -->
-    <div id="routine-picker-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1002] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
+    <div id="routine-picker-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1003] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate flex flex-col">
         <div class="modal-header flex justify-between items-center px-6 py-1 bg-white/90 dark:bg-gray-800/90 border-b border-gray-200/50 dark:border-gray-700/50 flex-shrink-0 rounded-t-2xl backdrop-blur-xl">
           <button id="cancel-routine-picker" class="px-4 py-2 text-ios-blue hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 font-medium">Cancel</button>
-          <span class="text-lg font-semibold text-gray-900 dark:text-white">Add Routines</span>
+          <span id="routine-picker-title" class="text-lg font-semibold text-gray-900 dark:text-white">Add Routines</span>
           <button id="confirm-routine-picker" class="px-4 py-2 text-ios-blue rounded-lg font-medium opacity-50 transition-all duration-200 hover:bg-gray-100/50 dark:hover:bg-gray-800/50" disabled>Add</button>
         </div>
         <div class="px-4 pt-3 pb-1 flex-shrink-0 flex items-center justify-between">
@@ -904,10 +904,42 @@
               <p id="program-date-error" class="text-xs text-red-600 dark:text-red-400 hidden">End date must be on or after the start date.</p>
             </div>
             <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
-              <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Weekly schedule</h3>
+              <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">How is it scheduled?</h3>
+              <div class="flex bg-gray-100 dark:bg-gray-900 rounded-lg p-1 gap-1">
+                <button id="program-mode-prescriptive" type="button" class="program-mode-btn flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 shadow-sm" data-mode="prescriptive">Set days</button>
+                <button id="program-mode-freeform" type="button" class="program-mode-btn flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white" data-mode="freeform">Flexible</button>
+              </div>
+              <p id="program-mode-hint" class="text-xs text-gray-600 dark:text-gray-400">Pick which routines you do on each day of the week.</p>
+            </div>
+
+            <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+              <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Rest days</h3>
+              <p class="text-xs text-gray-600 dark:text-gray-400">Selected days are rest days and drop out of the schedule below.</p>
+              <div class="grid grid-cols-7 gap-2" id="program-rest-day-grid"><!-- buttons injected by ProgramBuilderModal --></div>
+            </div>
+
+            <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+              <h3 id="program-schedule-heading" class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Weekly schedule</h3>
               <p id="program-no-routines-notice" class="text-xs text-gray-600 dark:text-gray-400 hidden">Create a routine first to schedule it.</p>
+              <p id="program-all-rest-notice" class="text-xs text-gray-600 dark:text-gray-400 hidden">Every day is marked as rest. Unselect a day to schedule it.</p>
               <div id="program-schedule-rows" class="space-y-2"></div>
             </div>
+
+            <div id="program-anytime-section" class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl hidden">
+              <div class="flex items-center justify-between">
+                <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Anytime that week</h3>
+                <span id="program-anytime-count" class="text-xs font-medium text-gray-500 dark:text-gray-400">0 per week</span>
+              </div>
+              <p class="text-xs text-gray-600 dark:text-gray-400">Routines that need doing each week, on whichever day suits.</p>
+              <div id="program-anytime-rows" class="space-y-2"></div>
+              <button id="program-add-anytime-btn" type="button" class="w-full py-2.5 px-4 bg-ios-blue/10 text-ios-blue rounded-xl font-semibold hover:bg-ios-blue/20 transition-colors flex items-center justify-center gap-2">
+                <span class="material-icons text-xl">add</span>Add routines
+              </button>
+            </div>
+
+            <button id="program-add-today-btn" type="button" class="w-full py-3 px-4 bg-ios-blue/10 text-ios-blue rounded-xl font-semibold hover:bg-ios-blue/20 transition-colors flex items-center justify-center gap-2 hidden">
+              <span class="material-icons text-xl">playlist_add</span>Add to current day
+            </button>
             <button id="delete-program-btn" class="w-full py-3 px-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors hidden">
               Delete Program
             </button>

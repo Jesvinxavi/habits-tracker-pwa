@@ -22,6 +22,24 @@ const crud = createCrudMutations({
         throw new Error("INVALID_PROGRAM_SCHEDULE");
       }
     }
+    if (payload.restDays !== undefined) {
+      if (!Array.isArray(payload.restDays)) throw new Error("INVALID_PROGRAM_REST_DAYS");
+      for (const day of payload.restDays) {
+        if (!Number.isInteger(day) || day < 0 || day > 6) {
+          throw new Error("INVALID_PROGRAM_REST_DAYS");
+        }
+      }
+    }
+    if (payload.anytimeRoutines !== undefined) {
+      if (!Array.isArray(payload.anytimeRoutines)) {
+        throw new Error("INVALID_PROGRAM_ANYTIME");
+      }
+      for (const entry of payload.anytimeRoutines) {
+        if (!entry?.routineClientId || !Number.isInteger(entry.count) || entry.count < 1) {
+          throw new Error("INVALID_PROGRAM_ANYTIME");
+        }
+      }
+    }
   },
 });
 

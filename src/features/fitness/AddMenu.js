@@ -9,6 +9,7 @@ let documentKeyHandler = null;
 const ITEMS = [
   { action: 'add-activity', icon: 'fitness_center', label: 'Add activity' },
   { action: 'add-routine', icon: 'repeat', label: 'Add routine' },
+  { action: 'add-program-day', icon: 'playlist_add', label: 'Add today\u2019s program' },
   { action: 'save-routine', icon: 'bookmark_add', label: 'Save as routine' },
   { action: 'new-program', icon: 'calendar_month', label: 'New program' },
   { action: 'timer', icon: 'schedule', label: 'Timer' },
@@ -88,6 +89,7 @@ function moveFocus(delta) {
  * @param {Object} actions - Handlers keyed by intent
  * @param {Function} [actions.onAddActivity] - Opens the activity library
  * @param {Function} [actions.onAddRoutine] - Opens the routine picker
+ * @param {Function} [actions.onAddProgramDay] - Records the day's scheduled program routines
  * @param {Function} [actions.onSaveAsRoutine] - Saves the day's activities as a routine
  * @param {Function} [actions.onNewProgram] - Opens the program builder
  * @param {Function} [actions.onTimer] - Opens the timer modal
@@ -119,6 +121,7 @@ export function mountAddMenu(anchorButton, actions = {}) {
   const handlers = {
     'add-activity': actions.onAddActivity,
     'add-routine': actions.onAddRoutine,
+    'add-program-day': actions.onAddProgramDay,
     'save-routine': actions.onSaveAsRoutine,
     'new-program': actions.onNewProgram,
     timer: actions.onTimer,

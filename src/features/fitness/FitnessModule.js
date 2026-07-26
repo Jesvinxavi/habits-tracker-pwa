@@ -9,6 +9,7 @@ import { isRestDay } from './restDays.js';
 import { getActivitiesForDate, getActivity, recordActivitiesForDate } from './activities.js';
 import { recordRoutinesForDate } from './routines.js';
 import { renderProgramTile } from './ProgramTile.js';
+import { addProgramRoutinesToDate, preloadProgramDayIfEnabled } from './programs.js';
 import { showConfirm } from '../../components/ConfirmDialog.js';
 import { isCloudBackend } from '../../core/dataBackend.js';
 
@@ -73,6 +74,37 @@ function openSaveTodayAsRoutine() {
 }
 
 /**
+ * Records the active program's routines for the selected date, explaining itself
+ * when there is nothing to add.
+ * @returns {Promise<void>}
+ */
+async function addProgramDayToSelectedDate() {
+  const iso = getLocalISODate(getState().fitnessSelectedDate || new Date().toISOString());
+
+  if (getActivitiesForDate(iso).length > 0) {
+    showConfirm({
+      title: 'Already Logged',
+      message: 'This day already has activities recorded.',
+      okText: 'OK',
+      cancelText: '',
+      onOK: () => {},
+    });
+    return;
+  }
+
+  const result = await addProgramRoutinesToDate(iso);
+  if (result.recorded > 0 || result.blocked) return;
+
+  showConfirm({
+    title: 'Nothing Scheduled',
+    message: 'No active program schedules routines for this day.',
+    okText: 'OK',
+    cancelText: '',
+    onOK: () => {},
+  });
+}
+
+/**
  * Builds the handlers for the + dropdown beside the Activities pill.
  * @returns {Object} Handlers keyed by menu intent.
  */
@@ -95,6 +127,7 @@ function buildAddMenuActions() {
           void recordRoutinesForDate(routineIds, selectedDateISO());
         },
       }),
+    onAddProgramDay: () => void addProgramDayToSelectedDate(),
     onSaveAsRoutine: () => openSaveTodayAsRoutine(),
     onNewProgram: () => Modals.openProgramBuilder({ onSaved: () => renderProgramTile() }),
     onTimer: () => Timer.openModal(),
@@ -187,6 +220,9 @@ export async function initializeFitness() {
     if (getState().fitnessSelectedDate !== lastFitnessDate) {
       lastFitnessDate = getState().fitnessSelectedDate;
       FitnessView.updateRestToggle();
+      // Preloading is lazy: opening a day fills it, so nothing is written for
+      // days never visited and the block never syncs as one burst.
+      void preloadProgramDayIfEnabled(getLocalISODate(lastFitnessDate));
     }
   });
 
@@ -201,6 +237,9 @@ export async function initializeFitness() {
 
   // Render the program tile for the active program, if there is one
   renderProgramTile();
+
+  // The day the view opens on also gets preloaded when the preference is on.
+  void preloadProgramDayIfEnabled(getLocalISODate(getState().fitnessSelectedDate));
 
   // Set up responsive behavior
   FitnessView.setupResponsiveBehavior();

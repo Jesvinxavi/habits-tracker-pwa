@@ -235,9 +235,15 @@ export function programRecord(program, sortOrder) {
     name: program.name,
     startDateISO: String(program.startDate || program.startDateISO).slice(0, 10),
     endDateISO: String(program.endDate || program.endDateISO).slice(0, 10),
+    scheduleMode: program.scheduleMode === 'freeform' ? 'freeform' : 'prescriptive',
+    restDays: [...(program.restDays || [])].map(Number),
     scheduledDays: (program.scheduledDays || []).map((day) => ({
       dayOfWeek: Number(day.dayOfWeek),
       routineClientId: day.routineId || day.routineClientId,
+    })),
+    anytimeRoutines: (program.anytimeRoutines || []).map((entry) => ({
+      routineClientId: entry.routineId || entry.routineClientId,
+      count: Number(entry.count) || 1,
     })),
     active: Boolean(program.active),
     createdAtISO: String(program.createdAt || program.createdAtISO).slice(0, 10),

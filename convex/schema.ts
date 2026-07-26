@@ -47,6 +47,8 @@ export default defineSchema({
     hideCompleted: v.boolean(),
     hideSkipped: v.boolean(),
     holidayMode: v.boolean(),
+    // Optional so it can be added without invalidating existing preference rows.
+    programPreload: v.optional(v.boolean()),
     homeSectionVisibility: v.object({
       Completed: v.boolean(),
       Skipped: v.boolean(),
@@ -230,8 +232,18 @@ export default defineSchema({
       name: v.string(),
       startDateISO: v.string(),
       endDateISO: v.string(),
+      // Repeated dayOfWeek entries are allowed: a day may hold several routines.
       scheduledDays: v.array(
         v.object({ dayOfWeek: v.number(), routineClientId: v.string() }),
+      ),
+      // Optional so the fields can be added without invalidating existing rows.
+      // The client defaults scheduleMode to "prescriptive" and the rest to empty.
+      scheduleMode: v.optional(
+        v.union(v.literal("prescriptive"), v.literal("freeform")),
+      ),
+      restDays: v.optional(v.array(v.number())),
+      anytimeRoutines: v.optional(
+        v.array(v.object({ routineClientId: v.string(), count: v.number() })),
       ),
       active: v.boolean(),
       createdAtISO: v.string(),

@@ -4,6 +4,7 @@ import {
   currentWeek,
   inclusiveDayCount,
   plannedDates,
+  programWeeks,
 } from '../../src/features/fitness/helpers/programProgress.js';
 
 const MON_WED_FRI = [
@@ -214,5 +215,134 @@ describe('computeProgramProgress', () => {
     // Mondays: 26 Oct, 2, 9, 16 Nov.
     expect(progress.plannedWorkouts).toBe(4);
     expect(progress.totalWeeks).toBe(5);
+  });
+});
+
+describe('program rest weekdays', () => {
+  it('excludes rest weekdays from planned dates', () => {
+    // Wednesday marked as rest removes it from a Mon/Wed/Fri schedule.
+    const dates = plannedDates(
+      MONDAY_PROGRAM.startDate,
+      MONDAY_PROGRAM.endDate,
+      MON_WED_FRI,
+      [3]
+    );
+    expect(dates).toHaveLength(16);
+    expect(dates.some((d) => new Date(`${d}T00:00:00Z`).getUTCDay() === 3)).toBe(false);
+  });
+
+  it('never counts a rest weekday as completed', () => {
+    const program = { ...MONDAY_PROGRAM, restDays: [3] };
+    const planned = plannedDates(program.startDate, program.endDate, MON_WED_FRI, [3]);
+    const recordedActivities = Object.fromEntries(planned.map((d) => [d, [{ id: d }]]));
+    // Add a session on a rest Wednesday; it must not earn credit.
+    recordedActivities['2026-10-21'] = [{ id: 'wed' }];
+    const progress = computeProgramProgress({
+      program,
+      todayISO: '2026-12-13',
+      recordedActivities,
+    });
+    expect(progress.plannedWorkouts).toBe(16);
+    expect(progress.completedWorkouts).toBe(16);
+    expect(progress.percent).toBe(100);
+  });
+});
+
+describe('programWeeks', () => {
+  it('splits the block into seven-day weeks from the start date', () => {
+    const weeks = programWeeks('2026-10-19', '2026-11-01');
+    expect(weeks).toHaveLength(2);
+    expect(weeks[0].start).toBe('2026-10-19');
+    expect(weeks[0].end).toBe('2026-10-25');
+    expect(weeks[1].start).toBe('2026-10-26');
+    expect(weeks[1].dates).toHaveLength(7);
+  });
+
+  it('leaves a short final week short', () => {
+    const weeks = programWeeks('2026-10-19', '2026-10-29');
+    expect(weeks).toHaveLength(2);
+    expect(weeks[1].dates).toHaveLength(4);
+  });
+});
+
+describe('freeform scheduling', () => {
+  // One pinned Monday plus a two-session weekly target, over two weeks.
+  const FREEFORM = {
+    startDate: '2026-10-19',
+    endDate: '2026-11-01',
+    scheduleMode: 'freeform',
+    restDays: [0],
+    scheduledDays: [{ dayOfWeek: 1, routineId: 'r1' }],
+    anytimeRoutines: [{ routineId: 'r2', count: 2 }],
+  };
+
+  it('adds the weekly target to planned workouts', () => {
+    const progress = computeProgramProgress({ program: FREEFORM, todayISO: '2026-11-01' });
+    // 2 pinned Mondays + 2 weeks x 2 anytime = 6.
+    expect(progress.plannedWorkouts).toBe(6);
+    expect(progress.completedWorkouts).toBe(0);
+  });
+
+  it('credits sessions on any non-pinned day toward that week', () => {
+    const progress = computeProgramProgress({
+      program: FREEFORM,
+      todayISO: '2026-11-01',
+      recordedActivities: {
+        '2026-10-19': [{ id: 'a' }], // pinned Monday
+        '2026-10-20': [{ id: 'b' }], // anytime
+        '2026-10-22': [{ id: 'c' }], // anytime
+      },
+    });
+    expect(progress.completedWorkouts).toBe(3);
+    expect(progress.percent).toBe(50);
+  });
+
+  it('caps anytime credit at the weekly target', () => {
+    const progress = computeProgramProgress({
+      program: FREEFORM,
+      todayISO: '2026-11-01',
+      recordedActivities: {
+        // Four flexible sessions in week one, but the target is two.
+        '2026-10-20': [{ id: 'a' }],
+        '2026-10-21': [{ id: 'b' }],
+        '2026-10-22': [{ id: 'c' }],
+        '2026-10-23': [{ id: 'd' }],
+      },
+    });
+    expect(progress.completedWorkouts).toBe(2);
+  });
+
+  it('does not let one week cover another week\'s target', () => {
+    const both = computeProgramProgress({
+      program: FREEFORM,
+      todayISO: '2026-11-01',
+      recordedActivities: {
+        '2026-10-20': [{ id: 'a' }],
+        '2026-10-21': [{ id: 'b' }],
+        '2026-10-27': [{ id: 'c' }],
+        '2026-10-28': [{ id: 'd' }],
+      },
+    });
+    expect(both.completedWorkouts).toBe(4);
+  });
+
+  it('ignores anytime sessions on a program rest weekday', () => {
+    const progress = computeProgramProgress({
+      program: FREEFORM,
+      todayISO: '2026-11-01',
+      // 25 Oct 2026 is a Sunday, which this program marks as rest.
+      recordedActivities: { '2026-10-25': [{ id: 'a' }] },
+    });
+    expect(progress.completedWorkouts).toBe(0);
+  });
+
+  it('treats a prescriptive program with anytime entries as pinned-only', () => {
+    const progress = computeProgramProgress({
+      program: { ...FREEFORM, scheduleMode: 'prescriptive' },
+      todayISO: '2026-11-01',
+      recordedActivities: { '2026-10-20': [{ id: 'a' }] },
+    });
+    expect(progress.plannedWorkouts).toBe(2);
+    expect(progress.completedWorkouts).toBe(0);
   });
 });

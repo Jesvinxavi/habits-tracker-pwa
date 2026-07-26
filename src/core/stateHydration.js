@@ -189,6 +189,7 @@ export function normalizedToCompatibilityState(cache, deviceState = {}) {
       hideCompleted: cache.preferences?.hideCompleted || false,
       hideSkipped: cache.preferences?.hideSkipped || false,
       holidayMode: cache.preferences?.holidayMode || false,
+      programPreload: cache.preferences?.programPreload || false,
     },
     homeSectionVisibility: cache.preferences?.homeSectionVisibility,
     holidayPeriods,
@@ -220,9 +221,16 @@ export function normalizedToCompatibilityState(cache, deviceState = {}) {
         id: program.clientId,
         startDate: program.startDateISO,
         endDate: program.endDateISO,
+        // Programs written before scheduling modes existed are prescriptive.
+        scheduleMode: program.scheduleMode || 'prescriptive',
+        restDays: program.restDays || [],
         scheduledDays: (program.scheduledDays || []).map((day) => ({
           dayOfWeek: day.dayOfWeek,
           routineId: day.routineClientId,
+        })),
+        anytimeRoutines: (program.anytimeRoutines || []).map((entry) => ({
+          routineId: entry.routineClientId,
+          count: entry.count,
         })),
         createdAt: program.createdAtISO,
       })),

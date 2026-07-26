@@ -13,17 +13,37 @@ const INDICATOR_COLOR = '#0060C7';
 export const RoutinePickerModal = {
   _selectedIds: [],
   _onConfirm: null,
+  _allowEmpty: false,
 
   /**
-   * Opens the picker with an empty selection.
+   * Opens the picker.
    * @param {Object} [options] - Open options
+   * @param {string[]} [options.selectedIds] - Routines to start selected, in order
+   * @param {string} [options.title] - Header title
+   * @param {string} [options.confirmLabel] - Confirm button label
+   * @param {boolean} [options.allowEmpty] - Allow confirming with nothing selected,
+   *   so a caller managing an existing set can clear it
    * @param {Function} [options.onConfirm] - Receives the ordered selected routine ids
    * @returns {void}
    */
-  open({ onConfirm = null } = {}) {
+  open({
+    selectedIds = [],
+    title = 'Add Routines',
+    confirmLabel = 'Add',
+    allowEmpty = false,
+    onConfirm = null,
+  } = {}) {
     this._bindStaticHandlers();
-    this._selectedIds = [];
+    // Drop ids whose routine has been deleted so they never re-enter a selection.
+    this._selectedIds = selectedIds.filter((id) => Boolean(getRoutine(id)));
     this._onConfirm = onConfirm;
+    this._allowEmpty = allowEmpty;
+
+    const titleEl = document.getElementById('routine-picker-title');
+    if (titleEl) titleEl.textContent = title;
+    const confirmBtn = document.getElementById('confirm-routine-picker');
+    if (confirmBtn) confirmBtn.textContent = confirmLabel;
+
     this._render();
     this._updateCount();
     openModal(MODAL_ID);
@@ -121,7 +141,7 @@ export const RoutinePickerModal = {
 
     const confirmBtn = document.getElementById('confirm-routine-picker');
     if (!confirmBtn) return;
-    const enabled = this._selectedIds.length > 0;
+    const enabled = this._allowEmpty || this._selectedIds.length > 0;
     confirmBtn.disabled = !enabled;
     confirmBtn.classList.toggle('opacity-50', !enabled);
   },
@@ -132,7 +152,7 @@ export const RoutinePickerModal = {
    */
   _handleConfirm() {
     const selected = this._selectedIds.filter((id) => Boolean(getRoutine(id)));
-    if (selected.length === 0) return;
+    if (selected.length === 0 && !this._allowEmpty) return;
     closeModal(MODAL_ID);
     this._onConfirm?.(selected);
   },

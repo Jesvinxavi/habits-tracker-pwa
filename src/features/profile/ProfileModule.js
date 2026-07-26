@@ -104,6 +104,15 @@ function profileTemplate() {
               <span></span>
             </button>
           </div>
+          <div class="profile-setting-row">
+            <div>
+              <strong>Preload program routines</strong>
+              <span>Fill each scheduled day with its routines automatically, instead of adding them yourself.</span>
+            </div>
+            <button class="profile-switch" type="button" role="switch" data-setting="programPreload">
+              <span></span>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -224,6 +233,11 @@ function bindEvents(container) {
           break;
         case 'hideSkipped':
           await dispatch(Actions.toggleSkipped());
+          break;
+        case 'programPreload':
+          await dispatch(
+            Actions.updateSettings({ programPreload: !getState().settings.programPreload })
+          );
           break;
       }
     });
