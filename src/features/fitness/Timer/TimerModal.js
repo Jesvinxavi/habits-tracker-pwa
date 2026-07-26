@@ -46,7 +46,6 @@ export const TimerModal = {
     }
 
     // Update timer button state when closing modal
-    this._updateTimerButton();
 
     // Close modal
     closeModal('timer-modal');
@@ -109,49 +108,6 @@ export const TimerModal = {
     // Update lap times list
     LapList.render();
 
-    // Update timer button state
-    this._updateTimerButton();
-  },
-
-  /**
-   * Updates the timer button state based on current timer state
-   */
-  _updateTimerButton() {
-    const timerBtn = document.getElementById('start-timer-btn');
-    if (!timerBtn) return;
-
-    const timerState = getTimerState();
-
-    // Update visual state based on timer status
-    if (timerState.isRunning) {
-      // Change to orange/red visual state when timer is running
-      timerBtn.classList.remove(
-        'bg-blue-100',
-        'dark:bg-blue-900',
-        'text-blue-600',
-        'dark:text-blue-300'
-      );
-      timerBtn.classList.add(
-        'bg-orange-100',
-        'dark:bg-orange-900',
-        'text-orange-600',
-        'dark:text-orange-300'
-      );
-    } else {
-      // Restore original blue styling when timer is stopped
-      timerBtn.classList.remove(
-        'bg-orange-100',
-        'dark:bg-orange-900',
-        'text-orange-600',
-        'dark:text-orange-300'
-      );
-      timerBtn.classList.add(
-        'bg-blue-100',
-        'dark:bg-blue-900',
-        'text-blue-600',
-        'dark:text-blue-300'
-      );
-    }
   },
 
   /**

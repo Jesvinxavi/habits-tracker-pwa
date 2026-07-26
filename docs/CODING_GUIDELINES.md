@@ -308,3 +308,125 @@ The fitness page activity tiles now use the exact same visual design and interac
 - Any visual changes to habit tiles should be mirrored in activity tiles
 - Shared swipe component ensures behavioral consistency
 - Category color usage follows established patterns
+
+---
+
+## 12. Fitness Modals, Routines and Programs
+
+Added by the fitness overhaul. Read this before touching anything under
+`src/features/fitness/`.
+
+### 12.1 Modal stack and z-index ladder
+
+`src/components/Modal.js` keeps a module-level `openStack`. `openModal(id)`
+pushes and locks body scrolling; `closeModal(id)` pops and only restores
+scrolling once the stack is empty. Two helpers exist for stack-aware behaviour:
+
+- `isModalOpen(id)` — whether a modal is currently open. Use it to guard state
+  subscriptions so a closed modal does not re-render.
+- `topModalId()` — the innermost open modal. **Every Escape handler must check
+  this**, or pressing Escape over a stacked modal closes the wrong one.
+
+Never reset `document.body.style.overflow` directly; let `closeModal` decide.
+
+| Modal | id | z-index |
+| --- | --- | --- |
+| Activity Library | `activity-library-modal` | `z-[1001]` |
+| Routines | `routines-modal` | `z-[1001]` |
+| Add/Edit Activity | `add-activity-modal` | `z-[1002]` |
+| Routine Builder | `routine-builder-modal` | `z-[1002]` |
+| Program Builder | `program-builder-modal` | `z-[1002]` |
+| Activity Picker (multi-select) | `activity-picker-modal` | `z-[1003]` |
+| Routine Picker (multi-select) | `routine-picker-modal` | `z-[1003]` |
+| Activity Details | `activity-details-modal` | `z-[1003]` |
+| Icon Selection | `icon-selection-modal` | `z-[1004]` |
+| Global confirm | `global-confirm-modal` | `z-[1100]` |
+
+The two pickers sit at `1003` because they open **over** the routine and program
+builders at `1002`. They never coexist with Activity Details, which shares that
+level.
+
+New modal markup lives in `index.html` in ascending z-order, and every modal
+module binds its permanent handlers once behind a `modal.dataset.listenerAttached`
+guard.
+
+### 12.2 Read-time referential integrity
+
+Deleting an activity does **not** rewrite routines, and deleting a routine does
+**not** rewrite programs. Cascading edits would bump revisions on records the
+user never touched, producing spurious sync conflicts and breaking migration
+checksums. Dangling ids are filtered where they are read:
+
+- `getRoutineActivities(routineId)` — drops activity ids with no live activity.
+  **The only place UI should read a routine's activities.**
+- `getProgramScheduledDays(programId)` — drops entries whose routine is gone or
+  whose weekday the program marks as rest.
+- `getProgramAnytimeRoutines(programId)` — drops entries whose routine is gone.
+
+Counts shown to the user must come from these filtered reads, so a routine
+referencing deleted activities reports honestly.
+
+### 12.3 Recording several things at once
+
+`recordActivitiesForDate(activityIds, isoDate)` in `fitness/activities.js` is the
+single entry point for batch recording. It owns the rest-day guard, the
+sequential outbox writes and the partial-failure dialog.
+`recordRoutinesForDate(routineIds, isoDate)` resolves routines to activity ids
+and delegates, so adding two routines shows **one** Rest Day dialog rather than
+one per routine.
+
+Writes are sequential (`await` in a loop, not `Promise.all`): each call commits
+an operation to the IndexedDB outbox, and serialising keeps outbox ordering
+deterministic. Batch-created records deliberately carry no `duration`,
+`intensity` or `sets` — the card renders without metric pills and the user taps
+it to fill details in. This is intended behaviour, not a missing field.
+
+### 12.4 Program scheduling
+
+A program has a `scheduleMode`:
+
+- `prescriptive` — routines pinned to weekdays. A weekday may hold **several**
+  routines; the stored shape allows repeated `dayOfWeek` entries.
+- `freeform` — pinned days plus `anytimeRoutines`, each a routine with a
+  per-week `count` that can be met on any non-pinned, non-rest day.
+
+`restDays` on the program is a list of **weekday indices** (0 = Sunday), distinct
+from `appData.restDays`, which is a map of specific date keys. Both suppress a
+day: the weekday list removes it from planning entirely, the date map excludes
+that one date from completion.
+
+`scheduleMode`, `restDays` and `anytimeRoutines` are **optional** in the Convex
+schema so they could be added without invalidating existing rows. Programs
+written before scheduling modes read back as `prescriptive` with empty arrays;
+preserve that defaulting in `stateHydration.js` if you touch it.
+
+All progress maths lives in `helpers/programProgress.js` as **pure functions** —
+no DOM, no `getState()`. Pass data in. Dates are converted with an explicit UTC
+time component (`Date.parse(`${key}T00:00:00.000Z`)`); never parse a bare date
+string, or day counts drift across DST boundaries. Progress is workout-based:
+completed counts planned dates on or before today that are not rest days and hold
+at least one record. Freeform anytime credit is capped **per week**, so a busy
+week cannot cover a later week's target.
+
+### 12.5 Preloading program routines
+
+`settings.programPreload` (a `userPreferences` field, exposed in Profile) decides
+whether a scheduled day fills itself. It defaults to **off**: filling a day
+writes records, so it stays an explicit choice.
+
+When on, preloading is **lazy** — `preloadProgramDayIfEnabled(isoDate)` runs when
+a day is opened, so nothing is written for days the user never visits and the
+block never syncs as one burst. `addProgramRoutinesToDate(isoDate)` is shared by
+the preference and the manual actions ("Add today's program" in the `+` dropdown,
+"Add to current day" in the builder) and refuses to fill a day that already has
+records, so a day is never doubled up.
+
+### 12.6 Contrast
+
+The program tile fills left-to-right like a home target-habit card, but with a
+translucent fill (`0.45` alpha) rather than home's solid category colour: solid
+leaves gray-900 text at 4.42:1 and white at 4.02:1, both under AA. Solid pills
+use `#0060C7`, not `ios-blue` — white on `#007AFF` is 4.02:1, while the deeper
+shade reaches 6.0:1. `tests/e2e/fitness/program-tile.spec.js` measures every
+label's blended contrast and asserts `>= 4.5`, so a colour change cannot silently
+regress it.

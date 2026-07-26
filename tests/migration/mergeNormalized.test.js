@@ -45,4 +45,53 @@ describe('additional-device normalized merge', () => {
     expect(result.tables.habits[0].name).toBe('Cloud');
     expect(result.conflicts[0]).toMatchObject({ table: 'habits', clientId: 'h' });
   });
+
+  it('carries routines and programs through the merge with counts and checksums', () => {
+    const cloud = {
+      routines: [{ clientId: 'routine-cloud', name: 'Push' }],
+      programs: [{ clientId: 'program-cloud', name: 'Autumn' }],
+    };
+    const local = {
+      routines: [{ clientId: 'routine-local', name: 'Pull' }],
+      programs: [{ clientId: 'program-cloud', name: 'Autumn' }],
+    };
+
+    const result = mergeNormalizedTables(cloud, local);
+
+    expect(result.tables.routines.map((routine) => routine.clientId)).toEqual([
+      'routine-cloud',
+      'routine-local',
+    ]);
+    // Identical records on both sides union to one, with no conflict raised.
+    expect(result.tables.programs).toHaveLength(1);
+    expect(result.conflicts).toEqual([]);
+    expect(result.counts.routines).toBe(2);
+    expect(result.counts.programs).toBe(1);
+    expect(result.checksums).toHaveProperty('routines');
+    expect(result.checksums).toHaveProperty('programs');
+  });
+
+  it('reports a conflict when the same routine differs on each side', () => {
+    const result = mergeNormalizedTables(
+      { routines: [{ clientId: 'routine-1', name: 'Push' }] },
+      { routines: [{ clientId: 'routine-1', name: 'Push A' }] }
+    );
+
+    expect(result.conflicts).toHaveLength(1);
+    expect(result.conflicts[0]).toMatchObject({
+      table: 'routines',
+      clientId: 'routine-1',
+      defaultResolution: 'cloud',
+    });
+    // Cloud wins the displayed default.
+    expect(result.tables.routines[0].name).toBe('Push');
+  });
+
+  it('includes both tables even when neither side provides them', () => {
+    const result = mergeNormalizedTables({}, {});
+    expect(result.tables.routines).toEqual([]);
+    expect(result.tables.programs).toEqual([]);
+    expect(result.counts.routines).toBe(0);
+    expect(result.counts.programs).toBe(0);
+  });
 });

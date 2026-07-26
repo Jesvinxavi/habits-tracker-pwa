@@ -269,4 +269,187 @@ describe('Convex authenticated domain API', () => {
     expect(activeProfile.previousGeneration).toBe(1);
     expect(activeProfile.appFirstOpenDate).toBe('2020-02-03');
   });
+
+  it('creates, updates and tombstones a routine idempotently', async () => {
+    const testBackend = convexTest(schema, modules);
+    const client = authenticated(testBackend, 'routine-user');
+    await provision(client);
+
+    const payload = {
+      clientId: 'routine-1',
+      name: 'Push Day',
+      activityClientIds: ['act-1', 'act-2'],
+      createdAtISO: '2026-07-26',
+      sortOrder: 0,
+    };
+
+    const created = await client.mutation(anyApi.routines.create, operation('op-1', payload));
+    expect(created.status).toBe('applied');
+    expect(created.revision).toBe(1);
+    expect(created.canonicalRecord.name).toBe('Push Day');
+
+    // Replaying the same operation id is a duplicate, not a second row.
+    const replay = await client.mutation(anyApi.routines.create, operation('op-1', payload));
+    expect(replay.status).toBe('duplicate');
+    const rows = await testBackend.run(async (ctx) => ctx.db.query('routines').collect());
+    expect(rows).toHaveLength(1);
+
+    const updated = await client.mutation(
+      anyApi.routines.update,
+      operation('op-2', { ...payload, name: 'Push A' }, { baseRevision: 1 })
+    );
+    expect(updated.status).toBe('applied');
+    expect(updated.revision).toBe(2);
+    expect(updated.canonicalRecord.name).toBe('Push A');
+
+    const removed = await client.mutation(
+      anyApi.routines.removeCascade,
+      operation('op-3', { clientId: 'routine-1' }, { baseRevision: 2 })
+    );
+    expect(removed.status).toBe('applied');
+    expect(removed.canonicalRecord.deletedAt).toBeGreaterThan(0);
+  });
+
+  it('reports a conflict for a stale routine revision', async () => {
+    const testBackend = convexTest(schema, modules);
+    const client = authenticated(testBackend, 'routine-conflict');
+    await provision(client);
+
+    const payload = {
+      clientId: 'routine-1',
+      name: 'Push Day',
+      activityClientIds: [],
+      createdAtISO: '2026-07-26',
+      sortOrder: 0,
+    };
+    await client.mutation(anyApi.routines.create, operation('op-1', payload));
+
+    const stale = await client.mutation(
+      anyApi.routines.update,
+      operation('op-2', { ...payload, name: 'Stale' }, { baseRevision: 99 })
+    );
+    expect(stale.status).toBe('conflict');
+  });
+
+  it('rejects invalid routine payloads', async () => {
+    const testBackend = convexTest(schema, modules);
+    const client = authenticated(testBackend, 'routine-validation');
+    await provision(client);
+
+    await expect(
+      client.mutation(
+        anyApi.routines.create,
+        operation('op-blank', {
+          clientId: 'routine-1',
+          name: '   ',
+          activityClientIds: [],
+          createdAtISO: '2026-07-26',
+          sortOrder: 0,
+        })
+      )
+    ).rejects.toThrow('INVALID_NAME');
+
+    await expect(
+      client.mutation(
+        anyApi.routines.create,
+        operation('op-list', {
+          clientId: 'routine-2',
+          name: 'Push',
+          activityClientIds: 'not-an-array',
+          createdAtISO: '2026-07-26',
+          sortOrder: 0,
+        })
+      )
+    ).rejects.toThrow('INVALID_ACTIVITY_LIST');
+  });
+
+  it('validates program ranges, weekdays, rest days and anytime targets', async () => {
+    const testBackend = convexTest(schema, modules);
+    const client = authenticated(testBackend, 'program-validation');
+    await provision(client);
+
+    const base = {
+      clientId: 'program-1',
+      name: 'Autumn',
+      startDateISO: '2026-10-19',
+      endDateISO: '2026-12-13',
+      scheduledDays: [{ dayOfWeek: 1, routineClientId: 'routine-1' }],
+      active: true,
+      createdAtISO: '2026-07-26',
+      sortOrder: 0,
+    };
+
+    await expect(
+      client.mutation(
+        anyApi.programs.create,
+        operation('op-range', { ...base, startDateISO: '2026-12-13', endDateISO: '2026-10-19' })
+      )
+    ).rejects.toThrow('INVALID_PROGRAM_RANGE');
+
+    await expect(
+      client.mutation(
+        anyApi.programs.create,
+        operation('op-weekday', {
+          ...base,
+          scheduledDays: [{ dayOfWeek: 9, routineClientId: 'routine-1' }],
+        })
+      )
+    ).rejects.toThrow('INVALID_PROGRAM_SCHEDULE');
+
+    await expect(
+      client.mutation(anyApi.programs.create, operation('op-rest', { ...base, restDays: [7] }))
+    ).rejects.toThrow('INVALID_PROGRAM_REST_DAYS');
+
+    await expect(
+      client.mutation(
+        anyApi.programs.create,
+        operation('op-anytime', {
+          ...base,
+          anytimeRoutines: [{ routineClientId: 'routine-1', count: 0 }],
+        })
+      )
+    ).rejects.toThrow('INVALID_PROGRAM_ANYTIME');
+
+    // The valid shape, including both optional fields, is accepted.
+    const created = await client.mutation(
+      anyApi.programs.create,
+      operation('op-ok', {
+        ...base,
+        scheduleMode: 'freeform',
+        restDays: [0, 6],
+        anytimeRoutines: [{ routineClientId: 'routine-2', count: 2 }],
+      })
+    );
+    expect(created.status).toBe('applied');
+    expect(created.canonicalRecord.scheduleMode).toBe('freeform');
+    expect(created.canonicalRecord.restDays).toEqual([0, 6]);
+  });
+
+  it('accepts several routines pinned to the same weekday', async () => {
+    const testBackend = convexTest(schema, modules);
+    const client = authenticated(testBackend, 'program-multi');
+    await provision(client);
+
+    const created = await client.mutation(
+      anyApi.programs.create,
+      operation('op-multi', {
+        clientId: 'program-1',
+        name: 'Split',
+        startDateISO: '2026-10-19',
+        endDateISO: '2026-12-13',
+        scheduleMode: 'prescriptive',
+        restDays: [],
+        scheduledDays: [
+          { dayOfWeek: 1, routineClientId: 'routine-1' },
+          { dayOfWeek: 1, routineClientId: 'routine-2' },
+        ],
+        anytimeRoutines: [],
+        active: true,
+        createdAtISO: '2026-07-26',
+        sortOrder: 0,
+      })
+    );
+    expect(created.status).toBe('applied');
+    expect(created.canonicalRecord.scheduledDays).toHaveLength(2);
+  });
 });

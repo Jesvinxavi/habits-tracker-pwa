@@ -1,5 +1,4 @@
 // TimerModule.js - Orchestrates all timer-related subcomponents for the fitness feature
-import { TimerButton } from './Timer/TimerButton.js';
 import { TimerModal } from './Timer/TimerModal.js';
 import { TimerControls } from './Timer/TimerControls.js';
 import { LapList } from './Timer/LapList.js';
@@ -12,7 +11,6 @@ export const Timer = {
    * Updates the timer button state
    */
   updateButton() {
-    TimerButton.update();
   },
 
   /**
@@ -38,4 +36,4 @@ export const Timer = {
 };
 
 
-export { TimerButton, TimerModal, TimerControls, LapList };
+export { TimerModal, TimerControls, LapList };

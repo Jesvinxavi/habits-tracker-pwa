@@ -35,6 +35,38 @@ describe('legacy normalizer', () => {
     expect(result.ambiguousHolidayDates).toEqual(['2025-07-02']);
   });
 
+  it('emits empty routines and programs tables with counts and checksums', () => {
+    // Legacy snapshots predate both features, but the keys must exist or the
+    // count and checksum maps will not line up with the server's TABLES list and
+    // migration verification fails.
+    const result = normalizeLegacySnapshot(comprehensiveLegacySnapshot());
+
+    expect(result.tables.routines).toEqual([]);
+    expect(result.tables.programs).toEqual([]);
+    expect(result.counts).toHaveProperty('routines', 0);
+    expect(result.counts).toHaveProperty('programs', 0);
+    expect(result.checksums).toHaveProperty('routines');
+    expect(result.checksums).toHaveProperty('programs');
+    expect(result.checksums.routines).toBe(checksum([]));
+    expect(result.checksums.programs).toBe(checksum([]));
+  });
+
+  it('treats routines and programs as known fields rather than unknown extras', () => {
+    const snapshot = {
+      ...comprehensiveLegacySnapshot(),
+      routines: [{ id: 'r1', name: 'Push' }],
+      programs: [{ id: 'p1', name: 'Block' }],
+    };
+    const result = normalizeLegacySnapshot(snapshot);
+
+    const unknown = result.tables.legacyData[0].unknownTopLevelFields;
+    expect(unknown).not.toHaveProperty('routines');
+    expect(unknown).not.toHaveProperty('programs');
+    // Still normalised to empty: a legacy snapshot cannot describe the new shapes.
+    expect(result.tables.routines).toEqual([]);
+    expect(result.tables.programs).toEqual([]);
+  });
+
   it('excludes device-only fields from meaningful fingerprints', () => {
     const pair = legacySourcePairs().deviceOnlyDifference;
     expect(checksum(meaningfulLegacySnapshot(pair.localSnapshot))).toBe(

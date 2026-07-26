@@ -44,6 +44,8 @@ state are device/session state.
 | `activities` | `activities` |
 | `activityCategories` | `activityCategories` |
 | `recordedActivities` | `activityRecords` |
+| `routines` | `routines` |
+| `programs` | `programs` |
 | `restDays` and `fitnessRestDays` | `restDays` |
 | `foodLog`, `stats`, unknown top-level fields | `legacyData` |
 | `currentDate`, `selectedDate`, `fitnessSelectedDate`, `selectedGroup` | device/session only |
@@ -51,6 +53,19 @@ state are device/session state.
 Array order is authoritative category/habit order. Deleting a habit category
 cascades to habits and their embedded history. Deleting an activity cascades to
 recorded activity history.
+
+`routines` and `programs` are deliberately **outside** the cascade. Deleting an
+activity does not rewrite routines and deleting a routine does not rewrite
+programs; dangling ids are filtered at read time by
+`getRoutineActivities()`, `getProgramScheduledDays()` and
+`getProgramAnytimeRoutines()`. Cascading would bump revisions on records the user
+never touched, producing spurious sync conflicts and breaking migration
+checksums. Both tables are small, always-needed definition data and so are
+fetched in `bootstrap:getCore` rather than the paginated history window.
+
+Legacy snapshots predate both features, so `normalizeLegacySnapshot()` emits them
+as empty arrays. The keys must exist or the count and checksum maps will not line
+up with the server's `TABLES` list and migration verification fails.
 
 ## Persistent callers
 
@@ -61,8 +76,10 @@ recorded activity history.
 - Habit history: `HomeHabitsList.js`, home UI helpers,
   `HabitsListModule.js`.
 - Holidays: `features/holidays/holidays.js` and management UI.
-- Fitness categories: `fitness/SearchPanelModule.js`.
+- Fitness categories: `fitness/Modals/ActivityLibraryModal.js`.
 - Activities/history: `fitness/activities.js`, activity editor/details.
+- Routines: `fitness/routines.js`, `Modals/RoutineBuilderModal.js`.
+- Programs: `fitness/programs.js`, `Modals/ProgramBuilderModal.js`.
 - Rest days: `fitness/restDays.js`.
 
 ## Known defects retained as migration evidence

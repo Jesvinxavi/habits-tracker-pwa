@@ -49,13 +49,11 @@ export const TimerControls = {
           // Stop/pause the timer
           stopTimer(() => {
             if (onUpdate) onUpdate();
-            updateTimerButtonState();
           });
         } else {
           // Start/resume the timer
           startTimer(() => {
             if (onUpdate) onUpdate();
-            updateTimerButtonState();
           });
         }
       });
@@ -69,52 +67,8 @@ export const TimerControls = {
           // Also clear lap times when resetting
           LapList.clearLaps();
           if (onUpdate) onUpdate();
-
-          // Update timer button state after reset
-          updateTimerButtonState();
         });
       });
     }
   },
 };
-
-/**
- * Updates the timer button visual state based on timer status
- */
-function updateTimerButtonState() {
-  const timerBtn = document.getElementById('start-timer-btn');
-  if (!timerBtn) return;
-
-  const timerState = getTimerState();
-
-  // Update visual state based on timer status
-  if (timerState.isRunning) {
-    // Change to orange/red visual state when timer is running
-    timerBtn.classList.remove(
-      'bg-blue-100',
-      'dark:bg-blue-900',
-      'text-blue-600',
-      'dark:text-blue-300'
-    );
-    timerBtn.classList.add(
-      'bg-orange-100',
-      'dark:bg-orange-900',
-      'text-orange-600',
-      'dark:text-orange-300'
-    );
-  } else {
-    // Restore original blue styling when timer is stopped
-    timerBtn.classList.remove(
-      'bg-orange-100',
-      'dark:bg-orange-900',
-      'text-orange-600',
-      'dark:text-orange-300'
-    );
-    timerBtn.classList.add(
-      'bg-blue-100',
-      'dark:bg-blue-900',
-      'text-blue-600',
-      'dark:text-blue-300'
-    );
-  }
-}

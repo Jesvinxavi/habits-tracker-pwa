@@ -144,4 +144,137 @@ describe('compatibility hydration', () => {
     expect(state.holidayPeriods.map((period) => period.id)).toEqual(['period-1']);
     expect(state.restDays).toEqual({});
   });
+
+  it('round-trips routines and programs from cache shape to in-app shape', () => {
+    const state = normalizedToCompatibilityState({
+      profile: { appFirstOpenDate: '2024-01-01' },
+      preferences: { programPreload: true },
+      habitCategories: [],
+      habits: [],
+      habitEntries: [],
+      holidayPeriods: [],
+      holidaySingles: [],
+      activityCategories: [],
+      activities: [],
+      activityRecords: [],
+      restDays: [],
+      routines: [
+        {
+          clientId: 'routine-b',
+          name: 'Second',
+          activityClientIds: ['act-2'],
+          createdAtISO: '2026-02-02',
+          sortOrder: 1,
+          revision: 2,
+        },
+        {
+          clientId: 'routine-a',
+          name: 'First',
+          activityClientIds: ['act-1', 'act-3'],
+          createdAtISO: '2026-01-01',
+          sortOrder: 0,
+          revision: 1,
+        },
+        {
+          clientId: 'routine-dead',
+          name: 'Gone',
+          activityClientIds: [],
+          createdAtISO: '2026-01-01',
+          sortOrder: 2,
+          revision: 3,
+          deletedAt: 1750000000000,
+        },
+      ],
+      programs: [
+        {
+          clientId: 'program-1',
+          name: 'Autumn',
+          startDateISO: '2026-10-19',
+          endDateISO: '2026-12-13',
+          scheduleMode: 'freeform',
+          restDays: [0],
+          scheduledDays: [{ dayOfWeek: 1, routineClientId: 'routine-a' }],
+          anytimeRoutines: [{ routineClientId: 'routine-b', count: 2 }],
+          active: true,
+          createdAtISO: '2026-07-26',
+          sortOrder: 0,
+          revision: 1,
+        },
+      ],
+    });
+
+    // Tombstoned rows are dropped and the rest come back in sortOrder.
+    expect(state.routines.map((routine) => routine.id)).toEqual(['routine-a', 'routine-b']);
+    expect(state.routines[0].activityIds).toEqual(['act-1', 'act-3']);
+    expect(state.routines[0].createdAt).toBe('2026-01-01');
+
+    const program = state.programs[0];
+    expect(program.id).toBe('program-1');
+    expect(program.startDate).toBe('2026-10-19');
+    expect(program.endDate).toBe('2026-12-13');
+    expect(program.scheduleMode).toBe('freeform');
+    expect(program.restDays).toEqual([0]);
+    expect(program.scheduledDays).toEqual([{ dayOfWeek: 1, routineId: 'routine-a' }]);
+    expect(program.anytimeRoutines).toEqual([{ routineId: 'routine-b', count: 2 }]);
+    expect(program.createdAt).toBe('2026-07-26');
+    expect(state.settings.programPreload).toBe(true);
+  });
+
+  it('reads a program written before scheduling modes as prescriptive', () => {
+    const state = normalizedToCompatibilityState({
+      profile: {},
+      preferences: {},
+      habitCategories: [],
+      habits: [],
+      habitEntries: [],
+      holidayPeriods: [],
+      holidaySingles: [],
+      activityCategories: [],
+      activities: [],
+      activityRecords: [],
+      restDays: [],
+      routines: [],
+      programs: [
+        {
+          clientId: 'legacy-program',
+          name: 'Old',
+          startDateISO: '2026-01-01',
+          endDateISO: '2026-02-01',
+          scheduledDays: [{ dayOfWeek: 2, routineClientId: 'routine-a' }],
+          active: false,
+          createdAtISO: '2026-01-01',
+          sortOrder: 0,
+          revision: 1,
+        },
+      ],
+    });
+
+    expect(state.programs[0].scheduleMode).toBe('prescriptive');
+    expect(state.programs[0].restDays).toEqual([]);
+    expect(state.programs[0].anytimeRoutines).toEqual([]);
+    expect(state.settings.programPreload).toBe(false);
+  });
+
+  it('overlays pending routine and program operations onto the cache', () => {
+    const overlaid = overlayPendingOperations(
+      { profile: { activeGeneration: 1 }, routines: [], programs: [] },
+      [
+        {
+          generation: 1,
+          entityType: 'routines',
+          attemptedRecord: { clientId: 'routine-a', name: 'Pending', activityClientIds: [] },
+        },
+        {
+          generation: 1,
+          entityType: 'programs',
+          attemptedRecord: { clientId: 'program-1', name: 'Pending Program' },
+        },
+      ]
+    );
+
+    expect(overlaid.routines).toHaveLength(1);
+    expect(overlaid.routines[0].name).toBe('Pending');
+    expect(overlaid.programs).toHaveLength(1);
+    expect(overlaid.programs[0].name).toBe('Pending Program');
+  });
 });

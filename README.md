@@ -15,6 +15,10 @@ working without a connection and reconcile changes later.
 - Completion targets, progress, skips, pause state, and ordering
 - Holiday periods and individual holiday dates
 - Fitness activity definitions, history, sets/reps, timed records, and rest days
+- Reusable routines: named, ordered sets of activities logged in one action
+- Training programs with a fixed date block and either a prescriptive weekly
+  schedule or flexible weekly targets, plus an adherence tile on the fitness page
+- Optional preloading of a program's routines into each scheduled day
 - Derived habit and fitness statistics
 - Realtime multi-device updates
 - Thirty-day device-local offline authorization lease

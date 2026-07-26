@@ -2,6 +2,57 @@
 
 All notable user-facing and operational changes are documented here.
 
+## [Unreleased]
+
+### Added
+
+- Routines: named, ordered sets of activities, created and edited from a
+  Routines modal reached by the new **Routines** button
+- Training programs with a fixed date block and one of two scheduling modes —
+  a prescriptive weekly schedule where a weekday may hold several routines, or a
+  flexible mode with weekly targets that can be met on any day
+- Program rest days chosen from a weekday selector matching the habit schedule
+  picker; rest weekdays drop out of the schedule entirely
+- Program adherence tile on the fitness page showing the date range, current
+  week, sessions completed against planned, and a fill that tracks progress
+- Activity Library modal replacing the inline expanding search panel, with an
+  always-visible filter and a **+ New** button
+- Multi-select activity and routine pickers behind the `+` menu, so several
+  activities or whole routines can be logged in one action
+- **Save as routine**, turning a day's recorded activities into a reusable
+  routine with duplicates collapsed
+- `Preload program routines` preference: when enabled, opening a scheduled day
+  fills it with that day's routines; otherwise routines are added on demand from
+  the `+` menu or the program builder
+- `routines` and `programs` threaded through the full persistence chain — Convex
+  schema and mutations, sync, bootstrap, migration, export, offline cache and
+  outbox, state and hydration
+
+### Changed
+
+- The fitness page's action buttons are now **Activity** and **Routines**; the
+  timer moved into the `+` menu and keeps all of its behaviour
+- The routine builder lists only the activities chosen for the routine, with
+  browsing delegated to the activity picker
+- The fitness empty state points at the **Activity** button rather than a
+  "Record Activity" control that never existed
+
+### Fixed
+
+- Closing a stacked modal no longer restores page scrolling while a modal
+  underneath is still open
+- A sync replay requested while a replay was already running is no longer
+  dropped, which previously left the last operation of a batch stranded in
+  `pending` until an unrelated dispatch
+- `FitnessView` passed the rest-toggle a bare callback where an options object
+  was expected, so its `onToggle` had never fired
+
+### Removed
+
+- The inline expanding search panel, its expand/collapse and blur machinery, and
+  the dead CSS and layout helpers that supported it
+- Timer button state code targeting the removed `#start-timer-btn`
+
 ## [1.0.0] - 2026-07-26
 
 ### Added

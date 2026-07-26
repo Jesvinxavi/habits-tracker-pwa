@@ -1,8 +1,15 @@
 # Fitness Overhaul — Implementation Plan
 
 **Branch:** `claude/fitness-overhaul`
-**Status:** Planning complete — no code written yet
-**Author:** Planning pass, 2026-07-26
+**Status:** **Implemented.** All seven phases are complete and pushed to
+`claude/fitness-overhaul` (PR #2, targeting `develop`). Deliberately **not
+merged** — the branch is being kept open for further fitness work.
+Ten checkboxes remain unticked on purpose: six standing rules in §0, the
+alternative that Task 2.6 did not take, Task 7.9 (see its note), and two
+verification items that need a human — a fresh-account pass and a
+legacy-localStorage migration pass. See **Appendix D** for every place the
+implementation deviated from this plan and why.
+**Author:** Planning pass, 2026-07-26; implementation pass, 2026-07-26
 **Inspiration:** [Spotr](https://www.spotr.fit/) — structured program scheduling, routine-first logging, program progress analytics
 
 ---
@@ -17,7 +24,11 @@ phase depends on the one before it. Each phase has:
 - **Tasks** — numbered, step-by-step instructions with exact file paths, IDs and class names
 - **Verification** — a checklist that must be 100% green before moving to the next phase
 
-Rules that apply to **every** phase:
+Rules that apply to **every** phase. These are **standing rules, not one-time
+tasks** — their boxes are deliberately left unticked, because ticking them once
+would misrepresent them. They were honoured throughout: `npm run lint` and
+`npm run test:unit` ran after every phase, and each phase landed as a single
+Conventional Commit.
 
 - [ ] Follow `docs/CODING_GUIDELINES.md` strictly (vanilla ES2020 modules, `.js` extensions in
       imports, 2-space indent, single quotes, semicolons, JSDoc on every exported function).
@@ -1296,7 +1307,7 @@ documentation that now describes a page that no longer exists, and run the full 
 
 ### Tasks
 
-- [ ] **7.1** Dead-code sweep. Each of these must return **zero** hits in live source:
+- [x] **7.1** Dead-code sweep. Each of these must return **zero** hits in live source:
   ```bash
   grep -rn "SearchPanel\|mountSearchPanel\|refreshSearchPanel\|clearSearchPanel" src/ index.html
   grep -rn "activities-search-section\|activities-search-content\|search-expanded" src/ index.html
@@ -1305,11 +1316,11 @@ documentation that now describes a page that no longer exists, and run the full 
   grep -rn "updateTimerButton" src/
   ```
 
-- [ ] **7.2** Confirm the timer is intact and reachable: `src/features/fitness/TimerModule.js`,
+- [x] **7.2** Confirm the timer is intact and reachable: `src/features/fitness/TimerModule.js`,
       `Timer/*.js`, `timer.js` and the `#timer-modal` markup all remain, and the only launcher is
       the `+` dropdown item.
 
-- [ ] **7.3** Unit tests to add:
+- [x] **7.3** Unit tests to add:
   - `tests/unit/routines.test.js` — `getRoutineActivities()` filters deleted activity IDs;
     `addRoutine` assigns `sortOrder` and a `YYYY-MM-DD` `createdAt`.
   - `tests/unit/programs.test.js` — `getActiveProgram()` returns exactly one; scheduled-day
@@ -1324,15 +1335,15 @@ documentation that now describes a page that no longer exists, and run the full 
     validation-failure and tombstone cases for `routines:create/update/removeCascade` — the
     guidelines require this coverage for **every** persistent mutation.
 
-- [ ] **7.4** Migration tests: extend `tests/migration/normalizeLegacy.test.js` to assert that a
+- [x] **7.4** Migration tests: extend `tests/migration/normalizeLegacy.test.js` to assert that a
       legacy snapshot produces `tables.routines === []` and `tables.programs === []`, and that the
       counts/checksums maps contain both keys. Extend `mergeNormalized.test.js` similarly.
 
-- [ ] **7.5** Playwright smoke test in `tests/e2e/` covering the new page shell: fitness tab
+- [x] **7.5** Playwright smoke test in `tests/e2e/` covering the new page shell: fitness tab
       renders exactly two action buttons, no search input is present, the `+` button exists and
       opens a menu with five items.
 
-- [ ] **7.6** Documentation:
+- [x] **7.6** Documentation:
   - `docs/CODING_GUIDELINES.md` — the "Fitness Activities Card Design Specification" section is
     still accurate for the recorded-activities list; **add** a short subsection documenting the
     fitness modal stack, the z-index ladder from §1.3 of this plan, and the read-time referential
@@ -1341,7 +1352,7 @@ documentation that now describes a page that no longer exists, and run the full 
   - `README.md` — update the feature list to mention routines and programs.
   - `CHANGELOG.md` — add an entry under a new Unreleased heading.
 
-- [ ] **7.7** Full gate, in order:
+- [x] **7.7** Full gate, in order:
   ```bash
   npm run lint
   npm run test:unit
@@ -1351,7 +1362,7 @@ documentation that now describes a page that no longer exists, and run the full 
   npm run test:e2e
   ```
 
-- [ ] **7.8** Manual regression pass on the **rest of the app** — this overhaul touched shared
+- [x] **7.8** Manual regression pass on the **rest of the app** — this overhaul touched shared
       files (`ActionButtons.js`, `Modal.js`, `state.js`, `persistenceRouter.js`,
       `stateHydration.js`), so verify:
   - Home view: habit completion, skip, progress, calendar navigation, holiday mode
@@ -1362,27 +1373,30 @@ documentation that now describes a page that no longer exists, and run the full 
 
 - [ ] **7.9** Open the PR against `main` with the guidelines' required checklist:
       `- [ ] Added/updated tests` and `- [ ] Updated docs`.
+      **Deliberately left open.** Two corrections: §8.1 forbids feature PRs against
+      `main`, so PR #2 targets `develop`; and the branch is being kept open for
+      further fitness work, so nothing is merged. Tests and docs are both done.
 
 ### Verification — Phase 7
 
-- [ ] Every `grep` in Task 7.1 returns zero hits.
-- [ ] All six commands in Task 7.7 exit `0`.
-- [ ] Test count increased by at least the files listed in 7.3 and 7.4; no test is skipped or
+- [x] Every `grep` in Task 7.1 returns zero hits.
+- [x] All six commands in Task 7.7 exit `0`.
+- [x] Test count increased by at least the files listed in 7.3 and 7.4; no test is skipped or
       `.only`'d.
-- [ ] Bundle size checked: `npm run analyze` — the fitness chunk did not grow disproportionately
+- [x] Bundle size checked: `npm run analyze` — the fitness chunk did not grow disproportionately
       (deleting the search panel should roughly offset the new modals).
 - [ ] A fresh account (new browser profile, sign in, no legacy data) completes the whole flow:
       create activity → create routine → add routine to today → save as routine → create program
       → see the tile → reload → everything persists.
 - [ ] An existing account with legacy localStorage data still migrates cleanly (the migration
       preview appears, completes, and the new empty tables do not break verification).
-- [ ] Manual regression pass in 7.8 shows no behaviour changes outside the fitness page.
+- [x] Manual regression pass in 7.8 shows no behaviour changes outside the fitness page.
 
 ---
 
 ## Appendix A — Files created, modified and deleted
 
-**Created**
+**Created** — as built, including files added beyond the original plan.
 ```
 src/features/fitness/routines.js
 src/features/fitness/programs.js
@@ -1393,6 +1407,7 @@ src/features/fitness/Modals/ActivityLibraryModal.js
 src/features/fitness/Modals/RoutinesModal.js
 src/features/fitness/Modals/RoutineBuilderModal.js
 src/features/fitness/Modals/RoutinePickerModal.js
+src/features/fitness/Modals/ActivityPickerModal.js     (not in the plan)
 src/features/fitness/Modals/ProgramBuilderModal.js
 src/features/fitness/helpers/programProgress.js
 convex/routines.ts
@@ -1400,6 +1415,28 @@ convex/programs.ts
 tests/unit/routines.test.js
 tests/unit/programs.test.js
 tests/unit/programProgress.test.js
+tests/unit/persistenceOperations.test.js               (not in the plan)
+tests/unit/syncEngineReplay.test.js                    (not in the plan)
+tests/e2e/regression-outside-fitness.spec.js           (not in the plan)
+tests/e2e/fitness/page-shell.spec.js
+tests/e2e/fitness/activity-library.spec.js
+tests/e2e/fitness/routines.spec.js
+tests/e2e/fitness/routine-builder.spec.js
+tests/e2e/fitness/add-menu.spec.js
+tests/e2e/fitness/pickers.spec.js
+tests/e2e/fitness/recorded-card-metrics.spec.js
+tests/e2e/fitness/programs.spec.js
+tests/e2e/fitness/program-modes.spec.js
+tests/e2e/fitness/program-tile.spec.js
+```
+
+`ActivityPickerModal.js` came from a later request: the `+` dropdown's
+*Add activity* had to become a multi-select selection surface rather than the
+Activity Library, and the routine builder then reused it for choosing activities.
+
+**Deleted beyond the plan**
+```
+src/features/fitness/Timer/TimerButton.js   (updated the removed #start-timer-btn)
 ```
 
 **Renamed**
@@ -1432,11 +1469,45 @@ src/features/fitness/FitnessModule.js   (new callbacks, program tile)
 src/features/fitness/FitnessModals.js   (facade methods)
 src/features/fitness/RestToggle.js      (+ pill and dropdown)
 src/features/fitness/helpers/fitnessLayout.js  (search helpers removed)
-src/styles/style.css                    (search-panel rules removed)
-convex/schema.ts                        (2 tables)
+src/features/fitness/activities.js      (recordActivitiesForDate batch path)
+src/features/fitness/Timer/TimerModal.js, Timer/TimerControls.js  (dead button code)
+src/features/fitness/TimerModule.js     (TimerButton export removed)
+src/core/syncEngine.js                  (replay coalescing fix — not in the plan)
+src/features/profile/ProfileModule.js   (preload preference — not in the plan)
+convex/preferences.ts                   (programPreload allowed key)
+src/styles/style.css                    (search-panel rules removed, collapse and
+                                         hover rules de-scoped from #fitness-view)
+convex/schema.ts                        (2 tables, program scheduling fields,
+                                         userPreferences.programPreload)
 convex/sync.ts, bootstrap.ts, migration.ts, dataTransfer.ts   (table lists)
-docs/CODING_GUIDELINES.md, docs/PERSISTENCE_AUDIT.md, README.md, CHANGELOG.md
+tests/convex/domain.test.js, tests/unit/persistenceRecords.test.js,
+tests/unit/stateHydration.test.js, tests/migration/*.test.js   (coverage)
+docs/CODING_GUIDELINES.md (§12), docs/PERSISTENCE_AUDIT.md, README.md, CHANGELOG.md
 ```
+
+## Appendix D — Deviations from this plan
+
+Recorded so the reasoning is not lost.
+
+| Plan said | What was built | Why |
+| --- | --- | --- |
+| Task 6.7: 8 weeks × 3/week = 24 planned workouts for 20 Oct – 13 Dec 2026 | 23 for those dates; 24 for a Monday-anchored 19 Oct start | 20 Oct 2026 is a **Tuesday**, so the first Monday is the 21st. Both ranges are covered by tests. |
+| Task 6.4: tile date range via `toLocaleDateString` with `{day, month}` | Day placed before the month explicitly, month name localised | `toLocaleDateString` follows the ambient locale and renders "Oct 20" under en-US, breaking the specified `20 Oct – 13 Dec` format. |
+| Task 6.4: separate progress bar inside the tile | The tile itself fills, like a home target-habit card | Later request. The fill is translucent (0.45) rather than home's solid colour, which measures under AA for text. |
+| Task 3.5: port the library's empty states with "unchanged copy" | Copy points at the **+ New** button | The original text named "New Activity", a button that no longer exists. |
+| Task 5.1: `+` menu has five items | Six | Later request added "Add today's program". |
+| Task 5.3: *Add activity* opens the Activity Library | Opens a dedicated multi-select picker | Later request: selection surface with no stats/edit buttons, several activities added at once. |
+| Task 5.5: routine picker records on card tap | Multi-select with an explicit Add | Later request. |
+| Task 4.4: builder embeds the grouped selectable list | Builder lists only chosen activities; picking is delegated | Later request. |
+| Task 6.2: one `<select>` per weekday | A button per weekday opening the routine picker | A weekday may hold several routines, which a single-value `select` cannot express. |
+| Program shape: `scheduledDays` only | Plus `scheduleMode`, `restDays`, `anytimeRoutines` | Later request added two scheduling modes and program-level rest weekdays. All three are **optional** in the Convex schema so existing rows stayed valid. |
+| Task 7.1 greps | Scoped to fitness for `mountSearchPanel`; `new-activity-btn` matched as a substring | Habits legitimately owns its own `mountSearchPanel`, and `library-new-activity-btn` is a new id. |
+| Task 7.9: open a PR against `main` | PR #2 targets `develop` and is intentionally left unmerged | §8.1 forbids feature PRs against `main`; the branch is being kept open for further fitness work. |
+
+Two verification items in Phase 7 remain unticked because they need a human: a
+fresh-account end-to-end pass, and a legacy-localStorage migration pass. Everything
+else, including the signed-in Convex round-trips for routines and programs, was
+verified against the dev deployment.
 
 ## Appendix B — Risk register
 
