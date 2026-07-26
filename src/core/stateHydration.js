@@ -29,6 +29,8 @@ export function overlayPendingOperations(cache, operations = []) {
     activityCategories: [...(cache.activityCategories || [])],
     activities: [...(cache.activities || [])],
     activityRecords: [...(cache.activityRecords || [])],
+    routines: [...(cache.routines || [])],
+    programs: [...(cache.programs || [])],
     restDays: [...(cache.restDays || [])],
   };
 
@@ -203,6 +205,27 @@ export function normalizedToCompatibilityState(cache, deviceState = {}) {
       createdAt: activity.createdAtISO,
     })),
     recordedActivities,
+    routines: live(cache.routines)
+      .sort((left, right) => left.sortOrder - right.sortOrder)
+      .map((routine) => ({
+        ...routine,
+        id: routine.clientId,
+        activityIds: routine.activityClientIds || [],
+        createdAt: routine.createdAtISO,
+      })),
+    programs: live(cache.programs)
+      .sort((left, right) => left.sortOrder - right.sortOrder)
+      .map((program) => ({
+        ...program,
+        id: program.clientId,
+        startDate: program.startDateISO,
+        endDate: program.endDateISO,
+        scheduledDays: (program.scheduledDays || []).map((day) => ({
+          dayOfWeek: day.dayOfWeek,
+          routineId: day.routineClientId,
+        })),
+        createdAt: program.createdAtISO,
+      })),
     restDays: Object.fromEntries(
       live(cache.restDays).map((restDay) => [restDay.dateKey, true])
     ),

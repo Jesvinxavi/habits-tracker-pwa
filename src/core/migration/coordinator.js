@@ -13,6 +13,8 @@ const TABLE_ORDER = [
   'activityCategories',
   'activities',
   'activityRecords',
+  'routines',
+  'programs',
   'restDays',
   'legacyData',
 ];

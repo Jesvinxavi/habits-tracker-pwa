@@ -33,6 +33,13 @@ const PERSISTENT_ACTIONS = new Set([
   ActionTypes.UPDATE_RECORDED_ACTIVITY,
   ActionTypes.UPDATE_ACTIVITY_CATEGORY_COLOR,
   ActionTypes.SET_REST_DAY,
+  ActionTypes.ADD_ROUTINE,
+  ActionTypes.UPDATE_ROUTINE,
+  ActionTypes.DELETE_ROUTINE,
+  ActionTypes.ADD_PROGRAM,
+  ActionTypes.UPDATE_PROGRAM,
+  ActionTypes.DELETE_PROGRAM,
+  ActionTypes.SET_ACTIVE_PROGRAM,
   ActionTypes.UPDATE_SETTINGS,
   ActionTypes.SET_DARK_MODE,
   ActionTypes.TOGGLE_DARK_MODE,
@@ -197,6 +204,46 @@ function activityDefinition(activity) {
     muscleGroup: activity.muscleGroup,
     revision: activity.revision || 0,
   });
+}
+
+/**
+ * Shapes an in-app routine into its Convex record form.
+ * @param {object} routine In-app routine (or an already-shaped record).
+ * @param {number} sortOrder Position of the routine within the collection.
+ * @returns {object} Convex-shaped routine record.
+ */
+export function routineRecord(routine, sortOrder) {
+  return {
+    clientId: routine.id || routine.clientId,
+    name: routine.name,
+    activityClientIds: [...(routine.activityIds || routine.activityClientIds || [])],
+    createdAtISO: String(routine.createdAt || routine.createdAtISO).slice(0, 10),
+    sortOrder,
+    revision: routine.revision || 0,
+  };
+}
+
+/**
+ * Shapes an in-app program into its Convex record form.
+ * @param {object} program In-app program (or an already-shaped record).
+ * @param {number} sortOrder Position of the program within the collection.
+ * @returns {object} Convex-shaped program record.
+ */
+export function programRecord(program, sortOrder) {
+  return {
+    clientId: program.id || program.clientId,
+    name: program.name,
+    startDateISO: String(program.startDate || program.startDateISO).slice(0, 10),
+    endDateISO: String(program.endDate || program.endDateISO).slice(0, 10),
+    scheduledDays: (program.scheduledDays || []).map((day) => ({
+      dayOfWeek: Number(day.dayOfWeek),
+      routineClientId: day.routineId || day.routineClientId,
+    })),
+    active: Boolean(program.active),
+    createdAtISO: String(program.createdAt || program.createdAtISO).slice(0, 10),
+    sortOrder,
+    revision: program.revision || 0,
+  };
 }
 
 export async function persistStateAction(action, state) {
@@ -532,6 +579,111 @@ export async function persistStateAction(action, state) {
           }
         )
       );
+      break;
+    }
+    case ActionTypes.ADD_ROUTINE: {
+      const optimistic = routineRecord(action.payload, state.routines.length);
+      operations.push(
+        sharedOperation(
+          runtime,
+          'routines',
+          optimistic.clientId,
+          'routines:create',
+          { ...optimistic, revision: undefined },
+          null,
+          optimistic
+        )
+      );
+      break;
+    }
+    case ActionTypes.UPDATE_ROUTINE:
+    case ActionTypes.DELETE_ROUTINE: {
+      const id =
+        action.type === ActionTypes.DELETE_ROUTINE ? action.payload : action.payload.routineId;
+      const current = state.routines.find((item) => item.id === id);
+      const sortOrder = state.routines.indexOf(current);
+      const base = routineRecord(current, sortOrder);
+      const optimistic =
+        action.type === ActionTypes.DELETE_ROUTINE
+          ? { ...base, deletedAt: Date.now() }
+          : routineRecord({ ...current, ...action.payload.updates }, sortOrder);
+      operations.push(
+        sharedOperation(
+          runtime,
+          'routines',
+          id,
+          action.type === ActionTypes.DELETE_ROUTINE
+            ? 'routines:removeCascade'
+            : 'routines:update',
+          action.type === ActionTypes.DELETE_ROUTINE ? { clientId: id } : optimistic,
+          base,
+          optimistic
+        )
+      );
+      break;
+    }
+    case ActionTypes.ADD_PROGRAM: {
+      const optimistic = programRecord(action.payload, state.programs.length);
+      operations.push(
+        sharedOperation(
+          runtime,
+          'programs',
+          optimistic.clientId,
+          'programs:create',
+          { ...optimistic, revision: undefined },
+          null,
+          optimistic
+        )
+      );
+      break;
+    }
+    case ActionTypes.UPDATE_PROGRAM:
+    case ActionTypes.DELETE_PROGRAM: {
+      const id =
+        action.type === ActionTypes.DELETE_PROGRAM ? action.payload : action.payload.programId;
+      const current = state.programs.find((item) => item.id === id);
+      const sortOrder = state.programs.indexOf(current);
+      const base = programRecord(current, sortOrder);
+      const optimistic =
+        action.type === ActionTypes.DELETE_PROGRAM
+          ? { ...base, deletedAt: Date.now() }
+          : programRecord({ ...current, ...action.payload.updates }, sortOrder);
+      operations.push(
+        sharedOperation(
+          runtime,
+          'programs',
+          id,
+          action.type === ActionTypes.DELETE_PROGRAM
+            ? 'programs:removeCascade'
+            : 'programs:update',
+          action.type === ActionTypes.DELETE_PROGRAM ? { clientId: id } : optimistic,
+          base,
+          optimistic
+        )
+      );
+      break;
+    }
+    case ActionTypes.SET_ACTIVE_PROGRAM: {
+      // Only the programs whose `active` flag actually flips are written. Emitting
+      // an update for an unchanged program would burn a revision for nothing and
+      // invite avoidable sync conflicts.
+      state.programs.forEach((program, sortOrder) => {
+        const desired = program.id === action.payload;
+        if (Boolean(program.active) === desired) return;
+        const base = programRecord(program, sortOrder);
+        const optimistic = { ...base, active: desired };
+        operations.push(
+          sharedOperation(
+            runtime,
+            'programs',
+            program.id,
+            'programs:update',
+            optimistic,
+            base,
+            optimistic
+          )
+        );
+      });
       break;
     }
     case ActionTypes.UPDATE_ACTIVITY_CATEGORY_COLOR: {

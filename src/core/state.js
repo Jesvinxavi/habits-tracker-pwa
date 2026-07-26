@@ -41,6 +41,8 @@ const initialState = {
     { id: 'other', name: 'Other', color: '#EAB308', icon: '🎯' },
   ],
   recordedActivities: {}, // Map of date -> array of activity records
+  routines: [], // Named, ordered sets of activities performed together
+  programs: [], // Training blocks with a weekly routine schedule
   restDays: {}, // Map dateKey (YYYY-MM-DD) -> true
   homeSectionVisibility: { Completed: true, Skipped: true },
   syncStatus: 'legacy',
@@ -112,6 +114,17 @@ export const ActionTypes = {
   UPDATE_RECORDED_ACTIVITY: 'UPDATE_RECORDED_ACTIVITY',
   UPDATE_ACTIVITY_CATEGORY_COLOR: 'UPDATE_ACTIVITY_CATEGORY_COLOR',
   SET_REST_DAY: 'SET_REST_DAY',
+
+  // Routine actions
+  ADD_ROUTINE: 'ADD_ROUTINE',
+  UPDATE_ROUTINE: 'UPDATE_ROUTINE',
+  DELETE_ROUTINE: 'DELETE_ROUTINE',
+
+  // Program actions
+  ADD_PROGRAM: 'ADD_PROGRAM',
+  UPDATE_PROGRAM: 'UPDATE_PROGRAM',
+  DELETE_PROGRAM: 'DELETE_PROGRAM',
+  SET_ACTIVE_PROGRAM: 'SET_ACTIVE_PROGRAM',
 
   // Settings actions
   UPDATE_SETTINGS: 'UPDATE_SETTINGS',
@@ -252,6 +265,37 @@ export const Actions = {
   setRestDay: (dateKey, desired) => ({
     type: ActionTypes.SET_REST_DAY,
     payload: { dateKey, desired },
+  }),
+
+  addRoutine: (routine) => ({
+    type: ActionTypes.ADD_ROUTINE,
+    payload: routine,
+  }),
+  updateRoutine: (routineId, updates) => ({
+    type: ActionTypes.UPDATE_ROUTINE,
+    payload: { routineId, updates },
+  }),
+  deleteRoutine: (routineId) => ({
+    type: ActionTypes.DELETE_ROUTINE,
+    payload: routineId,
+  }),
+
+  addProgram: (program) => ({
+    type: ActionTypes.ADD_PROGRAM,
+    payload: program,
+  }),
+  updateProgram: (programId, updates) => ({
+    type: ActionTypes.UPDATE_PROGRAM,
+    payload: { programId, updates },
+  }),
+  deleteProgram: (programId) => ({
+    type: ActionTypes.DELETE_PROGRAM,
+    payload: programId,
+  }),
+  // A null payload deactivates every program.
+  setActiveProgram: (programId) => ({
+    type: ActionTypes.SET_ACTIVE_PROGRAM,
+    payload: programId,
   }),
 
   updateSettings: (settings) => ({ type: ActionTypes.UPDATE_SETTINGS, payload: settings }),
@@ -689,6 +733,59 @@ function reducer(state, action) {
             ? { ...category, color: action.payload.newColor }
             : category
         ),
+      };
+
+    case ActionTypes.ADD_ROUTINE:
+      return {
+        ...state,
+        routines: [...state.routines, action.payload],
+      };
+
+    case ActionTypes.UPDATE_ROUTINE:
+      return {
+        ...state,
+        routines: state.routines.map((routine) =>
+          routine.id === action.payload.routineId
+            ? { ...routine, ...action.payload.updates }
+            : routine
+        ),
+      };
+
+    case ActionTypes.DELETE_ROUTINE:
+      return {
+        ...state,
+        routines: state.routines.filter((routine) => routine.id !== action.payload),
+      };
+
+    case ActionTypes.ADD_PROGRAM:
+      return {
+        ...state,
+        programs: [...state.programs, action.payload],
+      };
+
+    case ActionTypes.UPDATE_PROGRAM:
+      return {
+        ...state,
+        programs: state.programs.map((program) =>
+          program.id === action.payload.programId
+            ? { ...program, ...action.payload.updates }
+            : program
+        ),
+      };
+
+    case ActionTypes.DELETE_PROGRAM:
+      return {
+        ...state,
+        programs: state.programs.filter((program) => program.id !== action.payload),
+      };
+
+    case ActionTypes.SET_ACTIVE_PROGRAM:
+      return {
+        ...state,
+        programs: state.programs.map((program) => ({
+          ...program,
+          active: program.id === action.payload,
+        })),
       };
 
     case ActionTypes.SET_REST_DAY: {

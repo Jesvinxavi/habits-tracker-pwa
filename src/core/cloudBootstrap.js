@@ -45,6 +45,8 @@ const ENTITY_TYPES = [
   'activityCategories',
   'activities',
   'activityRecords',
+  'routines',
+  'programs',
   'restDays',
   'legacyData',
 ];
@@ -61,6 +63,8 @@ function emptyCache() {
     activityCategories: [],
     activities: [],
     activityRecords: [],
+    routines: [],
+    programs: [],
     restDays: [],
     legacyData: null,
   };
@@ -93,6 +97,8 @@ function mergeCoreIntoCache(cache, core) {
     holidaySingles: core.holidaySingles,
     activityCategories: core.activityCategories,
     activities: core.activities,
+    routines: core.routines,
+    programs: core.programs,
     legacyData: core.legacyData,
   };
 }
@@ -119,6 +125,8 @@ async function cacheCore(ownerKey, core) {
     putConfirmedEntities(ownerKey, generation, 'holidaySingles', core.holidaySingles),
     putConfirmedEntities(ownerKey, generation, 'activityCategories', core.activityCategories),
     putConfirmedEntities(ownerKey, generation, 'activities', core.activities),
+    putConfirmedEntities(ownerKey, generation, 'routines', core.routines || []),
+    putConfirmedEntities(ownerKey, generation, 'programs', core.programs || []),
     putConfirmedEntities(ownerKey, generation, 'legacyData', core.legacyData ? [core.legacyData] : []),
   ]);
 }

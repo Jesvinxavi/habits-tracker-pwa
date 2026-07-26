@@ -26,6 +26,8 @@ const KNOWN_FIELDS = new Set([
   'activities',
   'activityCategories',
   'recordedActivities',
+  'routines',
+  'programs',
   'restDays',
   'foodLog',
   'stats',
@@ -273,6 +275,11 @@ export function normalizeLegacySnapshot(snapshot = {}, sideKeys = {}, options = 
     activityCategories,
     activities,
     activityRecords,
+    // Legacy snapshots predate routines and programs, so these are always empty.
+    // The keys must still exist or the count and checksum maps will not line up
+    // with the server's TABLES list and migration verification will fail.
+    routines: [],
+    programs: [],
     restDays,
     legacyData: [
       {

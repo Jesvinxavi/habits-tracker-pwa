@@ -10,6 +10,8 @@ const TABLES = [
   'activityCategories',
   'activities',
   'activityRecords',
+  'routines',
+  'programs',
   'restDays',
   'legacyData',
 ];

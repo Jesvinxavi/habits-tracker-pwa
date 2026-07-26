@@ -22,6 +22,8 @@ export const getCore = query({
       holidaySingles,
       activityCategories,
       activities,
+      routines,
+      programs,
       legacyData,
       collectionRevisionRows,
     ] = await Promise.all([
@@ -32,6 +34,10 @@ export const getCore = query({
       collect("holidaySingles"),
       collect("activityCategories"),
       collect("activities"),
+      // Routines and programs are small, always-needed definition data, so they
+      // belong in getCore rather than the paginated history window.
+      collect("routines"),
+      collect("programs"),
       collect("legacyData"),
       ctx.db
         .query("collectionRevisions")
@@ -52,6 +58,8 @@ export const getCore = query({
       holidaySingles,
       activityCategories,
       activities,
+      routines,
+      programs,
       legacyData: legacyData[0] ?? null,
       collectionRevisions,
       generation,

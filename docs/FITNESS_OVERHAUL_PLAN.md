@@ -249,11 +249,11 @@ breaking migration checksums. Read-time filtering is deterministic and conflict-
 
 #### Convex backend
 
-- [ ] **1.1** In `convex/schema.ts`, add the `routines` and `programs` tables exactly as
+- [x] **1.1** In `convex/schema.ts`, add the `routines` and `programs` tables exactly as
       specified above. Place them immediately after the `activityRecords` table so related
       tables stay grouped.
 
-- [ ] **1.2** Create `convex/routines.ts` modelled on `convex/activities.ts`:
+- [x] **1.2** Create `convex/routines.ts` modelled on `convex/activities.ts`:
   ```ts
   import { createCrudMutations } from "./lib/domain";
   import { assertNonBlank } from "./lib/validators";
@@ -276,14 +276,14 @@ breaking migration checksums. Read-time filtering is deterministic and conflict-
   ```
   Do **not** add an `afterDelete` cascade (see the integrity decision above).
 
-- [ ] **1.3** Create `convex/programs.ts` the same way, with validation that:
+- [x] **1.3** Create `convex/programs.ts` the same way, with validation that:
   - `clientId` and `name` are non-blank
   - `startDateISO` and `endDateISO` pass `assertDate` (import from `./lib/validators`)
   - `startDateISO <= endDateISO`, else `throw new Error("INVALID_PROGRAM_RANGE")`
   - `scheduledDays` is an array and every `dayOfWeek` is an integer 0–6, else
     `throw new Error("INVALID_PROGRAM_SCHEDULE")`
 
-- [ ] **1.4** Register the new tables in every server-side table list:
+- [x] **1.4** Register the new tables in every server-side table list:
   - `convex/sync.ts` → add `"routines"` and `"programs"` to `ENTITY_TABLES`
   - `convex/migration.ts` → add both to the `TABLES` const
   - `convex/dataTransfer.ts` → add both to its `TABLES` const
@@ -292,11 +292,11 @@ breaking migration checksums. Read-time filtering is deterministic and conflict-
     `getCore` (not the paginated history window) because they are small, always-needed
     definition data, exactly like `activities`.
 
-- [ ] **1.5** Run `npm run test:convex` — it must pass with zero type errors.
+- [x] **1.5** Run `npm run test:convex` — it must pass with zero type errors.
 
 #### Client persistence
 
-- [ ] **1.6** In `src/core/state.js`:
+- [x] **1.6** In `src/core/state.js`:
   - Add `routines: []` and `programs: []` to `initialState` (place them after
     `recordedActivities`).
   - Add these `ActionTypes`: `ADD_ROUTINE`, `UPDATE_ROUTINE`, `DELETE_ROUTINE`,
@@ -310,7 +310,7 @@ breaking migration checksums. Read-time filtering is deterministic and conflict-
     `state.programs` setting `active: program.id === action.payload`.
   - `DELETE_PROGRAM` simply filters `state.programs`.
 
-- [ ] **1.7** In `src/core/persistenceRouter.js`:
+- [x] **1.7** In `src/core/persistenceRouter.js`:
   - Add all seven new action types to `PERSISTENT_ACTIONS`.
   - Add two record shapers next to `activityDefinition()`:
     ```js
@@ -334,7 +334,7 @@ breaking migration checksums. Read-time filtering is deterministic and conflict-
     flag actually changes** (at most two: the one being activated and the one being deactivated).
     Skip programs whose flag is unchanged so you do not burn revisions.
 
-- [ ] **1.8** In `src/core/stateHydration.js`:
+- [x] **1.8** In `src/core/stateHydration.js`:
   - Add `routines: [...(cache.routines || [])]` and `programs: [...(cache.programs || [])]` to
     the `overlaid` object in `overlayPendingOperations()`.
   - In `normalizedToCompatibilityState()`, map both collections back to in-app shape:
@@ -362,7 +362,7 @@ breaking migration checksums. Read-time filtering is deterministic and conflict-
       })),
     ```
 
-- [ ] **1.9** Create `src/features/fitness/routines.js` with JSDoc'd exports:
+- [x] **1.9** Create `src/features/fitness/routines.js` with JSDoc'd exports:
   - `addRoutine(data)` — generates `id` via `generateUniqueId()`, sets `createdAt` from
     `getLocalMidnightISOString(new Date()).slice(0, 10)` and `sortOrder` from
     `getState().routines.length`; dispatches `Actions.addRoutine`; returns the routine or `null`.
@@ -373,7 +373,7 @@ breaking migration checksums. Read-time filtering is deterministic and conflict-
     `getActivity()` and drops any `undefined` result. This is the only place UI should read a
     routine's activities from.
 
-- [ ] **1.10** Create `src/features/fitness/programs.js` with:
+- [x] **1.10** Create `src/features/fitness/programs.js` with:
   - `addProgram(data)`, `updateProgram(id, updates)`, `deleteProgram(id)`,
     `setActiveProgram(id)`.
   - `getPrograms()`, `getProgram(id)`.
@@ -381,18 +381,18 @@ breaking migration checksums. Read-time filtering is deterministic and conflict-
   - `getProgramScheduledDays(programId)` — filters out entries whose `routineId` no longer
     resolves to a live routine (read-time integrity filter).
 
-- [ ] **1.11** In `src/core/cloudBootstrap.js`:
+- [x] **1.11** In `src/core/cloudBootstrap.js`:
   - Add `'routines'` and `'programs'` to `ENTITY_TYPES`.
   - Add `routines: []` and `programs: []` to `emptyCache()`.
   - Add both to `mergeCoreIntoCache()`.
   - Add two `putConfirmedEntities(...)` calls for them in `cacheCore()`.
 
-- [ ] **1.12** Add both table names to the client-side table lists:
+- [x] **1.12** Add both table names to the client-side table lists:
   - `src/core/dataManagement.js` → `TABLES`
   - `src/core/migration/mergeNormalized.js` → `TABLES`
   - `src/core/migration/coordinator.js` → its upload table list
 
-- [ ] **1.13** In `src/core/migration/normalizeLegacy.js`:
+- [x] **1.13** In `src/core/migration/normalizeLegacy.js`:
   - Add `'routines'` and `'programs'` to `KNOWN_FIELDS`.
   - Emit `routines: []` and `programs: []` in the returned `tables` object. Legacy snapshots
     predate these features so they are always empty, but the keys **must** exist or the count and
@@ -401,10 +401,10 @@ breaking migration checksums. Read-time filtering is deterministic and conflict-
 
 ### Verification — Phase 1
 
-- [ ] `npm run lint` passes with no new warnings.
-- [ ] `npm run test:convex` passes (Convex types compile).
-- [ ] `npm run test:unit` passes.
-- [ ] `grep -rn "routines" convex/ src/core/ | wc -l` shows hits in **all** of: `schema.ts`,
+- [x] `npm run lint` passes with no new warnings.
+- [x] `npm run test:convex` passes (Convex types compile).
+- [x] `npm run test:unit` passes.
+- [x] `grep -rn "routines" convex/ src/core/ | wc -l` shows hits in **all** of: `schema.ts`,
       `routines.ts`, `sync.ts`, `migration.ts`, `dataTransfer.ts`, `bootstrap.ts`, `state.js`,
       `persistenceRouter.js`, `stateHydration.js`, `cloudBootstrap.js`, `dataManagement.js`,
       `mergeNormalized.js`, `coordinator.js`, `normalizeLegacy.js`. Repeat for `programs`.
@@ -421,7 +421,7 @@ breaking migration checksums. Read-time filtering is deterministic and conflict-
       `synced` and the routine persists after a reload.
 - [ ] Add a program with an invalid range (`startDate > endDate`) via the console and confirm the
       Convex mutation rejects with `INVALID_PROGRAM_RANGE`.
-- [ ] Existing migration tests (`npm run test:migration`) still pass — the new empty tables did
+- [x] Existing migration tests (`npm run test:migration`) still pass — the new empty tables did
       not break count/checksum verification.
 
 ---

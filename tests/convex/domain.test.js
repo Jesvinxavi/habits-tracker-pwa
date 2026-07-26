@@ -222,6 +222,8 @@ describe('Convex authenticated domain API', () => {
       'activityCategories',
       'activities',
       'activityRecords',
+      'routines',
+      'programs',
       'restDays',
       'legacyData',
     ];

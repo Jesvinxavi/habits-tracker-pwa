@@ -32,8 +32,10 @@ import type * as maintenance from "../maintenance.js";
 import type * as migration from "../migration.js";
 import type * as preferences from "../preferences.js";
 import type * as profiles from "../profiles.js";
+import type * as programs from "../programs.js";
 import type * as reorder from "../reorder.js";
 import type * as restDays from "../restDays.js";
+import type * as routines from "../routines.js";
 import type * as sync from "../sync.js";
 
 import type {
@@ -67,8 +69,10 @@ declare const fullApi: ApiFromModules<{
   migration: typeof migration;
   preferences: typeof preferences;
   profiles: typeof profiles;
+  programs: typeof programs;
   reorder: typeof reorder;
   restDays: typeof restDays;
+  routines: typeof routines;
   sync: typeof sync;
 }>;
 

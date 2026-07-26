@@ -13,6 +13,8 @@ const ENTITY_TABLES = [
   "activityCategories",
   "activities",
   "activityRecords",
+  "routines",
+  "programs",
   "restDays",
 ] as const;
 

@@ -214,6 +214,31 @@ export default defineSchema({
       "dateKey",
     ]),
 
+  routines: sharedIndexes(
+    defineTable({
+      ...shared,
+      name: v.string(),
+      activityClientIds: v.array(v.string()),
+      createdAtISO: v.string(),
+      sortOrder: v.number(),
+    }),
+  ).index("by_owner_generation_order", ["ownerKey", "generation", "sortOrder"]),
+
+  programs: sharedIndexes(
+    defineTable({
+      ...shared,
+      name: v.string(),
+      startDateISO: v.string(),
+      endDateISO: v.string(),
+      scheduledDays: v.array(
+        v.object({ dayOfWeek: v.number(), routineClientId: v.string() }),
+      ),
+      active: v.boolean(),
+      createdAtISO: v.string(),
+      sortOrder: v.number(),
+    }),
+  ).index("by_owner_generation_start", ["ownerKey", "generation", "startDateISO"]),
+
   restDays: sharedIndexes(
     defineTable({ ...shared, dateKey: v.string() }),
   ).index("by_owner_generation_date", ["ownerKey", "generation", "dateKey"]),
