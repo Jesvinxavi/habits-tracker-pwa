@@ -594,20 +594,20 @@ the modal opens the existing Add Activity modal on top.
 
 ### Tasks
 
-- [ ] **3.1** Rename the folder `src/features/fitness/SearchPanel/` →
+- [x] **3.1** Rename the folder `src/features/fitness/SearchPanel/` →
       `src/features/fitness/ActivityLibrary/` using `git mv` so history is preserved:
       ```bash
       git mv src/features/fitness/SearchPanel src/features/fitness/ActivityLibrary
       ```
 
-- [ ] **3.2** Delete `ActivityLibrary/SearchInput.js` and `ActivityLibrary/SearchResults.js`.
+- [x] **3.2** Delete `ActivityLibrary/SearchInput.js` and `ActivityLibrary/SearchResults.js`.
       Delete `src/features/fitness/SearchPanelModule.js`.
 
-- [ ] **3.3** In `src/features/fitness/helpers/fitnessLayout.js`, delete
+- [x] **3.3** In `src/features/fitness/helpers/fitnessLayout.js`, delete
       `calculateAvailableHeight()` and `updateSearchSectionHeight()`. Keep
       `adjustActivitiesContainerHeight()`. Update the file's JSDoc header.
 
-- [ ] **3.4** Add the modal markup to `index.html`, immediately **before** the existing
+- [x] **3.4** Add the modal markup to `index.html`, immediately **before** the existing
       `<!-- Add Activity Modal -->` block so DOM order matches z-order:
   ```html
   <!-- Activity Library Modal -->
@@ -643,7 +643,7 @@ the modal opens the existing Add Activity modal on top.
   The filter input **must not** be inside the scrolling container — it stays pinned while the
   list scrolls.
 
-- [ ] **3.5** Create `src/features/fitness/Modals/ActivityLibraryModal.js` exporting an
+- [x] **3.5** Create `src/features/fitness/Modals/ActivityLibraryModal.js` exporting an
       `ActivityLibraryModal` object (mirror the shape of `AddEditActivityModal`):
   - `open(callbacks)` — stores `callbacks` on the module, resets the filter input to `''`, hides
     the clear button, calls `this._render('')`, then `openModal('activity-library-modal')`.
@@ -662,14 +662,14 @@ the modal opens the existing Add Activity modal on top.
   - `close()` — `closeModal('activity-library-modal')`.
   - `refresh()` — re-render with the current filter value; used by state subscriptions.
 
-- [ ] **3.6** Wire the filter input in `ActivityLibraryModal`:
+- [x] **3.6** Wire the filter input in `ActivityLibraryModal`:
   - `input` event → `this._render(e.target.value)` and toggle the clear button's `hidden` class
     on `value.length > 0`.
   - Clear button click → set value `''`, `this._render('')`, hide clear button, refocus input.
   - `keydown` Escape → if the filter has text, clear it; otherwise `this.close()`.
   - **Do not** port the two-tap/`allowFocus`/`temp-focus` logic. The input focuses normally on tap.
 
-- [ ] **3.7** Wire the two header buttons:
+- [x] **3.7** Wire the two header buttons:
   - `#close-activity-library` → `this.close()`.
   - `#library-new-activity-btn` → `Modals.openAddActivity()`. The Add Activity modal
     (`z-[1002]`) opens **on top of** the library (`z-[1001]`); the library stays open behind it.
@@ -677,10 +677,10 @@ the modal opens the existing Add Activity modal on top.
     `this.refresh()` so a newly created activity appears immediately.
   - Also refresh on the existing `ActivityDeleted` CustomEvent.
 
-- [ ] **3.8** Add a click-outside handler: clicking the overlay (`e.target === modal`) closes the
+- [x] **3.8** Add a click-outside handler: clicking the overlay (`e.target === modal`) closes the
       library. Match how `AddEditActivityModal._setupActivityIconPicker` does it for the icon modal.
 
-- [ ] **3.9** In `src/features/fitness/FitnessModals.js`, add a facade method:
+- [x] **3.9** In `src/features/fitness/FitnessModals.js`, add a facade method:
   ```js
   openActivityLibrary(callbacks) {
     ActivityLibraryModal.open(callbacks);
@@ -688,7 +688,7 @@ the modal opens the existing Add Activity modal on top.
   ```
   with the import at the top.
 
-- [ ] **3.10** In `src/features/fitness/FitnessModule.js`, replace the Phase 2 placeholder:
+- [x] **3.10** In `src/features/fitness/FitnessModule.js`, replace the Phase 2 placeholder:
   ```js
   onActivityLibrary: () =>
     Modals.openActivityLibrary({
@@ -700,39 +700,39 @@ the modal opens the existing Add Activity modal on top.
   `handleActivityClick` already blocks recording on rest days and shows the confirm dialog —
   reuse it unchanged.
 
-- [ ] **3.11** Subscribe the library to state changes so it stays live while open: inside
+- [x] **3.11** Subscribe the library to state changes so it stays live while open: inside
       `ActivityLibraryModal.open()`, register a `subscribe()` listener that calls `refresh()` only
       when `isModalOpen('activity-library-modal')` is true, and store the unsubscribe function so
       `close()` can call it. Not unsubscribing leaks a listener on every open.
 
 ### Verification — Phase 3
 
-- [ ] `npm run lint` and `npm run test:unit` pass.
-- [ ] Tapping **Activity** opens a modal whose shell (glass, radius, header, shadow) is visually
+- [x] `npm run lint` and `npm run test:unit` pass.
+- [x] Tapping **Activity** opens a modal whose shell (glass, radius, header, shadow) is visually
       identical to the Add Activity modal.
-- [ ] Category sections render with the same coloured headers, the same expand/collapse chevron
+- [x] Category sections render with the same coloured headers, the same expand/collapse chevron
       behaviour, the same coloured edit pill, and the same 2.5px category-coloured activity tiles
       as the old search panel. Diff against a screenshot from `main`.
-- [ ] Strength Training still shows muscle-group sub-headers.
-- [ ] Typing in the filter narrows the list **immediately**, in place. The modal does **not**
+- [x] Strength Training still shows muscle-group sub-headers.
+- [x] Typing in the filter narrows the list **immediately**, in place. The modal does **not**
       grow, animate open, or blur the page behind it.
-- [ ] Clearing the filter restores the full grouped list; the clear button appears only when text
+- [x] Clearing the filter restores the full grouped list; the clear button appears only when text
       is present.
-- [ ] Empty states: with zero activities, the "No activities available" state shows; with a
+- [x] Empty states: with zero activities, the "No activities available" state shows; with a
       non-matching query, "No activities found" shows.
-- [ ] Tapping an activity tile opens the Activity Details modal and recording works; the library
+- [x] Tapping an activity tile opens the Activity Details modal and recording works; the library
       remains open behind it and the page behind stays scroll-locked.
-- [ ] On a rest day, tapping an activity shows the "Rest Day" confirm dialog and does not record.
-- [ ] The stats button opens the Stats modal; the edit button opens Edit Activity.
-- [ ] **+ New** opens the Add Activity modal above the library; saving a new activity closes it
+- [x] On a rest day, tapping an activity shows the "Rest Day" confirm dialog and does not record.
+- [x] The stats button opens the Stats modal; the edit button opens Edit Activity.
+- [x] **+ New** opens the Add Activity modal above the library; saving a new activity closes it
       and the new activity is immediately visible in the library list underneath.
-- [ ] Editing a category colour updates the header colour and the tile borders without closing
+- [x] Editing a category colour updates the header colour and the tile borders without closing
       the modal.
-- [ ] Closing the library restores page scrolling exactly once (no double-reset).
-- [ ] Open and close the library 10 times, then check that `listeners.size` in `state.js` has not
+- [x] Closing the library restores page scrolling exactly once (no double-reset).
+- [x] Open and close the library 10 times, then check that `listeners.size` in `state.js` has not
       grown (paste `(await import('/src/core/state.js')).listeners.size` in the console before and
       after) — proves the subscription is being cleaned up.
-- [ ] `grep -rn "SearchPanel" src/ index.html` returns nothing.
+- [x] `grep -rn "SearchPanel" src/ index.html` returns nothing.
 
 ---
 

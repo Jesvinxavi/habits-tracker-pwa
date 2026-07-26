@@ -752,6 +752,36 @@
     </div>
 
 
+    <!-- Activity Library Modal -->
+    <div id="activity-library-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1001] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate flex flex-col">
+        <div class="modal-header flex justify-between items-center px-6 py-1 bg-white/90 dark:bg-gray-800/90 border-b border-gray-200/50 dark:border-gray-700/50 flex-shrink-0 rounded-t-2xl backdrop-blur-xl">
+          <button id="close-activity-library" class="px-4 py-2 text-ios-blue hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 font-medium">Close</button>
+          <span class="text-lg font-semibold text-gray-900 dark:text-white">Activities</span>
+          <button id="library-new-activity-btn" class="px-4 py-2 text-ios-blue rounded-lg font-medium hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-200 flex items-center gap-1" aria-label="Create a new activity">
+            <span class="material-icons text-lg">add</span>New
+          </button>
+        </div>
+        <div class="px-4 pt-3 pb-2 flex-shrink-0">
+          <div class="relative border-2 border-gray-300 dark:border-gray-500 rounded-xl bg-gray-100 dark:bg-gray-700 transition-all duration-200">
+            <svg class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <input id="activity-library-filter" type="text" placeholder="Search activities..." autocomplete="off" spellcheck="false"
+                   class="w-full pl-10 pr-10 py-2 bg-transparent text-gray-700 dark:text-gray-300 rounded-xl border-none outline-none focus:ring-0 placeholder-gray-500 dark:placeholder-gray-400">
+            <button id="activity-library-filter-clear" class="absolute right-3 top-1/2 transform -translate-y-1/2 w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors hidden rounded-full hover:bg-gray-200 dark:hover:bg-gray-600" aria-label="Clear filter">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
+          <div id="activity-library-content" class="px-4 pb-4 color-picker-host relative"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Add Activity Modal -->
     <div id="add-activity-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1002] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate flex flex-col">

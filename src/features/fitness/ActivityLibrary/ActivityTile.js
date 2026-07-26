@@ -46,13 +46,15 @@ export function bindActivityTileEvents(content, onActivityClick, onStatsClick, o
 }
 
 /**
- * Binds keyboard navigation for search results
- * @param {Function} onCollapseSearch - Callback to collapse search section
+ * Binds keyboard navigation across the activity tiles inside a container.
+ * Escape is deliberately not handled here — it belongs to the surrounding modal,
+ * which decides between clearing the filter and closing itself.
+ * @param {HTMLElement} container - The container holding the rendered activity tiles
+ * @param {HTMLElement} [filterInput] - Input that receives focus when arrowing up past the first tile
  */
-export function bindSearchKeyboardNavigation(onCollapseSearch) {
-  const activityItems = document.querySelectorAll(
-    '#activities-search-section .search-activity-item'
-  );
+export function bindSearchKeyboardNavigation(container, filterInput = null) {
+  if (!container) return;
+  const activityItems = container.querySelectorAll('.search-activity-item');
 
   activityItems.forEach((item, index) => {
     // Make items focusable
@@ -60,45 +62,29 @@ export function bindSearchKeyboardNavigation(onCollapseSearch) {
 
     item.addEventListener('keydown', (e) => {
       switch (e.key) {
-        case 'ArrowDown':
+        case 'ArrowDown': {
           e.preventDefault();
-          const nextItem = activityItems[index + 1];
-          if (nextItem) {
-            nextItem.focus();
-          }
+          activityItems[index + 1]?.focus();
           break;
+        }
 
-        case 'ArrowUp':
+        case 'ArrowUp': {
           e.preventDefault();
           if (index === 0) {
-            // Return focus to search input
-            const searchInput = document.getElementById('fitness-activity-search');
-            if (searchInput) searchInput.focus();
+            filterInput?.focus();
           } else {
-            const prevItem = activityItems[index - 1];
-            if (prevItem) {
-              prevItem.focus();
-            }
+            activityItems[index - 1]?.focus();
           }
           break;
+        }
 
         case 'Enter':
-        case ' ':
+        case ' ': {
           e.preventDefault();
           // Trigger click on the focused activity item
           item.click();
           break;
-
-        case 'Escape':
-          e.preventDefault();
-          if (onCollapseSearch) {
-            onCollapseSearch();
-          }
-          const searchInput = document.getElementById('fitness-activity-search');
-          if (searchInput) {
-            searchInput.focus();
-          }
-          break;
+        }
       }
     });
 

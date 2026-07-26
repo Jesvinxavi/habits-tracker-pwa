@@ -1,44 +1,8 @@
 /**
  * Layout Helper Functions
  *
- * Pure functions for calculating layout dimensions and heights
+ * Sizes the recorded-activities list to the available viewport height.
  */
-
-/**
- * Calculates the available height for expandable search section
- * @returns {number} Available height in pixels
- */
-export function calculateAvailableHeight() {
-  const searchContainer = document.querySelector('#fitness-view .search-container');
-  if (!searchContainer) return 500; // Increased fallback height
-
-  const containerRect = searchContainer.getBoundingClientRect();
-  const viewportHeight = window.innerHeight;
-
-  // Get navigation bar height from CSS variable
-  const tabBarHeight =
-    parseInt(
-      getComputedStyle(document.documentElement)
-        .getPropertyValue('--tab-bar-height')
-        .replace('px', '')
-    ) || 83;
-
-  // Get safe area bottom padding
-  const safeAreaBottom =
-    parseInt(
-      getComputedStyle(document.documentElement)
-        .getPropertyValue('padding-bottom')
-        .replace('px', '')
-    ) || 0;
-
-  // Calculate available space: viewport - search container bottom - nav bar - safe area - padding
-  const searchContainerBottom = containerRect.bottom;
-  const availableHeight =
-    viewportHeight - searchContainerBottom - tabBarHeight - safeAreaBottom - 20;
-
-  // Ensure minimum height and maximum reasonable height - increased both values
-  return Math.max(300, Math.min(availableHeight, 700));
-}
 
 /**
  * Adjusts the activities container height to fit the viewport
@@ -62,18 +26,4 @@ export function adjustActivitiesContainerHeight() {
     container.style.maxHeight = available + 'px';
     container.style.overflowY = 'auto';
   }
-}
-
-/**
- * Updates the search section height based on available space
- */
-export function updateSearchSectionHeight() {
-  const content = document.querySelector('#activities-search-section .activities-search-content');
-  if (!content) return;
-
-  // Calculate height to extend to navigation bar
-  const viewportHeight = window.innerHeight;
-  const tabBarHeight = 83; // Approximate tab bar height
-  const maxHeight = viewportHeight - tabBarHeight - 40; // Account for tab bar and padding
-  content.style.maxHeight = `${maxHeight}px`;
 }

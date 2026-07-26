@@ -72,8 +72,13 @@ export async function initializeFitness() {
 
   // Mount the complete fitness view with all components
   await FitnessView.mount(fitnessView, {
-    // Placeholders until Phase 3 (Activity Library) and Phase 4 (Routines).
-    onActivityLibrary: () => {},
+    onActivityLibrary: () =>
+      Modals.openActivityLibrary({
+        onActivityClick: (activityId) => handleActivityClick(activityId),
+        onStatsClick: (activityId) => Modals.openStats(activityId),
+        onEditClick: (activityId) => Modals.openEditActivity(activityId),
+      }),
+    // Placeholder until Phase 4 (Routines).
     onRoutines: () => {},
     onStatsClick: (activityId) => Modals.openStats(activityId),
     onEditClick: (activityId) => Modals.openEditActivity(activityId),

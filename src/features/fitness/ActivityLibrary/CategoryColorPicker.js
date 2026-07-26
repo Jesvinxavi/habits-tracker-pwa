@@ -4,8 +4,11 @@
  * Opens a lightweight color picker popup for category color selection
  * @param {HTMLElement} button - The category edit button that triggered the picker
  * @param {Function} onColorChange - Callback when color is selected
+ * @param {HTMLElement} [host] - Positioning host the popup is appended to. Defaults to
+ *   the closest positioned ancestor of the button, which keeps the popup anchored
+ *   wherever the category list is rendered.
  */
-export function openCategoryColorPicker(button, onColorChange) {
+export function openCategoryColorPicker(button, onColorChange, host = null) {
   const categoryId = button.dataset.categoryId;
 
   // Remove any existing color picker
@@ -102,17 +105,16 @@ export function openCategoryColorPicker(button, onColorChange) {
     colorPicker.appendChild(colorOption);
   });
 
-  // Position the picker near the button
+  // Position the picker near the button, relative to whichever container hosts it.
+  const container = host || button.closest('.color-picker-host') || document.body;
   const buttonRect = button.getBoundingClientRect();
-  const searchContainer = document.querySelector('#activities-search-section');
-  const containerRect = searchContainer.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
 
   // Position to the left of the button
   colorPicker.style.top = `${buttonRect.top - containerRect.top}px`;
   colorPicker.style.right = `${containerRect.right - buttonRect.left + 8}px`;
 
-  // Add to search container
-  searchContainer.appendChild(colorPicker);
+  container.appendChild(colorPicker);
 
   // Close picker when clicking outside
   const closePickerOnClick = (e) => {

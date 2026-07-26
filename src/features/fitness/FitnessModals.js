@@ -2,8 +2,17 @@
 import { AddEditActivityModal } from './Modals/AddEditActivityModal.js';
 import { ActivityDetailsModal } from './Modals/ActivityDetailsModal.js';
 import { StatsModal } from './Modals/StatsModal.js';
+import { ActivityLibraryModal } from './Modals/ActivityLibraryModal.js';
 
 export const Modals = {
+  /**
+   * Opens the activity library
+   * @param {Object} callbacks - Handlers for activity, stats and edit taps
+   */
+  openActivityLibrary(callbacks) {
+    ActivityLibraryModal.open(callbacks);
+  },
+
   /**
    * Opens the add activity modal
    */
