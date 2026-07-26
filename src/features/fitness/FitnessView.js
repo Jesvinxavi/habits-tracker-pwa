@@ -1,15 +1,9 @@
 // FitnessView.js - Main FitnessView component that orchestrates all sub-components
 import { mountHeaderBar } from '../../shared/HeaderBar.js';
 import { mountActionButtons } from '../../shared/ActionButtons.js';
-import { mountSearchPanel } from './SearchPanelModule.js';
 import { mountFitnessCalendar } from './FitnessCalendar.js';
 import { mountActivitiesList as mountActivityList, renderActivitiesList as renderActivityList } from './ActivityList/ActivitiesList.js';
-import { Timer } from './TimerModule.js';
-import {
-  adjustActivitiesContainerHeight,
-  updateSearchSectionHeight,
-  calculateAvailableHeight,
-} from './helpers/fitnessLayout.js';
+import { adjustActivitiesContainerHeight } from './helpers/fitnessLayout.js';
 
 /**
  * Main FitnessView component that orchestrates all fitness sub-components
@@ -37,19 +31,18 @@ export const FitnessView = {
     const actionButtons = mountActionButtons({
       type: 'fitness',
       callbacks: {
-        onNewActivity: callbacks.onNewActivity,
-        onTimer: () => Timer.openModal(),
+        onActivityLibrary: callbacks.onActivityLibrary,
+        onRoutines: callbacks.onRoutines,
       },
     });
     container.appendChild(actionButtons);
 
-    // Mount search panel
-    const searchPanel = mountSearchPanel({
-      onActivityClick: callbacks.onSearchActivityClick,
-      onStatsClick: callbacks.onStatsClick,
-      onEditClick: callbacks.onEditClick,
-    });
-    container.appendChild(searchPanel);
+    // Host for the program tile. Stays empty when no program is active, which
+    // renders as zero height because it has no padding-producing children.
+    const programHost = document.createElement('div');
+    programHost.id = 'fitness-program-host';
+    programHost.className = 'px-4';
+    container.appendChild(programHost);
 
     // Mount calendar wrapper
     const calendarWrapper = this._buildCalendarWrapper(callbacks.onDateChange);
@@ -74,13 +67,6 @@ export const FitnessView = {
    */
   renderActivities(onActivityClick) {
     renderActivityList(onActivityClick);
-  },
-
-  /**
-   * Updates the timer button state
-   */
-  updateTimerButton() {
-    Timer.updateButton();
   },
 
   /**
@@ -116,24 +102,12 @@ export const FitnessView = {
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', () => {
         adjustActivitiesContainerHeight();
-        updateSearchSectionHeight();
-
-        // Handle responsive search section behavior - SearchPanel handles its own responsive behavior
-        setTimeout(() => {
-          const content = document.querySelector(
-            '#activities-search-section .activities-search-content'
-          );
-          if (content) {
-            const maxHeight = calculateAvailableHeight();
-            content.style.maxHeight = `${maxHeight}px`;
-          }
-        }, 100);
       });
 
       // Handle viewport meta for better mobile experience
       window.addEventListener('orientationchange', () => {
         setTimeout(() => {
-          updateSearchSectionHeight();
+          adjustActivitiesContainerHeight();
         }, 500); // Wait for orientation change to complete
       });
     }

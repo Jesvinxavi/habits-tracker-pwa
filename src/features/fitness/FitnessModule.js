@@ -72,8 +72,9 @@ export async function initializeFitness() {
 
   // Mount the complete fitness view with all components
   await FitnessView.mount(fitnessView, {
-    onNewActivity: () => Modals.openAddActivity(),
-    onSearchActivityClick: (activityId) => handleActivityClick(activityId),
+    // Placeholders until Phase 3 (Activity Library) and Phase 4 (Routines).
+    onActivityLibrary: () => {},
+    onRoutines: () => {},
     onStatsClick: (activityId) => Modals.openStats(activityId),
     onEditClick: (activityId) => Modals.openEditActivity(activityId),
     onActivityClick: (activityId) => handleActivityClick(activityId),
@@ -111,7 +112,6 @@ export async function initializeFitness() {
         handleActivityClick(activityId);
       }
     });
-    FitnessView.updateTimerButton();
     // Only update rest toggle if the selected date changed
     if (getState().fitnessSelectedDate !== lastFitnessDate) {
       lastFitnessDate = getState().fitnessSelectedDate;

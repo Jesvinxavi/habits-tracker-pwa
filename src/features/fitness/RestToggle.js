@@ -22,9 +22,16 @@ export function mountRestToggle(options = {}) {
   const restRow = document.createElement('div');
   restRow.className = 'flex items-center justify-between px-4 py-1 rest-toggle-row';
   restRow.innerHTML = `
-    <div id="activities-label" class="bg-blue-50 dark:bg-gray-800 text-gray-900 dark:text-white px-6 py-1.5 rounded-full text-xl font-bold flex items-center justify-center gap-2">
-      <span class="material-icons text-xl">fitness_center</span>
-      Activities
+    <div class="flex items-center gap-2 relative">
+      <div id="activities-label" class="bg-blue-50 dark:bg-gray-800 text-gray-900 dark:text-white px-6 py-1.5 rounded-full text-xl font-bold flex items-center justify-center gap-2">
+        <span class="material-icons text-xl">fitness_center</span>
+        Activities
+      </div>
+      <button id="fitness-add-menu-btn"
+              class="w-9 h-9 rounded-full bg-blue-50 dark:bg-gray-800 text-ios-blue flex items-center justify-center transition-colors hover:bg-blue-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-ios-blue"
+              aria-label="Add to today" aria-haspopup="true" aria-expanded="false">
+        <span class="material-icons text-xl">add</span>
+      </button>
     </div>
     <button id="rest-toggle" class="relative flex items-center justify-center h-9 bg-gray-200 text-gray-500 rounded-full overflow-hidden select-none transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ios-orange focus:ring-offset-2 dark:focus:ring-offset-gray-900" style="width: 36px;" aria-label="Toggle rest day for selected date" aria-pressed="false">
       <span class="bed material-icons absolute left-2 top-1/2 -translate-y-1/2 transition-transform text-2xl" aria-hidden="true">bed</span>

@@ -458,7 +458,7 @@ constantly, so fix it here.
 
 ### Tasks
 
-- [ ] **2.1** In `src/components/Modal.js`, introduce a module-level open-modal stack:
+- [x] **2.1** In `src/components/Modal.js`, introduce a module-level open-modal stack:
   ```js
   const openStack = [];
   ```
@@ -471,7 +471,7 @@ constantly, so fix it here.
   - Keep the existing `modalClosed` CustomEvent dispatch untouched; `SearchPanelModule` listens
     for it today and other modules may too.
 
-- [ ] **2.2** In `src/shared/ActionButtons.js`, rewrite the `type === 'fitness'` branch:
+- [x] **2.2** In `src/shared/ActionButtons.js`, rewrite the `type === 'fitness'` branch:
   - Replace the two buttons with:
     ```html
     <button id="fitness-activity-btn" class="flex-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 py-1.5 px-4 rounded-xl font-medium flex items-center justify-center gap-2" aria-label="Open activity library">
@@ -493,7 +493,7 @@ constantly, so fix it here.
     `FitnessView.updateTimerButton()` and its call inside `FitnessModule`'s `subscribe()` both go.
   - Leave the `type === 'habits'` branch completely untouched.
 
-- [ ] **2.3** In `src/features/fitness/FitnessView.js`:
+- [x] **2.3** In `src/features/fitness/FitnessView.js`:
   - Remove the `mountSearchPanel` import and the block that appends `searchPanel`.
   - Pass the two new callbacks into `mountActionButtons`:
     `onActivityLibrary: callbacks.onActivityLibrary`, `onRoutines: callbacks.onRoutines`.
@@ -512,7 +512,7 @@ constantly, so fix it here.
     `setTimeout` block that resizes `.activities-search-content`. Keep
     `adjustActivitiesContainerHeight()` on both `resize` and `orientationchange`.
 
-- [ ] **2.4** In `src/features/fitness/RestToggle.js`, add the `+` pill immediately to the right
+- [x] **2.4** In `src/features/fitness/RestToggle.js`, add the `+` pill immediately to the right
       of `#activities-label`, inside the same flex row. Wrap the label and the new button in a
       grouping div so the rest toggle stays pushed to the far right:
   ```html
@@ -528,20 +528,20 @@ constantly, so fix it here.
   - The outer row keeps `flex items-center justify-between px-4 py-1 rest-toggle-row`.
   - The button is a **no-op for now** — Phase 5 wires the dropdown. Do not attach a handler yet.
 
-- [ ] **2.5** In `src/features/fitness/FitnessModule.js`:
+- [x] **2.5** In `src/features/fitness/FitnessModule.js`:
   - Replace `onNewActivity` in the `FitnessView.mount` callbacks with
     `onActivityLibrary: () => {}` and `onRoutines: () => {}` (placeholders; Phases 3–4 fill them).
   - Delete `FitnessView.updateTimerButton()` from the `subscribe()` callback.
   - **Keep** `Timer.bindEvents()` — the timer modal still works, it just has no launcher yet.
 
-- [ ] **2.6** Relocate the timer entry point. For this phase, add a temporary launcher so the
+- [x] **2.6** Relocate the timer entry point. For this phase, add a temporary launcher so the
       feature is never unreachable: in `src/shared/HeaderBar.js`, no change is needed **if** you
       instead defer the launcher to Phase 5's dropdown. Choose one and record it here:
-  - [ ] Timer launcher lives in the Phase 5 `+` dropdown (preferred — one less UI surface).
+  - [x] Timer launcher lives in the Phase 5 `+` dropdown (preferred — one less UI surface).
   - [ ] If you need it reachable before Phase 5 for testing, call `Timer.openModal()` from the
         console; do **not** ship an interim button.
 
-- [ ] **2.7** In `src/styles/style.css`, delete the now-dead search-panel rules:
+- [x] **2.7** In `src/styles/style.css`, delete the now-dead search-panel rules:
       `#fitness-view.search-expanded …` (all three selectors),
       `#fitness-view .activities-search-section` and every descendant/`::before`/scrollbar rule,
       `#fitness-view .activities-search-content` and its dark-theme variants
@@ -551,23 +551,23 @@ constantly, so fix it here.
 
 ### Verification — Phase 2
 
-- [ ] `npm run lint` and `npm run test:unit` pass.
-- [ ] `npm run dev` → Fitness tab renders with exactly two buttons labelled **Activity** and
+- [x] `npm run lint` and `npm run test:unit` pass.
+- [x] `npm run dev` → Fitness tab renders with exactly two buttons labelled **Activity** and
       **Routines**, same size, colour, corner radius and spacing as the old pair. Compare against
       a screenshot of `main` side by side.
-- [ ] No search bar appears anywhere on the fitness page.
-- [ ] The `+` pill sits immediately right of the "Activities" pill, is vertically centred with
+- [x] No search bar appears anywhere on the fitness page.
+- [x] The `+` pill sits immediately right of the "Activities" pill, is vertically centred with
       it, and the rest-day toggle remains flush right. Check at 375px, 768px and 1280px widths.
-- [ ] The calendar, rest-day toggle and recorded-activities list all still work: change dates,
+- [x] The calendar, rest-day toggle and recorded-activities list all still work: change dates,
       toggle a rest day, tap a recorded activity to edit it, swipe to delete.
-- [ ] `#fitness-program-host` exists in the DOM and has zero rendered height.
-- [ ] `grep -rn "mountSearchPanel\|updateSearchSectionHeight\|search-expanded" src/` returns only
+- [x] `#fitness-program-host` exists in the DOM and has zero rendered height.
+- [x] `grep -rn "mountSearchPanel\|updateSearchSectionHeight\|search-expanded" src/` returns only
       matches inside files scheduled for deletion in Phase 3 (`SearchPanelModule.js`,
       `SearchInput.js`, `SearchResults.js`) — nothing in live code paths.
-- [ ] Modal stack fix: open the Add Activity modal from the console
+- [x] Modal stack fix: open the Add Activity modal from the console
       (`Modals.openAddActivity()`), then open the icon picker on top of it, close the icon
       picker, and confirm the page behind is **still** scroll-locked.
-- [ ] Dark mode: toggle the theme and confirm both new buttons and the `+` pill use the dark
+- [x] Dark mode: toggle the theme and confirm both new buttons and the `+` pill use the dark
       variants correctly.
 
 ---

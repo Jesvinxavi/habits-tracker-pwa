@@ -137,11 +137,6 @@ export async function initializeNavigation() {
           view.classList.remove('active-view');
           view.classList.add('hidden');
           view.classList.remove('block');
-          
-          // Clean up any search-related state when switching away from fitness view
-          if (view.id === 'fitness-view') {
-            view.classList.remove('search-expanded');
-          }
         }
       });
       tabItems.forEach((item) => {
