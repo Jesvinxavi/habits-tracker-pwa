@@ -7,6 +7,7 @@ import { getLocalMidnightISOString, getLocalISODate } from '../../shared/datetim
 import { FitnessCalendar } from './FitnessCalendar.js';
 import { isRestDay } from './restDays.js';
 import { showConfirm } from '../../components/ConfirmDialog.js';
+import { isCloudBackend } from '../../core/dataBackend.js';
 
 // Flag to prevent double-initialisation when the module is imported twice (eagerly at boot and lazily via navigation)
 let _initialized = false;
@@ -76,27 +77,13 @@ export async function initializeFitness() {
     onStatsClick: (activityId) => Modals.openStats(activityId),
     onEditClick: (activityId) => Modals.openEditActivity(activityId),
     onActivityClick: (activityId) => handleActivityClick(activityId),
-    onDateChange: (date) => {
-      // Use timezone-safe local midnight ISO to prevent timezone issues
-      dispatch(Actions.setFitnessSelectedDate(getLocalMidnightISOString(date)));
-      // Refresh the calendar and rest toggle after date change
-      if (FitnessCalendar.ready && FitnessCalendar.scrollToSelected) {
-        FitnessCalendar.ready.then(() => {
-          FitnessCalendar.scrollToSelected({ instant: true });
-        });
-      }
+    onDateChange: () => {
+      // The calendar owns the date state update; this callback handles
+      // dependent controls only.
       FitnessView.updateRestToggle();
     },
     onRestToggle: () => {
       // We just need to refresh the calendar and activity list to reflect the changes
-
-      // Refresh the calendar to show/hide rest day styling
-      if (FitnessCalendar.ready && FitnessCalendar.scrollToSelected) {
-        FitnessCalendar.ready.then(() => {
-          FitnessCalendar.scrollToSelected({ instant: true });
-        });
-      }
-
       // Refresh the activity list to show rest day message or activities
       FitnessView.renderActivities((activityId, record) => {
         if (record) {
@@ -163,6 +150,7 @@ export async function initializeFitness() {
  * Cleans up any fitness categories that accidentally got mixed into habits categories
  */
 function cleanupFitnessFromHabitsCategories() {
+  if (isCloudBackend()) return;
   if (localStorage.getItem('habitsAppFitnessMigrationV1') === 'true') {
     return;
   }
@@ -189,6 +177,7 @@ function cleanupFitnessFromHabitsCategories() {
  * Clears only system-generated sample activities while preserving user-created activities
  */
 function clearExistingActivities() {
+  if (isCloudBackend()) return;
   if (localStorage.getItem('habitsAppFitnessMigrationV1') === 'true') {
     return;
   }

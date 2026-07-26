@@ -1,6 +1,7 @@
 import { getState, subscribe, dispatch, Actions } from './state.js';
 import { debounce, safeJsonParse, safeJsonStringify } from '../shared/common.js';
 import { getLocalMidnightISOString } from '../shared/datetime.js';
+import { isCloudBackend } from './dataBackend.js';
 
 const STORAGE_KEY = 'healthyHabitsData';
 
@@ -169,11 +170,13 @@ const saveDataToLocalStorage = debounce(() => {
 export { saveDataToLocalStorage }; // Expose for manual save calls if needed
 
 // Auto-save on each state change
-subscribe(saveDataToLocalStorage);
+if (!isCloudBackend()) {
+  subscribe(saveDataToLocalStorage);
+}
 
 // ---------------------- Cross-tab synchronisation ----------------------------
 // When a different browser tab writes to localStorage, update the current tab.
-if (typeof window !== 'undefined' && isLocalStorageAvailable()) {
+if (typeof window !== 'undefined' && isLocalStorageAvailable() && !isCloudBackend()) {
   window.addEventListener('storage', (evt) => {
     if (evt.key === STORAGE_KEY && evt.newValue && _hasLoaded) {
       try {

@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .home-inset {
+    margin-left: var(--home-inset);
+    margin-right: var(--home-inset);
+  }
+
+  .home-inset-plus {
+    margin-left: calc(var(--home-inset) + 8px);
+    margin-right: calc(var(--home-inset) + 8px);
+  }
+}

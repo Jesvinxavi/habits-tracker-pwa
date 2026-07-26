@@ -4,12 +4,13 @@
  */
 
 import { getState, dispatch, Actions } from '../../core/state.js';
+import { isCloudBackend } from '../../core/dataBackend.js';
 
 
 const LEGACY_KEY = 'fitnessRestDays';
 try {
   const legacy = localStorage.getItem(LEGACY_KEY);
-  if (legacy && typeof legacy === 'string') {
+  if (!isCloudBackend() && legacy && typeof legacy === 'string') {
     const arr = JSON.parse(legacy);
     if (Array.isArray(arr)) {
       dispatch((dispatch, getState) => {
@@ -33,12 +34,6 @@ export function isRestDay(iso) {
   return !!getState().restDays?.[iso];
 }
 
-export function toggleRestDay(iso) {
-  dispatch((dispatch, getState) => {
-    const state = getState();
-    const restDays = { ...state.restDays };
-    if (restDays[iso]) delete restDays[iso];
-    else restDays[iso] = true;
-    dispatch(Actions.importData({ restDays }));
-  });
+export async function toggleRestDay(iso) {
+  return dispatch(Actions.setRestDay(iso, !isRestDay(iso)));
 }

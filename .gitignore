@@ -37,6 +37,12 @@ pids
 
 # Coverage directory used by tools like istanbul
 coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Convex local code generation and deployment selection
+.convex/
 
 # nyc test coverage
 .nyc_output
@@ -54,7 +60,4 @@ jspm_packages/
 *.tgz
 
 # Yarn Integrity file
-.yarn-integrity 
-node_modules
-node_modules
-node_modules
+.yarn-integrity

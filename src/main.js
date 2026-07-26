@@ -2,11 +2,9 @@
 import { loadDataFromLocalStorage } from './core/storage.js';
 import { initializeTheme, toggleTheme } from './core/theme.js';
 import { initializeNavigation } from './core/navigation.js';
-import { initializeHabitsForm } from './features/habits/modals/HabitFormModal.js';
 import { initializeInstallPrompt } from './components/InstallPrompt.js';
-import { initializeFitness } from './features/fitness/FitnessModule.js';
-
-import './features/autoToday.js';
+import { isCloudBackend } from './core/dataBackend.js';
+import { markStartup } from './core/startupMetrics.js';
 
 // Enable test mode if URL contains ?test=true
 if (
@@ -19,25 +17,37 @@ if (
 }
 
 async function bootstrap() {
+  markStartup('bootstrapStart');
   try {
     // Load data first, then initialize UI components
-    await loadDataFromLocalStorage();
+    const persistence = isCloudBackend()
+      ? await import('./core/cloudBootstrap.js').then((module) =>
+          module.bootstrapCloudPersistence()
+        )
+      : await loadDataFromLocalStorage();
+    markStartup('persistenceReady');
+    if (persistence?.access === 'blocked') {
+      const { removeLoadingState } = await import('./shared/loader.js');
+      await removeLoadingState();
+      return;
+    }
 
     // Proactively clear any persisted last-active tab so app always opens to Home
-    try { 
-      localStorage.removeItem('activeHabitTrackerTab'); 
-    } catch (error) {
-      console.warn('Failed to clear activeHabitTrackerTab:', error);
+    if (!isCloudBackend()) {
+      try {
+        localStorage.removeItem('activeHabitTrackerTab');
+      } catch (error) {
+        console.warn('Failed to clear activeHabitTrackerTab:', error);
+      }
     }
 
     // Initialize core components
     await initializeTheme();
+    await import('./features/holidays/holidays.js').then((module) =>
+      module.initializeHolidays()
+    );
     await initializeNavigation();
-    await initializeHabitsForm();
-    await import('./features/holidays/holidays.js').then(m => m.initializeHolidays());
-    // Eagerly initialise the Fitness view so it is ready instantly when the user navigates to it.
-    await initializeFitness();
-    await import('./features/stats/stats.js').then((m) => m.initializeStats());
+    markStartup('homeReady');
     await initializeInstallPrompt();
 
     // Theme toggle click handler
@@ -47,7 +57,29 @@ async function bootstrap() {
     }
 
     // Remove loading state after all initializations are complete
-    import('./shared/loader.js').then(({ removeLoadingState }) => removeLoadingState());
+    const { removeLoadingState } = await import('./shared/loader.js');
+    await removeLoadingState();
+    markStartup('visible');
+
+    // Features that are not required by the visible Home screen stay out of
+    // the loading path. Navigation loads Fitness and Statistics on demand.
+    const initializeDeferredFeatures = async () => {
+      await import('./features/autoToday.js');
+      if (isCloudBackend()) {
+        const { initializeSyncStatusUi } = await import('./core/syncStatusUi.js');
+        initializeSyncStatusUi();
+      }
+    };
+    const startDeferredFeatures = () => {
+      void initializeDeferredFeatures().catch((error) => {
+        console.warn('Deferred feature initialization failed:', error);
+      });
+    };
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(startDeferredFeatures, { timeout: 1500 });
+    } else {
+      setTimeout(startDeferredFeatures, 0);
+    }
   } catch (error) {
     console.error('Bootstrap failed:', error);
   }

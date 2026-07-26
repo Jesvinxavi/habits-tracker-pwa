@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="js-loading">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -13,58 +13,8 @@
     <meta name="apple-mobile-web-app-title" content="Habits">
     
     <!-- PWA Assets -->
-    <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
-    
-    <!-- Modern CSS Framework -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: ['class', '[data-theme="dark"]'],
-            theme: {
-                extend: {
-                    fontFamily: {
-                        'sf': ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Arial', 'sans-serif'],
-                    },
-                    colors: {
-                        'ios-blue': '#007AFF',
-                        'ios-red': '#FF3B30',
-                        'ios-green': '#34C759',
-                        'ios-orange': '#FF9500',
-                        'ios-purple': '#AF52DE',
-                        'ios-gray': '#8E8E93',
-                        'ios-bg': '#FFFFFF',
-                        'ios-bg-dark': '#000000',
-                        'ios-surface': '#FFFFFF',
-                        'ios-surface-dark': '#1C1C1E',
-                    },
-                    backdropBlur: {
-                        'ios': '20px',
-                    },
-                    boxShadow: {
-                        'ios': '0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24)',
-                        'ios-lg': '0 4px 6px rgba(0, 0, 0, 0.07), 0 10px 15px rgba(0, 0, 0, 0.1)',
-                    }
-                },
-            },
-            plugins: [
-                function({ addUtilities }) {
-                    const newUtilities = {
-                        '.home-inset': {
-                            'margin-left': 'var(--home-inset)',
-                            'margin-right': 'var(--home-inset)',
-                        },
-                        '.home-inset-plus': {
-                            'margin-left': 'calc(var(--home-inset) + 8px)',
-                            'margin-right': 'calc(var(--home-inset) + 8px)',
-                        }
-                    }
-                    addUtilities(newUtilities)
-                }
-            ],
-        }
-    </script>
     
     <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -72,6 +22,7 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons&display=swap" rel="stylesheet">
     
     <!-- Custom Styles -->
+    <link rel="stylesheet" href="src/styles/tailwind.css">
     <link rel="stylesheet" href="src/styles/style.css">
     <link rel="stylesheet" href="src/styles/components.css">
     
@@ -162,16 +113,18 @@
                 <div class="home-content pt-0 pb-0 px-0 w-full flex flex-col h-full overflow-hidden">
                     <!-- Progress Ring Section -->
                     <div class="progress-section relative mb-0 flex items-center w-full">
-                        <div class="progress-ring-container relative w-27 h-27 sm:w-30 sm:h-30 lg:w-33 lg:h-33 mx-auto">
-                             <svg class="progress-ring w-full h-full transform -rotate-90 relative z-10" viewBox="0 0 100 100">
-                                 <circle class="progress-ring-bg" stroke="#E5E5E7" stroke-width="12" fill="transparent" r="44" cx="50" cy="50"/>
-                                 <circle class="progress-ring-fg spring" stroke="#FF6347" stroke-width="12" fill="transparent" r="44" cx="50" cy="50" stroke-dasharray="276" stroke-dashoffset="276" stroke-linecap="round"/>
-                                 <g transform="rotate(90, 50, 50)">
-                                     <text x="50" y="48" text-anchor="middle" class="progress-number text-2xl font-extrabold leading-none fill-gray-900 dark:fill-white select-none">0%</text>
-                                     <text x="50" y="65" text-anchor="middle" class="progress-label text-xs fill-gray-500 dark:fill-gray-400">Complete</text>
-                                 </g>
-                             </svg>
-                         </div>
+                        <div class="progress-ring-container relative mx-auto" role="img" aria-label="Daily progress: 0% complete">
+                            <svg class="progress-ring w-full h-full relative z-10" viewBox="0 0 100 100" aria-hidden="true">
+                                <g class="progress-ring-track">
+                                    <circle class="progress-ring-bg" stroke="#E5E5E7" stroke-width="12" fill="transparent" r="44" cx="50" cy="50"/>
+                                    <circle class="progress-ring-fg spring" stroke="#FF6347" stroke-width="12" fill="transparent" r="44" cx="50" cy="50" stroke-dasharray="276" stroke-dashoffset="276" stroke-linecap="round"/>
+                                </g>
+                            </svg>
+                            <div class="progress-text" aria-hidden="true">
+                                <span class="progress-number">0%</span>
+                                <span class="progress-label">Complete</span>
+                            </div>
+                        </div>
                     </div> <!-- end progress-section -->
                     <!-- Week Calendar -->
                     <div class="week-calendar mb-0 mt-0 overflow-visible">
@@ -208,6 +161,9 @@
             <!-- Food View -->
             <div id="food-view" class="view hidden w-full h-full flex flex-col overflow-hidden"></div>
 
+            <!-- Profile View -->
+            <div id="profile-view" class="view hidden w-full h-full flex flex-col overflow-hidden"></div>
+
             <!-- Other Views with Modern Styling -->
             <div id="habits-view" class="view hidden w-full h-full flex flex-col overflow-hidden">
                 <!-- Habits view content will be dynamically generated by HabitsModule.js -->
@@ -238,18 +194,18 @@
                 </svg>
                 <span class="tab-label text-xs font-medium">Fitness</span>
             </button>
-            <button class="tab-item flex flex-col items-center justify-center flex-1 py-2 text-gray-400 hover:text-ios-blue transition-colors max-w-none hidden" data-view="food-view" role="tab" aria-selected="false" aria-label="Food view">
-                <svg class="tab-icon w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <circle cx="12" cy="9" r="3" stroke="currentColor" stroke-width="2"/>
-                </svg>
-                <span class="tab-label text-xs font-medium">Food</span>
-            </button>
             <button class="tab-item flex flex-col items-center justify-center flex-1 py-2 text-gray-400 hover:text-ios-blue transition-colors max-w-none" data-view="stats-view" role="tab" aria-selected="false" aria-label="Stats view">
                 <svg class="tab-icon w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
                 <span class="tab-label text-xs font-medium">Stats</span>
+            </button>
+            <button class="tab-item flex flex-col items-center justify-center flex-1 py-2 text-gray-400 hover:text-ios-blue transition-colors max-w-none" data-view="profile-view" role="tab" aria-selected="false" aria-label="Profile view">
+                <svg class="tab-icon w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="8" r="4" stroke-width="2"/>
+                    <path d="M4.5 21a7.5 7.5 0 0 1 15 0" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <span class="tab-label text-xs font-medium">Profile</span>
             </button>
         </nav>
     </div>
@@ -1099,4 +1055,4 @@
 
     <script type="module" src="src/main.js"></script>
 </body>
-</html> 
+</html>

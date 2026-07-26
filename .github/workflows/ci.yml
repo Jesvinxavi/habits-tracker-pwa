@@ -6,11 +6,11 @@ on:
   pull_request:
 
 jobs:
-  lint:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -20,4 +20,19 @@ jobs:
         run: npm ci
       - name: Run ESLint
         run: npm run lint
- 
+      - name: Run unit and migration tests
+        run: npm test
+      - name: Type-check Convex functions
+        run: npm run test:convex
+      - name: Build
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run browser tests
+        run: npm run test:e2e
+      - name: Upload browser artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/

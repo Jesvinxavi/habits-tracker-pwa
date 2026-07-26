@@ -29,17 +29,17 @@
 
 ## What We are NOT Doing
 
-### ❌ **PHASE 2 – TypeScript Migration**
-- **NO** TypeScript migration
-- **NO** `tsconfig.json` creation
-- **NO** `.ts` file conversions
-- **NO** TypeScript dependencies
+### ✅ **Language boundary**
+- The browser application remains vanilla JavaScript.
+- Convex backend functions use TypeScript and are type-checked independently.
+- Do not migrate the browser UI to a framework or TypeScript as part of
+  unrelated persistence work.
 
-### ❌ **PHASE 6 – Testing Infrastructure**
-- **NO** Jest/Vitest setup
-- **NO** Unit test creation
-- **NO** E2E testing with Playwright/Cypress
-- **NO** Test scripts in CI
+### ✅ **Persistence Testing Infrastructure**
+- Vitest is required for reducers, schedules, migration, and offline storage.
+- `fake-indexeddb` is required for deterministic IndexedDB tests.
+- Playwright covers PWA and browser persistence flows.
+- CI must run lint, unit/migration tests, Convex type-checking, build, and browser smoke tests.
 
 ## Current Focus Areas
 
@@ -60,18 +60,19 @@
 
 ## Project Status
 
-- **Overall Progress**: ~85% complete
-- **Build Status**: ✅ Working
-- **Code Quality**: ✅ Clean (all linting issues fixed)
-- **Security**: ✅ Secure (vulnerabilities fixed)
-- **Testing**: ❌ Not implemented (by design)
-- **TypeScript**: ❌ Not implemented (by design)
+- **Browser architecture**: Vanilla JavaScript and Vite
+- **Authoritative persistence**: Convex in cloud mode
+- **Offline persistence**: IndexedDB confirmed cache and durable outbox
+- **Authentication**: Clerk with a 30-day device-local offline lease
+- **Testing**: Vitest, fake-indexeddb, Convex type-checking, and Playwright
+- **Deployment**: Convex functions followed by GitHub Pages artifact
 
 ## Decision Rationale
 
-1. **No TypeScript**: The project is working well with vanilla JavaScript and the complexity of migration doesn't justify the benefits for this specific project.
+1. **Vanilla browser UI**: The application remains framework-free. Convex uses
+   its native TypeScript function model without changing the browser language.
 
-2. **No Testing**: The project has been stable and the overhead of setting up testing infrastructure doesn't align with the project's current needs.
+2. **Persistence tests are mandatory**: Cloud migration and exactly-once offline replay require executable fixtures and deterministic browser-storage tests.
 
 3. **Focus on Stability**: Priority is given to maintaining a working, secure, and well-formatted codebase over adding new technologies.
 
@@ -80,4 +81,4 @@
 If the project requirements change significantly, these decisions can be revisited. For now, the focus remains on:
 - Code quality and formatting
 - Security and performance
-- Documentation and maintainability 
+- Documentation and maintainability

@@ -50,7 +50,7 @@ function bindRestToggle(container, onToggle) {
   const restBtn = container.querySelector('#rest-toggle');
   if (!restBtn) return;
 
-  restBtn.addEventListener('click', () => {
+  restBtn.addEventListener('click', async () => {
     const selectedDate = getState().fitnessSelectedDate || new Date().toISOString();
     const iso = getLocalISODate(selectedDate);
 
@@ -70,7 +70,8 @@ function bindRestToggle(container, onToggle) {
     }
 
     // Proceed with rest day toggle if no activities are recorded
-    toggleRestDay(iso);
+    const saved = await toggleRestDay(iso);
+    if (!saved) return;
     updateRestToggle(container);
 
     // Refresh the calendar to show/hide rest day styling

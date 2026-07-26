@@ -24,10 +24,12 @@ import { initTargetSection, updateTargetExample } from '../utils/HabitTargetSect
 import { showConfirm } from '../../../components/ConfirmDialog.js';
 
 let editingHabitId = null;
+let formInitialized = false;
 
 // ---------- Icon Picker ----------
 
 export function openAddHabitModal() {
+  initializeHabitsForm();
   // Check if categories exist before opening modal
   if (getState().categories.length === 0) {
     // If no categories, show a confirmation dialog to create one first
@@ -62,6 +64,7 @@ export function closeAddHabitModal() {
 }
 
 export function openEditHabitModal(habitId) {
+  initializeHabitsForm();
   const habit = getState().habits.find((h) => h.id === habitId);
   if (!habit) return;
   editingHabitId = habitId;
@@ -249,6 +252,9 @@ function resetHabitFormUI() {
 }
 
 export function initializeHabitsForm() {
+  if (formInitialized) return;
+  formInitialized = true;
+
   import('../ui/categories.js').then((m) => m.populateCategoryDropdown());
   initializeTimePicker();
 
@@ -451,10 +457,23 @@ async function handleSaveHabit() {
     delete updates.completed;
     delete updates.progress;
     delete updates.skippedDates;
+    if (includeTarget) {
+      updates.days = undefined;
+      updates.monthly = undefined;
+      updates.months = undefined;
+      updates.yearInterval = undefined;
+    } else {
+      updates.target = undefined;
+      updates.targetFrequency = undefined;
+      updates.targetUnit = undefined;
+      updates.defaultIncrement = undefined;
+    }
 
-    dispatch(Actions.updateHabit(editingHabitId, updates));
+    const saved = await dispatch(Actions.updateHabit(editingHabitId, updates));
+    if (!saved) return;
   } else {
-    dispatch(Actions.addHabit(habitObj));
+    const saved = await dispatch(Actions.addHabit(habitObj));
+    if (!saved) return;
   }
 
   closeAddHabitModal();
@@ -482,8 +501,9 @@ function deleteHabit() {
     title: 'Delete Habit?',
     message: 'This habit will be permanently removed. This action cannot be undone.',
     okText: 'Delete',
-    onOK: () => {
-      dispatch(Actions.deleteHabit(editingHabitId));
+    onOK: async () => {
+      const saved = await dispatch(Actions.deleteHabit(editingHabitId));
+      if (!saved) return;
       closeAddHabitModal();
       renderHabitsList();
     },

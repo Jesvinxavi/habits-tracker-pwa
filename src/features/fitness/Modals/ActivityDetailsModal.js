@@ -258,7 +258,7 @@ export const ActivityDetailsModal = {
    * Handles saving the activity record
    * @private
    */
-  _handleSave() {
+  async _handleSave() {
     const modal = document.getElementById('activity-details-modal');
     if (!modal) return;
 
@@ -278,26 +278,27 @@ export const ActivityDetailsModal = {
     }
 
     // Get the selected fitness date from state instead of using today
-    import('../../../shared/datetime.js').then(({ getLocalISODate }) => {
-      const selectedDate = getState().fitnessSelectedDate || new Date().toISOString();
-      const dateString = getLocalISODate(selectedDate); // Use consistent date conversion
+    const { getLocalISODate } = await import('../../../shared/datetime.js');
+    const selectedDate = getState().fitnessSelectedDate || new Date().toISOString();
+    const dateString = getLocalISODate(selectedDate); // Use consistent date conversion
 
-      if (isEdit && recordId) {
-        // Update existing record
-        updateRecordedActivity(recordId, dateString, recordData);
-      } else {
-        // Create new record
-        recordActivity(activityId, dateString, recordData);
-      }
+    let saved;
+    if (isEdit && recordId) {
+      // Update existing record
+      saved = await updateRecordedActivity(recordId, dateString, recordData);
+    } else {
+      // Create new record
+      saved = await recordActivity(activityId, dateString, recordData);
+    }
+    if (!saved) return;
 
-      closeModal('activity-details-modal');
+    closeModal('activity-details-modal');
 
-      // Trigger activity list refresh
-      const event = new CustomEvent('ActivityRecorded', {
-        detail: { activityId, recordData },
-      });
-      document.dispatchEvent(event);
+    // Trigger activity list refresh
+    const event = new CustomEvent('ActivityRecorded', {
+      detail: { activityId, recordData },
     });
+    document.dispatchEvent(event);
   },
 
   /**
@@ -322,8 +323,9 @@ export const ActivityDetailsModal = {
       const durationUnit = document.getElementById('duration-unit-select')?.value;
       const intensity = document.getElementById('activity-intensity-select')?.value;
 
-      if (duration && duration.trim() !== '') {
-        recordData.duration = duration;
+      const numericDuration = Number(duration);
+      if (duration && duration.trim() !== '' && Number.isFinite(numericDuration) && numericDuration > 0) {
+        recordData.duration = numericDuration;
         recordData.durationUnit = durationUnit || 'minutes';
       } else {
         // For time-based activities, require at least duration
@@ -357,12 +359,10 @@ export const ActivityDetailsModal = {
       const unit = unitSelect ? unitSelect.value : 'none';
 
       // Only include sets with at least reps filled
-      if (reps) {
-        sets.push({
-          reps,
-          value,
-          unit,
-        });
+      if (Number.isFinite(reps) && reps > 0) {
+        const set = { reps, unit };
+        if (Number.isFinite(value) && value > 0) set.value = value;
+        sets.push(set);
       }
     });
 

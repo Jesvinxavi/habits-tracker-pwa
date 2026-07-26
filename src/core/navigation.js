@@ -1,6 +1,7 @@
 import { dispatch, Actions, getState } from '../core/state.js';
+import { isCloudBackend } from './dataBackend.js';
 
-export function initializeNavigation() {
+export async function initializeNavigation() {
   const tabItems = document.querySelectorAll('.tab-item');
   const views = document.querySelectorAll('.view');
 
@@ -15,6 +16,7 @@ export function initializeNavigation() {
     habits: { loaded: false, loading: false, error: null },
     fitness: { loaded: false, loading: false, error: null },
     stats: { loaded: false, loading: false, error: null },
+    profile: { loaded: false, loading: false, error: null },
   };
 
   function ensurePlaceholder(viewId) {
@@ -87,6 +89,18 @@ export function initializeNavigation() {
           moduleStates[moduleName].error = error;
         }
         break;
+      case 'profile':
+        viewId = 'profile-view';
+        spinnerId = null;
+        templateId = null;
+        try {
+          const { ProfileModule } = await import('../features/profile/ProfileModule.js');
+          await ProfileModule.init();
+        } catch (error) {
+          console.error('Error loading profile module:', error);
+          moduleStates[moduleName].error = error;
+        }
+        break;
       default:
         return;
     }
@@ -125,11 +139,18 @@ export function initializeNavigation() {
         }
       });
       tabItems.forEach((item) => {
-        item.classList.toggle('active', item.dataset.view === viewId);
+        const isActive = item.dataset.view === viewId;
+        item.classList.toggle('active', isActive);
+        item.setAttribute('aria-selected', String(isActive));
       });
     };
-    requestAnimationFrame(updateViews);
-    localStorage.setItem('activeHabitTrackerTab', viewId);
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        updateViews();
+        resolve();
+      });
+    });
+    if (!isCloudBackend()) localStorage.setItem('activeHabitTrackerTab', viewId);
     if (viewId === 'home-view' || viewId === 'fitness-view') {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -168,11 +189,18 @@ export function initializeNavigation() {
       await loadModule('fitness');
     } else if (viewId === 'stats-view') {
       await loadModule('stats');
+    } else if (viewId === 'profile-view') {
+      await loadModule('profile');
     }
+
+    // Do not report the view as ready until its initial render has been
+    // committed. The startup loader relies on this to avoid revealing the
+    // static HTML shell before account-backed content is painted.
+    await new Promise((resolve) => requestAnimationFrame(resolve));
   }
 
   // Force Home on startup (ignore saved tab)
-  setActiveView('home-view');
+  await setActiveView('home-view');
 
   // Also enforce Home once per cold start (covers PWA session restore)
   try {
@@ -182,7 +210,7 @@ export function initializeNavigation() {
     window.addEventListener('pageshow', () => {
       try {
         if (sessionStorage.getItem('bootForcedHome') !== '1') {
-          setActiveView('home-view');
+          void setActiveView('home-view');
           sessionStorage.setItem('bootForcedHome', '1');
         }
       } catch (error) {
@@ -229,6 +257,9 @@ export function initializeNavigation() {
         break;
       case 'stats':
         importPromise = import('../features/stats/stats.js');
+        break;
+      case 'profile':
+        importPromise = import('../features/profile/ProfileModule.js');
         break;
       default:
         return;

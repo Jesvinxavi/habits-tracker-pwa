@@ -21,12 +21,12 @@ export const HomeModule = {
 
     // Mount the home view with all components
     HomeView.mount(homeView, {
-      onHabitComplete: this._handleHabitComplete,
-      onHabitEdit: this._handleHabitEdit,
-      onGroupChange: this._handleGroupChange,
-      onDateChange: this._handleDateChange,
-      onHolidayToggle: this._handleHolidayToggle,
-      onSectionToggle: this._handleSectionToggle,
+      onHabitComplete: this._handleHabitComplete.bind(this),
+      onHabitEdit: this._handleHabitEdit.bind(this),
+      onGroupChange: this._handleGroupChange.bind(this),
+      onDateChange: this._handleDateChange.bind(this),
+      onHolidayToggle: this._handleHolidayToggle.bind(this),
+      onSectionToggle: this._handleSectionToggle.bind(this),
     });
 
     // Set up control bindings

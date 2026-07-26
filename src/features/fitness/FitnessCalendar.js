@@ -33,8 +33,8 @@ export const FitnessCalendar = {
 export function setFitnessCalendarApi(api) {
   _fitnessCalendarApi = api;
   FitnessCalendar.ready = api.ready;
-  FitnessCalendar.setDate = api.setDate;
-  FitnessCalendar.scrollToSelected = api.scrollToSelected;
+  FitnessCalendar.setDate = api.setDate.bind(api);
+  FitnessCalendar.scrollToSelected = api.scrollToSelected.bind(api);
 }
 
 /**
@@ -43,7 +43,7 @@ export function setFitnessCalendarApi(api) {
  * @param {Function} options.onDateChange - Callback when date changes
  * @returns {HTMLElement} The calendar wrapper element
  */
-export function mountFitnessCalendar(options = {}) {
+export function mountFitnessCalendar(onDateChange) {
   const fitnessView = document.getElementById('fitness-view');
   if (!fitnessView) return;
 
@@ -59,7 +59,7 @@ export function mountFitnessCalendar(options = {}) {
 
   // Forward selection event
   calendarWrapper.addEventListener('select', (e) => {
-    if (typeof options.onDateChange === 'function') options.onDateChange(e.detail.date);
+    if (typeof onDateChange === 'function') onDateChange(e.detail.date);
   });
 
   setFitnessCalendarApi(calendarWrapper);

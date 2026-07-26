@@ -2,6 +2,7 @@
 
 import { deepClone, generateUniqueId } from '../shared/common.js';
 import { getLocalMidnightISOString } from '../shared/datetime.js';
+import { isCloudBackend } from './dataBackend.js';
 
 // Helper to get local date without timezone issues
 function getLocalDateISO() {
@@ -20,6 +21,7 @@ const initialState = {
   appFirstOpenDate: getLocalDateISO(),
   selectedGroup: 'daily',
   holidayDates: [],
+  manualHolidayDates: [],
   holidayPeriods: [],
   settings: {
     darkMode: false,
@@ -40,6 +42,8 @@ const initialState = {
   ],
   recordedActivities: {}, // Map of date -> array of activity records
   restDays: {}, // Map dateKey (YYYY-MM-DD) -> true
+  homeSectionVisibility: { Completed: true, Skipped: true },
+  syncStatus: 'legacy',
 };
 
 // Application state - private for immutability
@@ -104,7 +108,10 @@ export const ActionTypes = {
   UPDATE_ACTIVITY: 'UPDATE_ACTIVITY',
   DELETE_ACTIVITY: 'DELETE_ACTIVITY',
   RECORD_ACTIVITY: 'RECORD_ACTIVITY',
+  DELETE_RECORDED_ACTIVITY: 'DELETE_RECORDED_ACTIVITY',
+  UPDATE_RECORDED_ACTIVITY: 'UPDATE_RECORDED_ACTIVITY',
   UPDATE_ACTIVITY_CATEGORY_COLOR: 'UPDATE_ACTIVITY_CATEGORY_COLOR',
+  SET_REST_DAY: 'SET_REST_DAY',
 
   // Settings actions
   UPDATE_SETTINGS: 'UPDATE_SETTINGS',
@@ -112,10 +119,17 @@ export const ActionTypes = {
   TOGGLE_DARK_MODE: 'TOGGLE_DARK_MODE',
   TOGGLE_COMPLETED: 'TOGGLE_COMPLETED',
   TOGGLE_SKIPPED: 'TOGGLE_SKIPPED',
+  UPDATE_HOME_SECTION_VISIBILITY: 'UPDATE_HOME_SECTION_VISIBILITY',
 
   // Bulk actions
   RESET_STATE: 'RESET_STATE',
   IMPORT_DATA: 'IMPORT_DATA',
+  HYDRATE_CACHE: 'HYDRATE_CACHE',
+  APPLY_OPTIMISTIC_OPERATION: 'APPLY_OPTIMISTIC_OPERATION',
+  CONFIRM_OPERATION: 'CONFIRM_OPERATION',
+  APPLY_REMOTE_CHANGE: 'APPLY_REMOTE_CHANGE',
+  ROLLBACK_OPERATION: 'ROLLBACK_OPERATION',
+  SET_SYNC_STATUS: 'SET_SYNC_STATUS',
 
   // New actions
   // UPDATE_HABIT_PROGRESS: 'UPDATE_HABIT_PROGRESS',
@@ -158,19 +172,30 @@ export const Actions = {
   }),
   deleteCategory: (categoryId) => ({ type: ActionTypes.DELETE_CATEGORY, payload: categoryId }),
 
-  setSelectedDate: (date) => ({ type: ActionTypes.SET_SELECTED_DATE, payload: date }),
-  setSelectedGroup: (group) => ({ type: ActionTypes.SET_SELECTED_GROUP, payload: group }),
-  setGroupAndDate: (group, date) => ({ 
-    type: ActionTypes.SET_GROUP_AND_DATE, 
-    payload: { group, date } 
+  setSelectedDate: (date) => ({
+    type: ActionTypes.SET_SELECTED_DATE,
+    payload: date,
+    meta: { source: 'device' },
+  }),
+  setSelectedGroup: (group) => ({
+    type: ActionTypes.SET_SELECTED_GROUP,
+    payload: group,
+    meta: { source: 'device' },
+  }),
+  setGroupAndDate: (group, date) => ({
+    type: ActionTypes.SET_GROUP_AND_DATE,
+    payload: { group, date },
+    meta: { source: 'device' },
   }),
   setFitnessSelectedDate: (date) => ({
     type: ActionTypes.SET_FITNESS_SELECTED_DATE,
     payload: date,
+    meta: { source: 'device' },
   }),
   setAppFirstOpenDate: (date) => ({
     type: ActionTypes.SET_APP_FIRST_OPEN_DATE,
     payload: date,
+    meta: { source: 'device' },
   }),
 
   addHolidayPeriod: (period) => ({
@@ -186,13 +211,14 @@ export const Actions = {
     type: ActionTypes.UPDATE_HOLIDAY_PERIOD,
     payload: period,
   }),
-  toggleSingleHoliday: (date) => ({
+  toggleSingleHoliday: (date, desired) => ({
     type: ActionTypes.TOGGLE_SINGLE_HOLIDAY,
-    payload: date,
+    payload: { date, desired },
   }),
   setHolidayDates: (dates) => ({
     type: ActionTypes.SET_HOLIDAY_DATES,
     payload: dates,
+    meta: { source: 'device' },
   }),
 
   addActivity: (activity) => ({
@@ -211,9 +237,21 @@ export const Actions = {
     type: ActionTypes.RECORD_ACTIVITY,
     payload: { activityId, date, data },
   }),
+  deleteRecordedActivity: (recordId, date) => ({
+    type: ActionTypes.DELETE_RECORDED_ACTIVITY,
+    payload: { recordId, date },
+  }),
+  updateRecordedActivity: (recordId, date, data) => ({
+    type: ActionTypes.UPDATE_RECORDED_ACTIVITY,
+    payload: { recordId, date, data },
+  }),
   updateActivityCategoryColor: (categoryId, newColor) => ({
     type: ActionTypes.UPDATE_ACTIVITY_CATEGORY_COLOR,
     payload: { categoryId, newColor },
+  }),
+  setRestDay: (dateKey, desired) => ({
+    type: ActionTypes.SET_REST_DAY,
+    payload: { dateKey, desired },
   }),
 
   updateSettings: (settings) => ({ type: ActionTypes.UPDATE_SETTINGS, payload: settings }),
@@ -221,9 +259,43 @@ export const Actions = {
   toggleDarkMode: () => ({ type: ActionTypes.TOGGLE_DARK_MODE }),
   toggleCompleted: () => ({ type: ActionTypes.TOGGLE_COMPLETED }),
   toggleSkipped: () => ({ type: ActionTypes.TOGGLE_SKIPPED }),
+  updateHomeSectionVisibility: (visibility) => ({
+    type: ActionTypes.UPDATE_HOME_SECTION_VISIBILITY,
+    payload: visibility,
+  }),
 
   resetState: () => ({ type: ActionTypes.RESET_STATE }),
   importData: (data) => ({ type: ActionTypes.IMPORT_DATA, payload: data }),
+  hydrateCache: (data) => ({
+    type: ActionTypes.HYDRATE_CACHE,
+    payload: data,
+    meta: { source: 'hydration' },
+  }),
+  applyOptimisticOperation: (data) => ({
+    type: ActionTypes.APPLY_OPTIMISTIC_OPERATION,
+    payload: data,
+    meta: { source: 'optimistic' },
+  }),
+  confirmOperation: (data) => ({
+    type: ActionTypes.CONFIRM_OPERATION,
+    payload: data,
+    meta: { source: 'server' },
+  }),
+  applyRemoteChange: (data) => ({
+    type: ActionTypes.APPLY_REMOTE_CHANGE,
+    payload: data,
+    meta: { source: 'server' },
+  }),
+  rollbackOperation: (data) => ({
+    type: ActionTypes.ROLLBACK_OPERATION,
+    payload: data,
+    meta: { source: 'rollback' },
+  }),
+  setSyncStatus: (status) => ({
+    type: ActionTypes.SET_SYNC_STATUS,
+    payload: status,
+    meta: { source: 'sync' },
+  }),
 
   // updateHabitProgress: ({ habitId, progress }) => ({
   //   type: ActionTypes.UPDATE_HABIT_PROGRESS,
@@ -244,6 +316,33 @@ export function dispatch(action) {
 
   const prevState = deepClone(_appData);
 
+  if (
+    isCloudBackend() &&
+    !action.meta?.source &&
+    typeof action.type === 'string'
+  ) {
+    return import('./persistenceRouter.js').then(({ isPersistentAction, persistStateAction }) => {
+      if (!isPersistentAction(action)) {
+        dispatch({ ...action, meta: { source: 'device' } });
+        return true;
+      }
+      return persistStateAction(action, prevState)
+        .then(() => {
+          dispatch({ ...action, meta: { source: 'optimistic' } });
+          return true;
+        })
+        .catch((error) => {
+          console.error('[persistence] Local durable write failed:', error);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('persistence-storage-error', { detail: { message: error.message } })
+            );
+          }
+          return false;
+        });
+    });
+  }
+
   try {
     // Apply the action to create new state
     const newState = reducer(prevState, action);
@@ -253,10 +352,12 @@ export function dispatch(action) {
 
     // Notify listeners
     notify();
+    return true;
   } catch (error) {
     console.error('Error dispatching action:', action, error);
     // Restore previous state on error
     Object.assign(_appData, prevState);
+    return false;
   }
 }
 
@@ -449,15 +550,15 @@ function reducer(state, action) {
       };
 
     case ActionTypes.TOGGLE_SINGLE_HOLIDAY:
-      const dateKey = action.payload;
-      const currentHolidayDates = state.holidayDates || [];
-      const isHoliday = currentHolidayDates.includes(dateKey);
-      
+      const dateKey = action.payload.date;
+      const manualHolidayDates = state.manualHolidayDates || [];
+      const desired =
+        action.payload.desired ?? !manualHolidayDates.includes(dateKey);
       return {
         ...state,
-        holidayDates: isHoliday
-          ? currentHolidayDates.filter(d => d !== dateKey)
-          : [...currentHolidayDates, dateKey],
+        manualHolidayDates: desired
+          ? [...new Set([...manualHolidayDates, dateKey])]
+          : manualHolidayDates.filter((date) => date !== dateKey),
       };
 
     case ActionTypes.ADD_ACTIVITY:
@@ -559,6 +660,27 @@ function reducer(state, action) {
         },
       };
 
+    case ActionTypes.DELETE_RECORDED_ACTIVITY: {
+      const { recordId, date } = action.payload;
+      const records = { ...state.recordedActivities };
+      records[date] = (records[date] || []).filter((item) => item.id !== recordId);
+      if (!records[date].length) delete records[date];
+      return { ...state, recordedActivities: records };
+    }
+
+    case ActionTypes.UPDATE_RECORDED_ACTIVITY: {
+      const { recordId, date, data } = action.payload;
+      return {
+        ...state,
+        recordedActivities: {
+          ...state.recordedActivities,
+          [date]: (state.recordedActivities[date] || []).map((item) =>
+            item.id === recordId ? { ...item, ...data } : item
+          ),
+        },
+      };
+    }
+
     case ActionTypes.UPDATE_ACTIVITY_CATEGORY_COLOR:
       return {
         ...state,
@@ -568,6 +690,13 @@ function reducer(state, action) {
             : category
         ),
       };
+
+    case ActionTypes.SET_REST_DAY: {
+      const restDays = { ...state.restDays };
+      if (action.payload.desired) restDays[action.payload.dateKey] = true;
+      else delete restDays[action.payload.dateKey];
+      return { ...state, restDays };
+    }
 
     case ActionTypes.UPDATE_SETTINGS:
       return {
@@ -599,8 +728,98 @@ function reducer(state, action) {
         settings: { ...state.settings, hideSkipped: !state.settings.hideSkipped },
       };
 
+    case ActionTypes.UPDATE_HOME_SECTION_VISIBILITY:
+      return { ...state, homeSectionVisibility: { ...action.payload } };
+
     case ActionTypes.IMPORT_DATA:
       return { ...state, ...action.payload };
+
+    case ActionTypes.HYDRATE_CACHE:
+      return { ...state, ...action.payload };
+
+    case ActionTypes.SET_SYNC_STATUS:
+      return { ...state, syncStatus: action.payload };
+
+    case ActionTypes.APPLY_OPTIMISTIC_OPERATION:
+    case ActionTypes.APPLY_REMOTE_CHANGE:
+    case ActionTypes.ROLLBACK_OPERATION:
+      return action.payload?.statePatch ? { ...state, ...action.payload.statePatch } : state;
+
+    case ActionTypes.CONFIRM_OPERATION: {
+      const { entityType, canonicalRecord } = action.payload || {};
+      if (!canonicalRecord) return state;
+      if (entityType === 'habitEntries') {
+        return {
+          ...state,
+          habits: state.habits.map((habit) => {
+            if (habit.id !== canonicalRecord.habitClientId) return habit;
+            const completed = { ...(habit.completed || {}) };
+            const progress = { ...(habit.progress || {}) };
+            let skippedDates = [...(habit.skippedDates || [])];
+            const key = canonicalRecord.periodKey;
+            if (!canonicalRecord.deletedAt && canonicalRecord.completed) completed[key] = true;
+            else delete completed[key];
+            if (!canonicalRecord.deletedAt && canonicalRecord.progress) {
+              progress[key] = canonicalRecord.progress;
+            } else {
+              delete progress[key];
+            }
+            if (!canonicalRecord.deletedAt && canonicalRecord.skipped) {
+              skippedDates = [...new Set([...skippedDates, key])];
+            } else {
+              skippedDates = skippedDates.filter((date) => date !== key);
+            }
+            return {
+              ...habit,
+              completed,
+              progress,
+              skippedDates,
+              entryRevisions: {
+                ...(habit.entryRevisions || {}),
+                [key]: canonicalRecord.revision,
+              },
+            };
+          }),
+        };
+      }
+      if (entityType === 'holidaySingles') {
+        const desired = !canonicalRecord.deletedAt;
+        return {
+          ...state,
+          manualHolidayDates: desired
+            ? [...new Set([...(state.manualHolidayDates || []), canonicalRecord.dateKey])]
+            : (state.manualHolidayDates || []).filter(
+                (date) => date !== canonicalRecord.dateKey
+              ),
+          holidaySingleRevisions: {
+            ...(state.holidaySingleRevisions || {}),
+            [canonicalRecord.dateKey]: canonicalRecord.revision,
+          },
+        };
+      }
+      if (entityType === 'restDays') {
+        return {
+          ...state,
+          restDayRevisions: {
+            ...(state.restDayRevisions || {}),
+            [canonicalRecord.dateKey]: canonicalRecord.revision,
+          },
+        };
+      }
+      if (entityType === 'userPreferences') {
+        return {
+          ...state,
+          settings: {
+            darkMode: canonicalRecord.darkMode,
+            hideCompleted: canonicalRecord.hideCompleted,
+            hideSkipped: canonicalRecord.hideSkipped,
+            holidayMode: canonicalRecord.holidayMode,
+          },
+          homeSectionVisibility: canonicalRecord.homeSectionVisibility,
+        };
+      }
+      return state;
+    }
 
     case ActionTypes.RESET_STATE:
       return deepClone(initialState);

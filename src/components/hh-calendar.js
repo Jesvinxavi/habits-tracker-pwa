@@ -10,7 +10,6 @@ export class HHCalendar extends HTMLElement {
     super();
     this._api = null;
     this._readyPromise = new Promise((r) => (this._resolveReady = r));
-    this._autoTodayTriggered = false;
   }
 
   static get observedAttributes() {
@@ -47,26 +46,11 @@ export class HHCalendar extends HTMLElement {
         this._addNavigation();
         this._resolveReady();
         if (!this._autoScrolled) {
-          // Perform a two-step center on first load to account for late layout/padding
+          // Center once after the custom element has its final layout.
           requestAnimationFrame(() => {
-            // Immediate center without animation
             this._api?.scrollToSelected?.({ instant: true });
-            // Follow-up smooth center after layout settles further
-            setTimeout(() => {
-              this._api?.scrollToSelected?.({ instant: false });
-            }, 80);
             this._autoScrolled = true;
           });
-        }
-
-        // Programmatically trigger a single 'Today' action after layout settles further.
-        // This forces a rebuild+center via the same code-path as the Today button.
-        if (!this._autoTodayTriggered) {
-          this._autoTodayTriggered = true;
-          setTimeout(() => {
-            const today = new Date();
-            this.setDate(today, { smooth: false });
-          }, 150);
         }
       });
     } else {
@@ -155,20 +139,7 @@ export class HHCalendar extends HTMLElement {
           }
         }
 
-        // Update global state via dispatched action so other views update too
-        const { getLocalMidnightISOString } = await import('../shared/datetime.js');
-        if (stateKey === 'fitnessSelectedDate') {
-          dispatch(Actions.setFitnessSelectedDate(getLocalMidnightISOString(cur)));
-        } else {
-          dispatch(Actions.setSelectedDate(getLocalMidnightISOString(cur)));
-        }
-        // Refresh tiles to reflect new selection colour immediately
-        this._api?.refresh?.();
-
-        // Now smooth-scroll to center AFTER colour change
-        requestAnimationFrame(() => {
-          this._api?.scrollToSelected?.({ instant: false });
-        });
+        await this.setDate(cur, { smooth: true });
       });
     });
 
@@ -346,9 +317,9 @@ export class HHCalendar extends HTMLElement {
     const stateKey = this.getAttribute('state-key') || 'currentDate';
     const { getLocalMidnightISOString } = await import('../shared/datetime.js');
     if (stateKey === 'fitnessSelectedDate') {
-      dispatch(Actions.setFitnessSelectedDate(getLocalMidnightISOString(date)));
+      await dispatch(Actions.setFitnessSelectedDate(getLocalMidnightISOString(date)));
     } else {
-      dispatch(Actions.setSelectedDate(getLocalMidnightISOString(date)));
+      await dispatch(Actions.setSelectedDate(getLocalMidnightISOString(date)));
     }
     this._api?.refresh?.();
     this._applyVirtualWindow();

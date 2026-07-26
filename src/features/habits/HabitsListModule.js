@@ -52,21 +52,27 @@ export function renderHomeView() {
   updateProgressRing(progress);
 }
 
-export function toggleHabitCompletion(habitId) {
+export async function toggleHabitCompletion(habitId) {
   const state = getState();
   const dateKey = state.selectedDate.slice(0, 10);
-  dispatch(Actions.toggleHabitCompleted(habitId, dateKey));
+  return dispatch(Actions.toggleHabitCompleted(habitId, dateKey));
 }
 
-export function toggleSectionVisibility(sectionType) {
+export async function toggleSectionVisibility(sectionType) {
   const section = document.getElementById(`${sectionType}-section`);
-  if (!section) return;
+  if (!section) return false;
   const collapsed = !section.classList.toggle('collapsed'); // toggle returns new state
-  if (sectionType === 'completed') dispatch(Actions.toggleCompleted(collapsed));
-  else if (sectionType === 'skipped') dispatch(Actions.toggleSkipped(collapsed));
+  let saved = false;
+  if (sectionType === 'completed') saved = await dispatch(Actions.toggleCompleted(collapsed));
+  else if (sectionType === 'skipped') saved = await dispatch(Actions.toggleSkipped(collapsed));
+  if (!saved) {
+    section.classList.toggle('collapsed', !collapsed);
+    return false;
+  }
   // update toggle text if button exists
   const toggleBtn = section.querySelector('.toggle-section');
   if (toggleBtn) toggleBtn.textContent = collapsed ? 'Show ⌄' : 'Hide ⌄';
+  return true;
 }
 
 // ---------- Habits View ----------

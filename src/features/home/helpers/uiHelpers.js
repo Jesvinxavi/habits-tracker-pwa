@@ -1,16 +1,22 @@
-import { dispatch, Actions } from '../../../core/state.js';
+import { getState, dispatch, Actions } from '../../../core/state.js';
 import { getPeriodKey } from '../schedule.js';
 import { makeCardSwipable } from '../../../components/swipeableCard.js';
 import { updateSectionVisibility, sectionVisibility as visObj } from './coreHelpers.js';
 import { HomeHabitsList } from '../components/HomeHabitsList.js';
 import { HomeSectionPills } from '../components/HomeSectionPills.js';
+import { isCloudBackend } from '../../../core/dataBackend.js';
 
 /* -------------------------------------------------------------------------- */
 /*  SECTION VISIBILITY HELPERS                                                */
 /* -------------------------------------------------------------------------- */
 
-export function saveSectionVisibility(sectionVis) {
-  localStorage.setItem('homeSectionVisibility', JSON.stringify(sectionVis));
+export async function saveSectionVisibility(sectionVis) {
+  if (isCloudBackend()) {
+    return dispatch(Actions.updateHomeSectionVisibility(sectionVis));
+  } else {
+    localStorage.setItem('homeSectionVisibility', JSON.stringify(sectionVis));
+    return true;
+  }
 }
 
 export function setSectionVisibility(sectionVis) {
@@ -121,8 +127,13 @@ export function setupMenuToggle() {
           import('../../../features/holidays/manage.js').then((m) => m.openHolidayModal());
           break;
         case 'toggle-completed': {
+          const previous = { ...visObj };
           updateSectionVisibility(!visObj.Completed, visObj.Skipped);
-          saveSectionVisibility(visObj);
+          const saved = await saveSectionVisibility(visObj);
+          if (!saved) {
+            updateSectionVisibility(previous.Completed, previous.Skipped);
+            break;
+          }
           updateDropdownText();
           HomeSectionPills.render?.();
           if (typeof HomeHabitsList.setSelectedSection === 'function') {
@@ -132,8 +143,13 @@ export function setupMenuToggle() {
           break;
         }
         case 'toggle-skipped': {
+          const previous = { ...visObj };
           updateSectionVisibility(visObj.Completed, !visObj.Skipped);
-          saveSectionVisibility(visObj);
+          const saved = await saveSectionVisibility(visObj);
+          if (!saved) {
+            updateSectionVisibility(previous.Completed, previous.Skipped);
+            break;
+          }
           updateDropdownText();
           HomeSectionPills.render?.();
           if (typeof HomeHabitsList.setSelectedSection === 'function') {
@@ -151,20 +167,18 @@ export function setupMenuToggle() {
 /*  PROGRESS UTILITIES                                                         */
 /* -------------------------------------------------------------------------- */
 
-export function adjustProgress(habitId, max, delta) {
-  dispatch((dispatch, getState) => {
-    const state = getState();
-    const habit = state.habits.find((h) => h.id === habitId);
-    if (!habit) return;
-    
-    const key = getPeriodKey(habit, new Date(state.selectedDate));
-    const currentProgress = habit.progress?.[key] || 0;
-    let next = currentProgress + delta;
-    if (next < 0) next = 0;
-    if (next > max) next = max;
-    
-    dispatch(Actions.setHabitProgress(habitId, key, next));
-  });
+export async function adjustProgress(habitId, max, delta) {
+  const state = getState();
+  const habit = state.habits.find((h) => h.id === habitId);
+  if (!habit) return false;
+
+  const key = getPeriodKey(habit, new Date(state.selectedDate));
+  const currentProgress = habit.progress?.[key] || 0;
+  let next = currentProgress + delta;
+  if (next < 0) next = 0;
+  if (next > max) next = max;
+
+  return dispatch(Actions.setHabitProgress(habitId, key, next));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -173,21 +187,18 @@ export function adjustProgress(habitId, max, delta) {
 
 export function attachSwipeBehaviour(swipeContainer, slideEl, habit) {
   makeCardSwipable(swipeContainer, slideEl, habit, {
-    onRestore: () => {
-      dispatch((dispatch, getState) => {
-        const state = getState();
-        const habitState = state.habits.find((h) => h.id === habit.id);
-        if (!habitState) return;
-        
-        // Toggle completion to false
-        dispatch(Actions.toggleHabitCompleted(habit.id, getPeriodKey(habit, new Date(state.selectedDate))));
-        
-        // Clear progress if it's a target habit
-        if (habitState.target) {
-          const key = getPeriodKey(habitState, new Date(state.selectedDate));
-          dispatch(Actions.setHabitProgress(habit.id, key, 0));
-        }
-      });
+    onRestore: async () => {
+      const state = getState();
+      const habitState = state.habits.find((h) => h.id === habit.id);
+      if (!habitState) return;
+      const key = getPeriodKey(habitState, new Date(state.selectedDate));
+
+      const restored = await dispatch(Actions.toggleHabitCompleted(habit.id, key));
+      if (!restored) return;
+
+      if (habitState.target) {
+        await dispatch(Actions.setHabitProgress(habit.id, key, 0));
+      }
     },
   });
 }

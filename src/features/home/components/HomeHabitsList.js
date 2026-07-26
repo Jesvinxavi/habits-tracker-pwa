@@ -3,7 +3,6 @@ import * as scheduleUtils from '../schedule.js';
 import { getState, dispatch, Actions } from '../../../core/state.js';
 import { makeCardSwipable } from '../../../components/swipeableCard.js';
 import { hexToRgba, tintedLinearGradient } from '../../../shared/color.js';
-import { dateToKey } from '../../../shared/datetime.js';
 import { sectionVisibility } from '../helpers/coreHelpers.js';
 import { getPeriodKey } from '../schedule.js';
 import { getCategorizedHabitsForSelectedContext } from '../helpers/habitCategorization.js';
@@ -477,7 +476,6 @@ export const HomeHabitsList = {
           if (curProgress < 0) curProgress = 0;
           if (curProgress > habit.target) curProgress = habit.target;
           updateDisplay(curProgress);
-          this._adjustProgress(habit.id, habit.target, delta);
           currentIncrement = habit.defaultIncrement || 1; // reset to default after first apply
         };
 
@@ -491,18 +489,29 @@ export const HomeHabitsList = {
           applyDelta(-1);
         });
 
-        confirmBtn.addEventListener('click', (e) => {
+        confirmBtn.addEventListener('click', async (e) => {
           e.stopPropagation();
-          // exit edit mode
-          this._exitEditMode(card);
-
-          // Save the final progress state using proper dispatch
-          dispatch(Actions.setHabitProgress(habit.id, periodKey, curProgress));
+          const progressSaved = await dispatch(
+            Actions.setHabitProgress(habit.id, periodKey, curProgress)
+          );
+          if (!progressSaved) return;
 
           // Auto-complete when progress hits target
-          if (habit.target && curProgress >= habit.target) {
-            dispatch(Actions.toggleHabitCompleted(habit.id, getPeriodKey(habit, date)));
+          if (
+            habit.target &&
+            curProgress >= habit.target &&
+            !isHabitCompleted(
+              getState().habits.find((item) => item.id === habit.id) || habit,
+              date
+            )
+          ) {
+            const completionSaved = await dispatch(
+              Actions.toggleHabitCompleted(habit.id, getPeriodKey(habit, date))
+            );
+            if (!completionSaved) return;
           }
+
+          this._exitEditMode(card);
 
           // Trigger UI refresh only when exiting edit mode
           if (this.callbacks.onHabitComplete) {
@@ -555,9 +564,12 @@ export const HomeHabitsList = {
     if (!hasTarget) {
       const toggleBtn = card.querySelector('.complete-toggle');
       if (toggleBtn) {
-        toggleBtn.addEventListener('click', (e) => {
+        toggleBtn.addEventListener('click', async (e) => {
           e.stopPropagation();
-          dispatch(Actions.toggleHabitCompleted(habit.id, getPeriodKey(habit, date)));
+          const saved = await dispatch(
+            Actions.toggleHabitCompleted(habit.id, getPeriodKey(habit, date))
+          );
+          if (!saved) return;
 
           // Invalidate pills cache when habit completion changes
           invalidatePillsCache();
@@ -696,21 +708,23 @@ export const HomeHabitsList = {
     if (isCompleted) {
       // For completed habits: set completion to false and clear progress
       makeCardSwipable(swipeContainer, slideEl, habit, {
-        onRestore: () => {
+        onRestore: async () => {
+          const key = getPeriodKey(habit, new Date(getState().selectedDate));
           // Mark as not completed
-          dispatch(
+          const completionSaved = await dispatch(
             Actions.toggleHabitCompleted(
               habit.id,
-              getPeriodKey(habit, new Date(getState().selectedDate))
+              key
             )
           );
+          if (!completionSaved) return;
           // Reset period progress to 0 (needed for target habits)
-          const key = getPeriodKey(habit, new Date(getState().selectedDate));
-          dispatch(
-            Actions.updateHabit(habit.id, {
-              progress: { [key]: 0 }
-            })
-          );
+          if (habit.target) {
+            const progressSaved = await dispatch(
+              Actions.setHabitProgress(habit.id, key, 0)
+            );
+            if (!progressSaved) return;
+          }
           // Invalidate pills cache when habit is restored
           invalidatePillsCache();
         },
@@ -718,23 +732,20 @@ export const HomeHabitsList = {
     } else if (isSkipped) {
       // For skipped habits: set up swipe-to-restore action
       makeCardSwipable(swipeContainer, slideEl, habit, {
-        onRestore: () => {
-          const dayKey = dateToKey(new Date(getState().selectedDate));
-          dispatch(
-            Actions.updateHabit(habit.id, {
-              skippedDates: getState().habits
-                .find((h) => h.id === habit.id)
-                .skippedDates.filter((d) => d !== dayKey)
-            })
-          );
+        onRestore: async () => {
+          const currentHabit = getState().habits.find((item) => item.id === habit.id);
+          if (!currentHabit) return;
+          const key = getPeriodKey(currentHabit, new Date(getState().selectedDate));
+          const restored = await dispatch(Actions.skipHabit(habit.id, key));
+          if (!restored) return;
 
           // Reset period progress to 0 (needed for target habits)
-          const key = getPeriodKey(habit, new Date(getState().selectedDate));
-          dispatch(
-            Actions.updateHabit(habit.id, {
-              progress: { [key]: 0 }
-            })
-          );
+          if (currentHabit.target) {
+            const progressSaved = await dispatch(
+              Actions.setHabitProgress(habit.id, key, 0)
+            );
+            if (!progressSaved) return;
+          }
 
           // Invalidate pills cache when habit is restored
           invalidatePillsCache();
@@ -778,11 +789,12 @@ export const HomeHabitsList = {
     makeCardSwipable(swipeContainer, slideEl, habit);
 
     // Skip action
-    skipBtn.addEventListener('click', () => {
-      const dayKey = dateToKey(new Date(getState().selectedDate));
-      dispatch(Actions.updateHabit(habit.id, {
-        skippedDates: [...getState().habits.find((h) => h.id === habit.id).skippedDates, dayKey]
-      }));
+    skipBtn.addEventListener('click', async () => {
+      const currentHabit = getState().habits.find((item) => item.id === habit.id);
+      if (!currentHabit) return;
+      const key = getPeriodKey(currentHabit, new Date(getState().selectedDate));
+      const saved = await dispatch(Actions.skipHabit(habit.id, key));
+      if (!saved) return;
       // Invalidate pills cache when habit is skipped
       invalidatePillsCache();
     });

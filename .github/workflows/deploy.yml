@@ -5,18 +5,26 @@ on:
     branches: [ main ]
     paths:
       - 'src/**'
+      - 'convex/**'
       - 'public/**'
       - 'index.html'
       - 'package.json'
+      - 'package-lock.json'
+      - 'postcss.config.js'
+      - 'tailwind.config.cjs'
       - 'vite.config.js'
       - '.github/workflows/deploy.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'src/**'
+      - 'convex/**'
       - 'public/**'
       - 'index.html'
       - 'package.json'
+      - 'package-lock.json'
+      - 'postcss.config.js'
+      - 'tailwind.config.cjs'
       - 'vite.config.js'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
@@ -54,10 +62,25 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
+      - name: Test
+        run: npm test
+
+      - name: Type-check Convex functions
+        run: npm run test:convex
+
+      - name: Deploy Convex functions
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.CONVEX_DEPLOY_KEY != ''
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex deploy
+
       - name: Build
         env:
           NODE_ENV: production
           REPO_NAME: ${{ github.event.repository.name }}
+          VITE_DATA_BACKEND: ${{ vars.VITE_DATA_BACKEND || 'legacy' }}
+          VITE_CONVEX_URL: ${{ vars.VITE_CONVEX_URL }}
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
         run: npm run build
 
       - name: Configure Pages
@@ -73,4 +96,4 @@ jobs:
       - name: Deploy to GitHub Pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         id: deployment
-        uses: actions/deploy-pages@v4 
+        uses: actions/deploy-pages@v4
