@@ -850,6 +850,45 @@
       </div>
     </div>
 
+    <!-- Program Builder Modal -->
+    <div id="program-builder-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1002] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate flex flex-col">
+        <div class="modal-header flex justify-between items-center px-6 py-1 bg-white/90 dark:bg-gray-800/90 border-b border-gray-200/50 dark:border-gray-700/50 flex-shrink-0 rounded-t-2xl backdrop-blur-xl">
+          <button id="cancel-program-builder" class="px-4 py-2 text-ios-blue hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 font-medium">Cancel</button>
+          <button id="save-program-builder" class="px-4 py-2 text-ios-blue rounded-lg font-medium opacity-50 transition-all duration-200 hover:bg-gray-100/50 dark:hover:bg-gray-800/50" disabled>Save</button>
+        </div>
+        <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
+          <div class="p-3 space-y-4">
+            <div>
+              <h2 id="program-builder-title" class="text-2xl font-bold text-gray-900 dark:text-white mb-2">New Program</h2>
+              <p class="text-gray-600 dark:text-gray-400 text-sm">Plan a block of training and schedule your routines.</p>
+            </div>
+            <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+              <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Details</h3>
+              <input id="program-name-input" maxlength="32" required placeholder="Program name"
+                     class="w-full px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 h-12">
+            </div>
+            <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+              <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Dates</h3>
+              <div class="flex items-center gap-3">
+                <input type="date" id="program-start-input" class="flex-1 px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 h-12">
+                <input type="date" id="program-end-input" class="flex-1 px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 h-12">
+              </div>
+              <p id="program-date-error" class="text-xs text-red-600 dark:text-red-400 hidden">End date must be on or after the start date.</p>
+            </div>
+            <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+              <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Weekly schedule</h3>
+              <p id="program-no-routines-notice" class="text-xs text-gray-600 dark:text-gray-400 hidden">Create a routine first to schedule it.</p>
+              <div id="program-schedule-rows" class="space-y-2"></div>
+            </div>
+            <button id="delete-program-btn" class="w-full py-3 px-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors hidden">
+              Delete Program
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Add Activity Modal -->
     <div id="add-activity-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1002] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate flex flex-col">

@@ -1146,7 +1146,7 @@ are needed and the numbers can never drift out of sync.
 
 ### Tasks
 
-- [ ] **6.1** Create `src/features/fitness/helpers/programProgress.js` — **pure functions only**,
+- [x] **6.1** Create `src/features/fitness/helpers/programProgress.js` — **pure functions only**,
       no DOM access, no `getState()` calls (pass data in). This makes it unit-testable, which the
       guidelines require.
   - `inclusiveDayCount(startISO, endISO)`
@@ -1159,7 +1159,7 @@ are needed and the numbers can never drift out of sync.
     established timezone-safe pattern (`getLocalMidnightISOString`) and drifting a day here would
     silently corrupt every number on the tile.
 
-- [ ] **6.2** Add the **Program Builder** modal markup to `index.html` after the Routine Picker:
+- [x] **6.2** Add the **Program Builder** modal markup to `index.html` after the Routine Picker:
       id `program-builder-modal`, `z-[1002]`, standard shell.
   - Header: `Cancel` / `Save` (Save disabled until valid).
   - Title block: *New Program* / *Edit Program* with subtitle
@@ -1182,7 +1182,7 @@ are needed and the numbers can never drift out of sync.
     ```
   - Destructive `#delete-program-btn` (hidden in create mode).
 
-- [ ] **6.3** Create `src/features/fitness/Modals/ProgramBuilderModal.js`:
+- [x] **6.3** Create `src/features/fitness/Modals/ProgramBuilderModal.js`:
   - `openCreateMode()` — clears the form, defaults `startDate` to today and `endDate` to today +
     55 days (8 weeks), populates all seven selects from `getRoutines()`, hides delete, opens.
   - `openEditMode(programId)` — loads the program, fills every field including the day selects,
@@ -1202,7 +1202,7 @@ are needed and the numbers can never drift out of sync.
     *"Create a routine first to schedule it."* and Save stays disabled. Do not open the builder
     into a dead end without explanation.
 
-- [ ] **6.4** Create `src/features/fitness/ProgramTile.js` exporting:
+- [x] **6.4** Create `src/features/fitness/ProgramTile.js` exporting:
   - `renderProgramTile()` — reads `getActiveProgram()`; if `null`, sets
     `#fitness-program-host` `innerHTML = ''` and returns. Otherwise renders:
     ```html
@@ -1233,18 +1233,21 @@ are needed and the numbers can never drift out of sync.
     `aria-valuemin="0"`, `aria-valuemax="100"` — a colour-only indicator needs a textual
     fallback per the guidelines.
 
-- [ ] **6.5** In `FitnessModule.js`, call `renderProgramTile()` on mount and inside the existing
+- [x] **6.5** In `FitnessModule.js`, call `renderProgramTile()` on mount and inside the existing
       `subscribe()` callback so the tile updates whenever programs, records or rest days change.
       Guard it the same way the rest-toggle update is guarded — re-render only when relevant
       state changed, or accept the cheap full re-render if profiling shows it is negligible
       (it is a single small template, so a plain re-render is acceptable).
 
-- [ ] **6.6** Replace the Phase 5 stub: `onNewProgram: () => Modals.openProgramBuilder()` now
+- [x] **6.6** Replace the Phase 5 stub: `onNewProgram: () => Modals.openProgramBuilder()` now
       calls `ProgramBuilderModal.openCreateMode()`. Add `openProgramBuilder()` and
       `openEditProgram(id)` to the `FitnessModals.js` facade.
 
-- [ ] **6.7** Write unit tests in `tests/unit/programProgress.test.js` covering:
-  - a 8-week program, 3 days/week → `plannedWorkouts === 24`
+- [x] **6.7** Write unit tests in `tests/unit/programProgress.test.js` covering:
+  - an 8-week program, 3 days/week → `plannedWorkouts === 24`. **Note:** this only holds
+    when the program starts on a Monday. 20 Oct 2026 is a *Tuesday*, so the worked example
+    below yields **23**, not 24 — the tests cover both a Monday-anchored range (19 Oct –
+    13 Dec 2026, exactly 56 days) and the literal dates below.
   - `currentWeek` at the start date, mid-program, on the end date and after the end date
   - `phase === 'before'` for a future program and `'after'` for a past one
   - completed counting skips rest days and dates with no records
@@ -1254,31 +1257,32 @@ are needed and the numbers can never drift out of sync.
 
 ### Verification — Phase 6
 
-- [ ] `npm run lint`, `npm run test:unit` (including the new `programProgress` tests) pass.
-- [ ] With no program, `#fitness-program-host` is empty and the fitness page layout is pixel-
+- [x] `npm run lint`, `npm run test:unit` (including the new `programProgress` tests) pass.
+- [x] With no program, `#fitness-program-host` is empty and the fitness page layout is pixel-
       identical to Phase 2's result.
-- [ ] `+` → **New program** opens the builder; with zero routines it shows the "Create a routine
+- [x] `+` → **New program** opens the builder; with zero routines it shows the "Create a routine
       first" notice and Save stays disabled.
-- [ ] With routines available, every weekday select lists all saved routines plus "Rest".
-- [ ] Save is disabled until name, valid dates and at least one scheduled day are present; an
+- [x] With routines available, every weekday select lists all saved routines plus "Rest".
+- [x] Save is disabled until name, valid dates and at least one scheduled day are present; an
       inverted date range shows the inline error.
-- [ ] Saving a program renders the tile immediately, directly beneath the Activity/Routines
+- [x] Saving a program renders the tile immediately, directly beneath the Activity/Routines
       buttons and above the calendar.
-- [ ] Tile content is correct for a known case: create a program from 20 Oct to 13 Dec with
+- [x] Tile content is correct for a known case: create a program from 20 Oct to 13 Dec with
       Mon/Wed/Fri scheduled → date range reads `20 Oct – 13 Dec`, total weeks is 8, planned
-      workouts is 24.
-- [ ] Record activities on a scheduled date → completed count and the bar both increase.
-- [ ] Mark a scheduled date as a rest day → it is not counted as completed.
-- [ ] Create a program starting next month → the pill reads `Starts in N days` and the bar is 0%.
-- [ ] Create a program that ended last month → the pill reads `Completed`.
-- [ ] Tapping the tile opens the builder in edit mode with every field pre-populated.
-- [ ] Deleting the program removes the tile and leaves the host empty.
-- [ ] Creating a second program deactivates the first — only one tile ever renders, and
+      workouts is **23** (20 Oct 2026 is a Tuesday, so the first Monday is the 21st; a
+      Monday-anchored 19 Oct start gives the 24 originally written here).
+- [x] Record activities on a scheduled date → completed count and the bar both increase.
+- [x] Mark a scheduled date as a rest day → it is not counted as completed.
+- [x] Create a program starting next month → the pill reads `Starts in N days` and the bar is 0%.
+- [x] Create a program that ended last month → the pill reads `Completed`.
+- [x] Tapping the tile opens the builder in edit mode with every field pre-populated.
+- [x] Deleting the program removes the tile and leaves the host empty.
+- [x] Creating a second program deactivates the first — only one tile ever renders, and
       `appData.programs.filter((p) => p.active).length === 1`.
-- [ ] Reload — the active program, its schedule and its computed progress all survive.
-- [ ] Offline: create a program, reload while offline, confirm it renders; reconnect and confirm
+- [x] Reload — the active program, its schedule and its computed progress all survive.
+- [x] Offline: create a program, reload while offline, confirm it renders; reconnect and confirm
       it syncs.
-- [ ] Dark mode and 375px width both render the tile without overflow or truncation problems.
+- [x] Dark mode and 375px width both render the tile without overflow or truncation problems.
 
 ---
 

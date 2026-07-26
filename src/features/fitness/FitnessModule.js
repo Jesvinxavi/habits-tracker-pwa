@@ -8,6 +8,7 @@ import { FitnessCalendar } from './FitnessCalendar.js';
 import { isRestDay } from './restDays.js';
 import { getActivitiesForDate, getActivity } from './activities.js';
 import { recordRoutineForDate } from './routines.js';
+import { renderProgramTile } from './ProgramTile.js';
 import { showConfirm } from '../../components/ConfirmDialog.js';
 import { isCloudBackend } from '../../core/dataBackend.js';
 
@@ -93,7 +94,7 @@ function buildAddMenuActions() {
         },
       }),
     onSaveAsRoutine: () => openSaveTodayAsRoutine(),
-    onNewProgram: () => Modals.openProgramBuilder(),
+    onNewProgram: () => Modals.openProgramBuilder({ onSaved: () => renderProgramTile() }),
     onTimer: () => Timer.openModal(),
   };
 }
@@ -177,6 +178,9 @@ export async function initializeFitness() {
         handleActivityClick(activityId);
       }
     });
+    // A single small template, so a plain re-render on any state change is cheap
+    // enough and keeps the tile honest as records, rest days and programs change.
+    renderProgramTile();
     // Only update rest toggle if the selected date changed
     if (getState().fitnessSelectedDate !== lastFitnessDate) {
       lastFitnessDate = getState().fitnessSelectedDate;
@@ -192,6 +196,9 @@ export async function initializeFitness() {
       handleActivityClick(activityId);
     }
   });
+
+  // Render the program tile for the active program, if there is one
+  renderProgramTile();
 
   // Set up responsive behavior
   FitnessView.setupResponsiveBehavior();

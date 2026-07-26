@@ -6,7 +6,7 @@ import { ActivityLibraryModal } from './Modals/ActivityLibraryModal.js';
 import { RoutinesModal } from './Modals/RoutinesModal.js';
 import { RoutineBuilderModal } from './Modals/RoutineBuilderModal.js';
 import { RoutinePickerModal } from './Modals/RoutinePickerModal.js';
-import { showConfirm } from '../../components/ConfirmDialog.js';
+import { ProgramBuilderModal } from './Modals/ProgramBuilderModal.js';
 
 export const Modals = {
   /**
@@ -50,17 +50,20 @@ export const Modals = {
   },
 
   /**
-   * Opens the program builder. Phase 6 replaces this stub with the real modal;
-   * until then it explains itself rather than reading as a dead menu item.
+   * Opens the program builder for a new program
+   * @param {Object} [options] - onSaved callback
    */
-  openProgramBuilder() {
-    showConfirm({
-      title: 'Programs Coming Next',
-      message: 'Program scheduling is not available yet.',
-      okText: 'OK',
-      cancelText: '',
-      onOK: () => {},
-    });
+  openProgramBuilder(options) {
+    ProgramBuilderModal.openCreateMode(options);
+  },
+
+  /**
+   * Opens the program builder on an existing program
+   * @param {string} programId - The program ID to edit
+   * @param {Object} [options] - onSaved callback
+   */
+  openEditProgram(programId, options) {
+    ProgramBuilderModal.openEditMode(programId, options);
   },
 
   /**
