@@ -26,15 +26,24 @@ export const ActivityPickerModal = {
   _onConfirm: null,
 
   /**
-   * Opens the picker with an empty selection.
+   * Opens the picker.
    * @param {Object} [options] - Open options
+   * @param {string[]} [options.selectedIds] - Activities to start selected, in order
+   * @param {string} [options.title] - Header title
+   * @param {string} [options.confirmLabel] - Confirm button label
    * @param {Function} [options.onConfirm] - Receives the ordered selected activity ids
    * @returns {void}
    */
-  open({ onConfirm = null } = {}) {
+  open({ selectedIds = [], title = 'Add Activities', confirmLabel = 'Add', onConfirm = null } = {}) {
     this._bindStaticHandlers();
-    this._selectedIds = [];
+    // Filter out ids whose activity has been deleted so they never re-enter a selection.
+    this._selectedIds = selectedIds.filter((id) => Boolean(getActivity(id)));
     this._onConfirm = onConfirm;
+
+    const titleEl = document.getElementById('activity-picker-title');
+    if (titleEl) titleEl.textContent = title;
+    const confirmBtn = document.getElementById('confirm-activity-picker');
+    if (confirmBtn) confirmBtn.textContent = confirmLabel;
 
     const filter = document.getElementById('activity-picker-filter');
     if (filter) filter.value = '';

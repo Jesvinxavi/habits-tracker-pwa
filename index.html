@@ -824,9 +824,10 @@
                 <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Activities</h3>
                 <span id="routine-selection-count" class="text-xs font-medium text-gray-500 dark:text-gray-400">0 selected</span>
               </div>
-              <input id="routine-activity-filter" type="text" placeholder="Filter activities..." autocomplete="off"
-                     class="w-full px-4 py-2 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-ios-blue/50 transition-all duration-200">
-              <div id="routine-activity-picker" class="space-y-2 max-h-[40vh] overflow-y-auto scrollbar-thin"></div>
+              <div id="routine-selected-list" class="space-y-2 max-h-[40vh] overflow-y-auto scrollbar-thin"></div>
+              <button id="routine-add-activities-btn" class="w-full py-2.5 px-4 bg-ios-blue/10 text-ios-blue rounded-xl font-semibold hover:bg-ios-blue/20 transition-colors flex items-center justify-center gap-2">
+                <span class="material-icons text-xl">add</span>Add activities
+              </button>
             </div>
             <button id="delete-routine-btn" class="w-full py-3 px-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors hidden">
               Delete Routine
@@ -837,11 +838,11 @@
     </div>
 
     <!-- Activity Picker Modal (multi-select, records for the selected day) -->
-    <div id="activity-picker-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1002] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
+    <div id="activity-picker-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1003] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate flex flex-col">
         <div class="modal-header flex justify-between items-center px-6 py-1 bg-white/90 dark:bg-gray-800/90 border-b border-gray-200/50 dark:border-gray-700/50 flex-shrink-0 rounded-t-2xl backdrop-blur-xl">
           <button id="cancel-activity-picker" class="px-4 py-2 text-ios-blue hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 font-medium">Cancel</button>
-          <span class="text-lg font-semibold text-gray-900 dark:text-white">Add Activities</span>
+          <span id="activity-picker-title" class="text-lg font-semibold text-gray-900 dark:text-white">Add Activities</span>
           <button id="confirm-activity-picker" class="px-4 py-2 text-ios-blue rounded-lg font-medium opacity-50 transition-all duration-200 hover:bg-gray-100/50 dark:hover:bg-gray-800/50" disabled>Add</button>
         </div>
         <div class="px-4 pt-3 pb-2 flex-shrink-0 space-y-2">

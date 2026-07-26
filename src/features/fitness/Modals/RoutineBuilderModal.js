@@ -1,17 +1,9 @@
 // RoutineBuilderModal.js - Name a routine and multi-select the activities in it
 import { closeModal, openModal, topModalId } from '../../../components/Modal.js';
 import { showConfirm } from '../../../components/ConfirmDialog.js';
-import {
-  buildSelectableCategorySection,
-  bindSelectableTileEvents,
-} from '../ActivityLibrary/SelectableActivityTile.js';
-import {
-  getActivitiesByCategory,
-  searchActivities,
-  getActivity,
-  getActivityCategory,
-  groupActivitiesByMuscleGroup,
-} from '../activities.js';
+import { hexToRgba } from '../../../shared/color.js';
+import { getActivity, getActivityCategory } from '../activities.js';
+import { ActivityPickerModal } from './ActivityPickerModal.js';
 import { addRoutine, updateRoutine, deleteRoutine, getRoutine, getRoutineActivities } from '../routines.js';
 
 const MODAL_ID = 'routine-builder-modal';
@@ -48,8 +40,7 @@ export const RoutineBuilderModal = {
     this._setTitle(title);
     this._setName(presetName);
     this._setDeleteVisible(false);
-    this._resetFilter();
-    this._renderPicker('');
+    this._renderSelected();
     this._updateCount();
     this._validate();
     openModal(MODAL_ID);
@@ -75,8 +66,7 @@ export const RoutineBuilderModal = {
     this._setTitle('Edit Routine');
     this._setName(routine.name || '');
     this._setDeleteVisible(true);
-    this._resetFilter();
-    this._renderPicker('');
+    this._renderSelected();
     this._updateCount();
     this._validate();
     openModal(MODAL_ID);
@@ -124,96 +114,84 @@ export const RoutineBuilderModal = {
   },
 
   /**
+   * Renders the chosen activities only. Browsing and selecting happens in the
+   * activity picker, reached from the Add activities button.
    * @returns {void}
    */
-  _resetFilter() {
-    const filter = document.getElementById('routine-activity-filter');
-    if (filter) filter.value = '';
-  },
+  _renderSelected() {
+    const list = document.getElementById('routine-selected-list');
+    if (!list) return;
 
-  /**
-   * Renders the grouped selectable activity list.
-   * @param {string} query - Filter text
-   * @returns {void}
-   */
-  _renderPicker(query = '') {
-    const picker = document.getElementById('routine-activity-picker');
-    if (!picker) return;
-
-    let html = '';
-
-    if (query.trim() === '') {
-      Object.values(getActivitiesByCategory()).forEach(({ category, activities }) => {
-        if (activities.length === 0) return;
-        if (category.id === 'strength') {
-          html += buildSelectableCategorySection(
-            category,
-            null,
-            this._selectedIds,
-            groupActivitiesByMuscleGroup(activities)
-          );
-        } else {
-          html += buildSelectableCategorySection(category, activities, this._selectedIds);
-        }
-      });
-    } else {
-      const matches = searchActivities(query);
-      const grouped = {};
-      matches.forEach((activity) => {
-        const category = getActivityCategory(activity.categoryId);
-        if (!category) return;
-        if (!grouped[category.id]) grouped[category.id] = { category, activities: [] };
-        grouped[category.id].activities.push(activity);
-      });
-      Object.values(grouped).forEach(({ category, activities }) => {
-        if (category.id === 'strength') {
-          html += buildSelectableCategorySection(
-            category,
-            null,
-            this._selectedIds,
-            groupActivitiesByMuscleGroup(activities)
-          );
-        } else {
-          html += buildSelectableCategorySection(category, activities, this._selectedIds);
-        }
-      });
-    }
-
-    if (html === '') {
-      html =
-        query.trim() === ''
-          ? `
-        <div class="flex flex-col items-center justify-center py-6 text-center space-y-2">
+    if (this._selectedIds.length === 0) {
+      list.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-6 text-center space-y-1">
           <span class="material-icons text-3xl text-gray-400">fitness_center</span>
-          <p class="text-sm text-gray-600 dark:text-gray-400">No activities available</p>
-          <p class="text-xs text-gray-500">Create an activity before building a routine.</p>
-        </div>
-      `
-          : `
-        <div class="flex flex-col items-center justify-center py-6 text-center space-y-2">
-          <span class="material-icons text-3xl text-gray-400">search_off</span>
-          <p class="text-sm text-gray-600 dark:text-gray-400">No activities found</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400">No activities yet</p>
+          <p class="text-xs text-gray-500">Add activities to build this routine.</p>
         </div>
       `;
+      return;
     }
 
-    picker.innerHTML = html;
-    bindSelectableTileEvents(picker, (activityId) => this._toggle(activityId));
+    list.innerHTML = this._selectedIds
+      .map((activityId, index) => {
+        const activity = getActivity(activityId);
+        if (!activity) return '';
+        const category = getActivityCategory(activity.categoryId);
+        const color = category?.color || '#64748B';
+        return `
+        <div class="routine-selected-item flex items-center px-3 py-2 rounded-xl w-full" style="border: 2.5px solid ${color}; background-color: ${hexToRgba(color, 0.05)};" data-activity-id="${activityId}">
+          <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 w-4 flex-shrink-0">${index + 1}</span>
+          <div class="activity-icon w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center mx-2 text-xl" style="background-color: ${color}20;" aria-hidden="true">
+            ${activity.icon || category?.icon || ''}
+          </div>
+          <div class="flex-grow text-left min-w-0">
+            <div class="font-semibold leading-tight text-gray-900 dark:text-white truncate">${activity.name}</div>
+          </div>
+          <button class="routine-remove-activity w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-colors ml-2 flex-shrink-0" data-activity-id="${activityId}" aria-label="Remove ${activity.name}">
+            <span class="material-icons text-lg">close</span>
+          </button>
+        </div>
+      `;
+      })
+      .join('');
+
+    list.querySelectorAll('.routine-remove-activity').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this._remove(btn.dataset.activityId);
+      });
+    });
   },
 
   /**
-   * Adds or removes an activity from the ordered selection.
+   * Opens the activity picker seeded with the current selection.
+   * @returns {void}
+   */
+  _openActivityPicker() {
+    ActivityPickerModal.open({
+      selectedIds: [...this._selectedIds],
+      title: 'Select Activities',
+      confirmLabel: 'Done',
+      onConfirm: (activityIds) => {
+        this._selectedIds = activityIds;
+        this._renderSelected();
+        this._updateCount();
+        this._validate();
+      },
+    });
+  },
+
+  /**
+   * Removes one activity from the routine.
    * @param {string} activityId - Activity client id
    * @returns {void}
    */
-  _toggle(activityId) {
+  _remove(activityId) {
     const index = this._selectedIds.indexOf(activityId);
-    if (index === -1) this._selectedIds.push(activityId);
-    else this._selectedIds.splice(index, 1);
-
-    // Re-render so the ring and checkmark reflect the new selection. The filter
-    // value is preserved, so filtering never loses selections.
-    this._renderPicker(document.getElementById('routine-activity-filter')?.value || '');
+    if (index === -1) return;
+    this._selectedIds.splice(index, 1);
+    this._renderSelected();
     this._updateCount();
     this._validate();
   },
@@ -291,8 +269,8 @@ export const RoutineBuilderModal = {
       this._validate();
     });
 
-    document.getElementById('routine-activity-filter')?.addEventListener('input', (event) => {
-      this._renderPicker(event.target.value);
+    document.getElementById('routine-add-activities-btn')?.addEventListener('click', () => {
+      this._openActivityPicker();
     });
 
     document.getElementById('save-routine-builder')?.addEventListener('click', () => {
