@@ -1,5 +1,7 @@
 import { getState, dispatch, Actions } from '../../core/state.js';
 import { generateUniqueId } from '../../shared/common.js';
+import { showConfirm } from '../../components/ConfirmDialog.js';
+import { isRestDay } from './restDays.js';
 
 
 
@@ -53,6 +55,62 @@ export async function recordActivity(activityId, date, data = {}) {
   if (!saved) return null;
 
   return record;
+}
+
+/**
+ * Records several activities for one date in a single user action.
+ *
+ * Records are created with no duration, intensity or sets: the cards render
+ * without metric pills and the user taps one to fill details in through the
+ * existing activity-details flow. This is deliberate, not a missing field.
+ *
+ * @param {string[]} activityIds Activity client ids, in the order to record them.
+ * @param {string} isoDate Target date, YYYY-MM-DD.
+ * @returns {Promise<{recorded: number, failed: number, blocked: boolean}>} Attempt counts.
+ */
+export async function recordActivitiesForDate(activityIds, isoDate) {
+  const dateKey = String(isoDate).slice(0, 10);
+
+  if (isRestDay(dateKey)) {
+    showConfirm({
+      title: 'Rest Day',
+      message: 'Unable to record activity as selected day is a rest day.',
+      okText: 'OK',
+      cancelText: '',
+      onOK: () => {},
+    });
+    return { recorded: 0, failed: 0, blocked: true };
+  }
+
+  // Drop ids whose activity has since been deleted rather than failing the batch.
+  const live = activityIds.filter((activityId) => Boolean(getActivity(activityId)));
+  let recorded = 0;
+  let failed = 0;
+
+  for (const activityId of live) {
+    // Sequential, not Promise.all: each call commits an operation to the
+    // IndexedDB outbox, and serialising keeps outbox ordering deterministic.
+    // eslint-disable-next-line no-await-in-loop
+    const saved = await recordActivity(activityId, dateKey, {});
+    if (saved) recorded += 1;
+    else failed += 1;
+  }
+
+  if (failed > 0) {
+    showConfirm({
+      title: 'Some Activities Not Added',
+      message: `${failed} of ${live.length} activities could not be added. Check your connection and try again.`,
+      okText: 'OK',
+      cancelText: '',
+      onOK: () => {},
+    });
+  }
+
+  if (recorded > 0 && typeof document !== 'undefined') {
+    document.dispatchEvent(new CustomEvent('ActivityRecorded', { detail: { dateKey, recorded } }));
+  }
+
+  return { recorded, failed, blocked: false };
 }
 
 /**

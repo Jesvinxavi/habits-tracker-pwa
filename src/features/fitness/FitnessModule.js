@@ -6,8 +6,8 @@ import { getState, dispatch, Actions, subscribe } from '../../core/state.js';
 import { getLocalMidnightISOString, getLocalISODate } from '../../shared/datetime.js';
 import { FitnessCalendar } from './FitnessCalendar.js';
 import { isRestDay } from './restDays.js';
-import { getActivitiesForDate, getActivity } from './activities.js';
-import { recordRoutineForDate } from './routines.js';
+import { getActivitiesForDate, getActivity, recordActivitiesForDate } from './activities.js';
+import { recordRoutinesForDate } from './routines.js';
 import { renderProgramTile } from './ProgramTile.js';
 import { showConfirm } from '../../components/ConfirmDialog.js';
 import { isCloudBackend } from '../../core/dataBackend.js';
@@ -77,20 +77,22 @@ function openSaveTodayAsRoutine() {
  * @returns {Object} Handlers keyed by menu intent.
  */
 function buildAddMenuActions() {
+  const selectedDateISO = () =>
+    getLocalISODate(getState().fitnessSelectedDate || new Date().toISOString());
+
   return {
+    // A selection surface rather than the library: no stats or edit buttons, and
+    // several activities can be added in one action.
     onAddActivity: () =>
-      Modals.openActivityLibrary({
-        onActivityClick: (activityId) => handleActivityClick(activityId),
-        onStatsClick: (activityId) => Modals.openStats(activityId),
-        onEditClick: (activityId) => Modals.openEditActivity(activityId),
+      Modals.openActivityPicker({
+        onConfirm: (activityIds) => {
+          void recordActivitiesForDate(activityIds, selectedDateISO());
+        },
       }),
     onAddRoutine: () =>
       Modals.openRoutinePicker({
-        onPick: (routineId) => {
-          const iso = getLocalISODate(
-            getState().fitnessSelectedDate || new Date().toISOString()
-          );
-          void recordRoutineForDate(routineId, iso);
+        onConfirm: (routineIds) => {
+          void recordRoutinesForDate(routineIds, selectedDateISO());
         },
       }),
     onSaveAsRoutine: () => openSaveTodayAsRoutine(),

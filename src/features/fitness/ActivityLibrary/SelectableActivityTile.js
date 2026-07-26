@@ -9,15 +9,17 @@ import { hexToRgba } from '../../../shared/color.js';
  * @param {Array|null} activities - Activities for a regular category
  * @param {string[]} selectedIds - Currently selected activity ids
  * @param {Object|null} muscleGroups - Activities grouped by muscle group (strength only)
+ * @param {string} [idPrefix] - Section id prefix, so two pickers can be in the DOM at once
  * @returns {string} HTML string for the selectable category section
  */
 export function buildSelectableCategorySection(
   category,
   activities = null,
   selectedIds = [],
-  muscleGroups = null
+  muscleGroups = null,
+  idPrefix = 'select-category'
 ) {
-  const categoryId = `select-category-${category.id}`;
+  const categoryId = `${idPrefix}-${category.id}`;
 
   let activitiesContent = '';
 

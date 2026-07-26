@@ -6,6 +6,7 @@ import { ActivityLibraryModal } from './Modals/ActivityLibraryModal.js';
 import { RoutinesModal } from './Modals/RoutinesModal.js';
 import { RoutineBuilderModal } from './Modals/RoutineBuilderModal.js';
 import { RoutinePickerModal } from './Modals/RoutinePickerModal.js';
+import { ActivityPickerModal } from './Modals/ActivityPickerModal.js';
 import { ProgramBuilderModal } from './Modals/ProgramBuilderModal.js';
 
 export const Modals = {
@@ -42,8 +43,16 @@ export const Modals = {
   },
 
   /**
-   * Opens the routine picker for recording a routine on the selected day
-   * @param {Object} [options] - onPick callback receiving the routine ID
+   * Opens the multi-select activity picker for recording on the selected day
+   * @param {Object} [options] - onConfirm callback receiving the selected activity IDs
+   */
+  openActivityPicker(options) {
+    ActivityPickerModal.open(options);
+  },
+
+  /**
+   * Opens the multi-select routine picker for recording on the selected day
+   * @param {Object} [options] - onConfirm callback receiving the selected routine IDs
    */
   openRoutinePicker(options) {
     RoutinePickerModal.open(options);
