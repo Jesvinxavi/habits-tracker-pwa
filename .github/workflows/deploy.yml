@@ -14,19 +14,6 @@ on:
       - 'tailwind.config.cjs'
       - 'vite.config.js'
       - '.github/workflows/deploy.yml'
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'src/**'
-      - 'convex/**'
-      - 'public/**'
-      - 'index.html'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'postcss.config.js'
-      - 'tailwind.config.cjs'
-      - 'vite.config.js'
-      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 # Allow this workflow to write to GitHub Pages
