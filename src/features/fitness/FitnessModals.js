@@ -3,6 +3,8 @@ import { AddEditActivityModal } from './Modals/AddEditActivityModal.js';
 import { ActivityDetailsModal } from './Modals/ActivityDetailsModal.js';
 import { StatsModal } from './Modals/StatsModal.js';
 import { ActivityLibraryModal } from './Modals/ActivityLibraryModal.js';
+import { RoutinesModal } from './Modals/RoutinesModal.js';
+import { RoutineBuilderModal } from './Modals/RoutineBuilderModal.js';
 
 export const Modals = {
   /**
@@ -11,6 +13,30 @@ export const Modals = {
    */
   openActivityLibrary(callbacks) {
     ActivityLibraryModal.open(callbacks);
+  },
+
+  /**
+   * Opens the saved-routines list
+   */
+  openRoutines() {
+    RoutinesModal.open();
+  },
+
+  /**
+   * Opens the routine builder for a new routine
+   * @param {Object} [options] - presetActivityIds, presetName, title, onSaved
+   */
+  openRoutineBuilder(options) {
+    RoutineBuilderModal.openCreateMode(options);
+  },
+
+  /**
+   * Opens the routine builder on an existing routine
+   * @param {string} routineId - The routine ID to edit
+   * @param {Object} [options] - onSaved callback
+   */
+  openEditRoutine(routineId, options) {
+    RoutineBuilderModal.openEditMode(routineId, options);
   },
 
   /**

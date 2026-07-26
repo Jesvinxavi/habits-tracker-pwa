@@ -756,7 +756,7 @@ routine".
 
 ### Tasks
 
-- [ ] **4.1** Add the Routines modal markup to `index.html`, after the Activity Library modal:
+- [x] **4.1** Add the Routines modal markup to `index.html`, after the Activity Library modal:
   ```html
   <!-- Routines Modal -->
   <div id="routines-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1001] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
@@ -779,7 +779,7 @@ routine".
   ```
   The spacer `<span class="w-[72px]">` keeps the title optically centred against the Close button.
 
-- [ ] **4.2** Add the Routine Builder modal markup to `index.html`, after the Routines modal:
+- [x] **4.2** Add the Routine Builder modal markup to `index.html`, after the Routines modal:
   ```html
   <!-- Routine Builder Modal -->
   <div id="routine-builder-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1002] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
@@ -817,7 +817,7 @@ routine".
   </div>
   ```
 
-- [ ] **4.3** Create `src/features/fitness/ActivityLibrary/SelectableActivityTile.js` exporting:
+- [x] **4.3** Create `src/features/fitness/ActivityLibrary/SelectableActivityTile.js` exporting:
   - `buildSelectableCategorySection(category, activities, selectedIds, muscleGroups)` — same
     visual structure as `buildCategorySection()` (coloured header, chevron, indented tiles) but
     each tile:
@@ -835,7 +835,7 @@ routine".
     `onToggle(activityId)`
   - Reuse `hexToRgba` from `src/shared/color.js` for tile backgrounds so colours match the library.
 
-- [ ] **4.4** Create `src/features/fitness/Modals/RoutineBuilderModal.js` exporting
+- [x] **4.4** Create `src/features/fitness/Modals/RoutineBuilderModal.js` exporting
       `RoutineBuilderModal` with:
   - Module state: `_selectedIds = []` (ordered — **selection order is routine order**),
     `_editRoutineId = null`, `_onSaved = null`.
@@ -862,7 +862,7 @@ routine".
     onOK: async () => { … } })`, then `deleteRoutine`, close, invoke `_onSaved`.
   - Filter input, Cancel button and overlay-click behave as in the Activity Library modal.
 
-- [ ] **4.5** Create `src/features/fitness/Modals/RoutinesModal.js` exporting `RoutinesModal`:
+- [x] **4.5** Create `src/features/fitness/Modals/RoutinesModal.js` exporting `RoutinesModal`:
   - `open()` — render the list, then `openModal('routines-modal')`.
   - `_render()` — read `getRoutines()`. If empty, render the empty state into `#routines-list`:
     ```html
@@ -897,43 +897,43 @@ routine".
     `#close-routines-modal` and overlay click → `closeModal('routines-modal')`.
   - Escape key closes the modal.
 
-- [ ] **4.6** Add both to the `Modals` facade in `src/features/fitness/FitnessModals.js`:
+- [x] **4.6** Add both to the `Modals` facade in `src/features/fitness/FitnessModals.js`:
       `openRoutines()`, `openRoutineBuilder(options)`, `openEditRoutine(routineId, options)`.
 
-- [ ] **4.7** In `FitnessModule.js`, replace the Phase 2 placeholder with
+- [x] **4.7** In `FitnessModule.js`, replace the Phase 2 placeholder with
       `onRoutines: () => Modals.openRoutines()`.
 
-- [ ] **4.8** Escape-key and overlay-click handling must respect the modal stack: pressing Escape
+- [x] **4.8** Escape-key and overlay-click handling must respect the modal stack: pressing Escape
       while the builder is open over the routines modal closes **only** the builder. Use
       `topModalId()` from Phase 2 to guard the Escape handler in both modules.
 
 ### Verification — Phase 4
 
-- [ ] `npm run lint` and `npm run test:unit` pass.
-- [ ] With zero routines, tapping **Routines** shows the empty state text and the
+- [x] `npm run lint` and `npm run test:unit` pass.
+- [x] With zero routines, tapping **Routines** shows the empty state text and the
       **+ New Routine** button above it.
-- [ ] **+ New Routine** opens the builder over the routines modal; the routines modal is visible
+- [x] **+ New Routine** opens the builder over the routines modal; the routines modal is visible
       behind the dimmed overlay.
-- [ ] Save is disabled until both a name and at least one activity are provided; the disabled
+- [x] Save is disabled until both a name and at least one activity are provided; the disabled
       state uses `opacity-50` like every other modal in the app.
-- [ ] Selecting activities toggles the ring and filled checkmark; the "N selected" counter tracks
+- [x] Selecting activities toggles the ring and filled checkmark; the "N selected" counter tracks
       correctly; deselecting works.
-- [ ] The builder's activity filter narrows the picker without losing already-made selections
+- [x] The builder's activity filter narrows the picker without losing already-made selections
       (select an activity, filter to something else, clear the filter — it is still selected).
-- [ ] Saving creates the routine, closes the builder, and the routines list behind it updates
+- [x] Saving creates the routine, closes the builder, and the routines list behind it updates
       immediately with the correct activity count.
-- [ ] Reload the page — the routine is still listed (Convex round-trip proven).
-- [ ] Tapping a routine card opens Edit mode with the name and the exact selected activities
+- [x] Reload the page — the routine is still listed (Convex round-trip proven).
+- [x] Tapping a routine card opens Edit mode with the name and the exact selected activities
       pre-populated **in the saved order**.
-- [ ] Editing the name and selection saves correctly; the list reflects the change.
-- [ ] Delete Routine shows the shared confirm dialog and, on confirm, removes the routine from
+- [x] Editing the name and selection saves correctly; the list reflects the change.
+- [x] Delete Routine shows the shared confirm dialog and, on confirm, removes the routine from
       the list and from `appData.routines`.
-- [ ] Integrity: create a routine with 3 activities, delete one of those activities from the
+- [x] Integrity: create a routine with 3 activities, delete one of those activities from the
       Activity Library, reopen the routine — it shows **2 activities**, opens in the builder
       without errors, and no console warnings appear.
-- [ ] Escape closes only the topmost modal; body scroll-lock is released only when the last modal
+- [x] Escape closes only the topmost modal; body scroll-lock is released only when the last modal
       closes.
-- [ ] Dark mode renders all new cards, inputs and indicators correctly.
+- [x] Dark mode renders all new cards, inputs and indicators correctly.
 
 ---
 

@@ -78,8 +78,7 @@ export async function initializeFitness() {
         onStatsClick: (activityId) => Modals.openStats(activityId),
         onEditClick: (activityId) => Modals.openEditActivity(activityId),
       }),
-    // Placeholder until Phase 4 (Routines).
-    onRoutines: () => {},
+    onRoutines: () => Modals.openRoutines(),
     onStatsClick: (activityId) => Modals.openStats(activityId),
     onEditClick: (activityId) => Modals.openEditActivity(activityId),
     onActivityClick: (activityId) => handleActivityClick(activityId),
