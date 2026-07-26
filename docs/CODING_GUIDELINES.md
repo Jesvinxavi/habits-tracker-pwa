@@ -151,7 +151,36 @@ centerOnSelector(parent, '.day-item.current-day', { instant: false });
 3. PR description must reference issue ID and checklist:
    - [ ] Added/updated tests
    - [ ] Updated docs (incl. this file if structure changes)
-4. **Squash & merge** to keep history linear.
+
+### 8.1 Branching model
+
+```
+main    ← production. GitHub Pages deploys from here. Only ever advanced by a release PR.
+develop ← integration. Every feature PR targets this. CI runs; nothing deploys.
+feature ← one branch per feature/fix, branched from develop.
+```
+
+1. **Never open a feature PR against `main`.** Feature and fix branches target `develop`.
+2. `main` moves only via a **release PR from `develop`**, opened when `develop` is verified
+   sound. That merge is the deploy — `.github/workflows/deploy.yml` triggers on push to `main`.
+3. `.github/workflows/ci.yml` runs on every pull request regardless of base, so work merged into
+   `develop` is fully gated (lint, unit, migration, Convex types, build, Playwright).
+4. If a hotfix ever lands directly on `main`, **back-merge `main` into `develop` immediately**,
+   or the next release will silently revert it.
+
+### 8.2 Merge strategy
+
+1. **Squash & merge** is the default for a self-contained feature branch — it keeps `develop`
+   readable and drops fixup commits nobody needs permanently.
+2. **Use a merge commit when another branch is stacked on the PR's head.** Squash *and*
+   rebase-merge both rewrite SHAs; the dependent branch's base commits become orphans and it has
+   to be rebased. A merge commit preserves the original SHAs, so the stacked branch stays valid
+   and its PR shows only its own commits.
+3. **Use a merge commit for release PRs (`develop` → `main`).** Squashing a release would
+   collapse several independent features into one commit and destroy `git bisect`'s ability to
+   attribute a regression to the feature that caused it.
+4. The rule underneath all three: **never rewrite history that another branch is already built
+   on.**
 
 ---
 
