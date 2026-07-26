@@ -1,9 +1,31 @@
 // ProgramTile.js - At-a-glance progress for the active program
 import { getState } from '../../core/state.js';
 import { getLocalISODate } from '../../shared/datetime.js';
+import { hexToRgba } from '../../shared/color.js';
 import { getActiveProgram } from './programs.js';
 import { computeProgramProgress } from './helpers/programProgress.js';
 import { ProgramBuilderModal } from './Modals/ProgramBuilderModal.js';
+
+const PROGRAM_COLOR = '#007AFF'; // ios-blue
+
+// The card fills left-to-right like a home target-habit tile. Home paints the
+// filled portion in the solid category colour, which leaves its text at ~4.4:1
+// against gray-900 — under AA. A translucent fill keeps the same metaphor while
+// holding every label above 4.5:1 in both themes.
+const FILL_ALPHA = 0.45;
+const BASE_ALPHA = 0.07;
+
+/**
+ * Builds the left-to-right fill for a given completion fraction.
+ * @param {number} percent Completion, 0-100.
+ * @returns {string} CSS gradient.
+ */
+function fillGradient(percent) {
+  const clamped = Math.max(0, Math.min(percent, 100));
+  const fill = hexToRgba(PROGRAM_COLOR, FILL_ALPHA);
+  const base = hexToRgba(PROGRAM_COLOR, BASE_ALPHA);
+  return `linear-gradient(to right, ${fill} ${clamped}%, ${base} ${clamped}%)`;
+}
 
 /**
  * Formats a single date as "20 Oct", with the year appended when asked.
@@ -77,21 +99,23 @@ export function renderProgramTile() {
   const label = weekLabel(progress);
   const range = dateRangeLabel(program.startDate, program.endDate);
 
+  // The tile is the progress indicator, so it carries the progressbar role and a
+  // textual value — the fill alone must never be the only cue.
   host.innerHTML = `
-    <div id="program-tile" class="program-tile mb-2 mt-2 p-4 rounded-2xl bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700" data-program-id="${program.id}" role="button" tabindex="0" aria-label="Edit program ${program.name}">
-      <div class="flex items-start justify-between gap-3 mb-2">
-        <div class="min-w-0">
-          <h3 class="font-bold text-base text-gray-900 dark:text-white truncate">${program.name}</h3>
-          <p class="text-xs text-gray-500 dark:text-gray-400">${range}</p>
+    <div id="program-tile" class="program-tile relative overflow-hidden mb-2 mt-2 p-4 rounded-2xl bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-shadow hover:shadow-md" data-program-id="${program.id}" role="progressbar" aria-valuenow="${progress.percent}" aria-valuemin="0" aria-valuemax="100" aria-valuetext="${progress.completedWorkouts} of ${progress.plannedWorkouts} workouts completed, ${progress.percent} percent" tabindex="0" aria-label="Program ${program.name}. Activate to edit.">
+      <div class="program-tile-fill absolute inset-0 pointer-events-none transition-[background] duration-300" style="background:${fillGradient(progress.percent)}" aria-hidden="true"></div>
+      <div class="relative z-10">
+        <div class="flex items-start justify-between gap-3 mb-2">
+          <div class="min-w-0">
+            <h3 class="font-bold text-base text-gray-900 dark:text-white truncate">${program.name}</h3>
+            <p class="text-xs text-gray-700 dark:text-gray-300">${range}</p>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-ios-blue whitespace-nowrap">${label}</span>
         </div>
-        <span class="text-xs font-semibold px-2 py-1 rounded-lg bg-ios-blue/10 text-ios-blue whitespace-nowrap">${label}</span>
-      </div>
-      <div class="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden" role="progressbar" aria-valuenow="${progress.percent}" aria-valuemin="0" aria-valuemax="100" aria-label="Program progress: ${progress.completedWorkouts} of ${progress.plannedWorkouts} workouts completed">
-        <div class="h-full rounded-full bg-ios-blue transition-all duration-300" style="width:${progress.percent}%"></div>
-      </div>
-      <div class="flex items-center justify-between mt-2">
-        <span class="text-xs text-gray-600 dark:text-gray-400">${progress.completedWorkouts} of ${progress.plannedWorkouts} workouts</span>
-        <span class="text-xs font-semibold text-gray-900 dark:text-white">${progress.percent}%</span>
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-gray-700 dark:text-gray-300">${progress.completedWorkouts} of ${progress.plannedWorkouts} workouts</span>
+          <span class="text-xs font-bold text-gray-900 dark:text-white">${progress.percent}%</span>
+        </div>
       </div>
     </div>
   `;
