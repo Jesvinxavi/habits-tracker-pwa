@@ -38,6 +38,8 @@ environment.
 - Manage account and synchronization controls from the Profile tab.
 - Use corrected one-tap Fitness calendar navigation and Today behavior.
 - Launch without redundant account-checking or empty-template screens.
+- Move into Habits, Fitness, Statistics, and Profile without exposing
+  partially rendered first-load screens.
 
 ## Review notes
 

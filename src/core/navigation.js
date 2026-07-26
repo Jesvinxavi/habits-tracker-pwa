@@ -5,21 +5,17 @@ export async function initializeNavigation() {
   const tabItems = document.querySelectorAll('.tab-item');
   const views = document.querySelectorAll('.view');
 
-  const PLACEHOLDER_TEMPLATES = {
-    'fitness-view': 'fitness-view-placeholder',
-    'stats-view': 'stats-view-placeholder',
-  };
-
   // Module loading state tracking
   const moduleStates = {
-    home: { loaded: false, loading: false, error: null },
-    habits: { loaded: false, loading: false, error: null },
-    fitness: { loaded: false, loading: false, error: null },
-    stats: { loaded: false, loading: false, error: null },
-    profile: { loaded: false, loading: false, error: null },
+    home: { loaded: false, loading: false, error: null, promise: null },
+    habits: { loaded: false, loading: false, error: null, promise: null },
+    fitness: { loaded: false, loading: false, error: null, promise: null },
+    stats: { loaded: false, loading: false, error: null, promise: null },
+    profile: { loaded: false, loading: false, error: null, promise: null },
   };
+  let navigationRequest = 0;
 
-  function ensurePlaceholder(viewId) {
+  function ensureView(viewId) {
     let el = document.getElementById(viewId);
     if (!el) {
       el = document.createElement('div');
@@ -27,100 +23,110 @@ export async function initializeNavigation() {
       el.className = 'view w-full h-full flex flex-col overflow-hidden';
       document.querySelector('main.content-area')?.appendChild(el);
     }
-    if (el.childElementCount === 0 && PLACEHOLDER_TEMPLATES[viewId]) {
-      const template = document.getElementById(PLACEHOLDER_TEMPLATES[viewId]);
-      if (template) {
-        el.appendChild(template.content.cloneNode(true));
-      }
-    }
+    return el;
   }
 
   // Generic module loader
   async function loadModule(moduleName) {
-    if (moduleStates[moduleName].loaded || moduleStates[moduleName].loading) return;
-    moduleStates[moduleName].loading = true;
-    let viewId, spinnerId, templateId;
-    switch (moduleName) {
-      case 'home':
-        viewId = 'home-view';
-        spinnerId = 'home-loading';
-        templateId = 'home-loading-spinner';
-        try {
+    const state = moduleStates[moduleName];
+    if (!state || state.loaded) return;
+    if (state.promise) return state.promise;
+
+    state.loading = true;
+    state.error = null;
+    state.promise = (async () => {
+      switch (moduleName) {
+        case 'home': {
           const { HomeModule } = await import('../features/home/HomeModule.js');
           await HomeModule.init();
-        } catch (error) {
-          console.error('Error loading home module:', error);
-          moduleStates[moduleName].error = error;
+          break;
         }
-        break;
-      case 'habits':
-        viewId = 'habits-view';
-        spinnerId = 'habits-loading';
-        templateId = 'habits-loading-spinner';
-        try {
+        case 'habits': {
           const { HabitsModule } = await import('../features/habits/HabitsModule.js');
           await HabitsModule.init();
-        } catch (error) {
-          console.error('Error loading habits module:', error);
-          moduleStates[moduleName].error = error;
+          break;
         }
-        break;
-      case 'fitness':
-        viewId = 'fitness-view';
-        spinnerId = null; // No spinner template for fitness yet
-        templateId = null;
-        try {
+        case 'fitness': {
           const { FitnessModule } = await import('../features/fitness/FitnessModule.js');
           await FitnessModule.init();
-        } catch (error) {
-          console.error('Error loading fitness module:', error);
-          moduleStates[moduleName].error = error;
+          break;
         }
-        break;
-      case 'stats':
-        viewId = 'stats-view';
-        spinnerId = null; // No spinner template for stats yet
-        templateId = null;
-        try {
+        case 'stats': {
           const stats = await import('../features/stats/stats.js');
           await stats.initializeStats();
-        } catch (error) {
-          console.error('Error loading stats module:', error);
-          moduleStates[moduleName].error = error;
+          break;
         }
-        break;
-      case 'profile':
-        viewId = 'profile-view';
-        spinnerId = null;
-        templateId = null;
-        try {
+        case 'profile': {
           const { ProfileModule } = await import('../features/profile/ProfileModule.js');
           await ProfileModule.init();
-        } catch (error) {
-          console.error('Error loading profile module:', error);
-          moduleStates[moduleName].error = error;
+          break;
         }
-        break;
-      default:
-        return;
-    }
-    const view = document.getElementById(viewId);
-    if (view && spinnerId && !view.querySelector(`#${spinnerId}`) && templateId) {
-      const template = document.getElementById(templateId);
-      if (template) {
-        const spinner = template.content.cloneNode(true).firstElementChild;
-        view.appendChild(spinner);
-        // remove spinner once loaded
-        setTimeout(() => spinner.remove(), 500);
+        default:
+          return;
       }
-    }
-    moduleStates[moduleName].loaded = true;
-    moduleStates[moduleName].loading = false;
+      state.loaded = true;
+    })()
+      .catch((error) => {
+        state.error = error;
+        console.error(`Error loading ${moduleName} module:`, error);
+        throw error;
+      })
+      .finally(() => {
+        state.loading = false;
+        state.promise = null;
+      });
+
+    return state.promise;
+  }
+
+  function getModuleName(viewId) {
+    return viewId?.replace('-view', '') || null;
+  }
+
+  function setNavigationBusy(viewId, isBusy) {
+    const view = document.getElementById(viewId);
+    const tab = Array.from(tabItems).find((item) => item.dataset.view === viewId);
+    view?.setAttribute('aria-busy', String(isBusy));
+    tab?.classList.toggle('is-loading', isBusy);
+    tab?.setAttribute('aria-busy', String(isBusy));
+  }
+
+  function animateViewEntry(view) {
+    if (!view) return;
+    view.classList.remove('view-entering');
+    void view.offsetWidth;
+    view.classList.add('view-entering');
+    view.addEventListener('animationend', () => view.classList.remove('view-entering'), {
+      once: true,
+    });
   }
 
   // Enhanced view switching with performance monitoring
   async function setActiveView(viewId) {
-    ensurePlaceholder(viewId);
+    const requestId = ++navigationRequest;
+    const targetView = ensureView(viewId);
+    const moduleName = getModuleName(viewId);
+    const wasLoaded = moduleStates[moduleName]?.loaded;
+
+    // Mount lazy pages at their real viewport dimensions while keeping partial
+    // DOM invisible. The current page stays on screen until the target is ready.
+    if (!wasLoaded && !targetView.classList.contains('active-view')) {
+      targetView.classList.add('view-preparing');
+    }
+    setNavigationBusy(viewId, !wasLoaded);
+
+    try {
+      await loadModule(moduleName);
+    } catch {
+      targetView.classList.remove('view-preparing');
+      setNavigationBusy(viewId, false);
+      return;
+    }
+
+    targetView.classList.remove('view-preparing');
+    setNavigationBusy(viewId, false);
+    if (requestId !== navigationRequest) return;
+
     const updateViews = () => {
       views.forEach((view) => {
         if (view.id === viewId) {
@@ -144,12 +150,7 @@ export async function initializeNavigation() {
         item.setAttribute('aria-selected', String(isActive));
       });
     };
-    await new Promise((resolve) => {
-      requestAnimationFrame(() => {
-        updateViews();
-        resolve();
-      });
-    });
+
     if (!isCloudBackend()) localStorage.setItem('activeHabitTrackerTab', viewId);
     if (viewId === 'home-view' || viewId === 'fitness-view') {
       const today = new Date();
@@ -163,40 +164,34 @@ export async function initializeNavigation() {
         
         // Update the state with the appropriate date for the current group
         dispatch(Actions.setSelectedDate(appropriateTodayISO));
-        
-        // After refresh, center smoothly on selected tile
-        window.HomeModule?.refresh?.();
-        requestAnimationFrame(() => {
-          document
-            .querySelector('#home-view hh-calendar[state-key="selectedDate"]')
-            ?.scrollToSelected?.({ instant: false });
-        });
       } else if (viewId === 'fitness-view') {
         const { getLocalMidnightISOString } = await import('../shared/datetime.js');
         const localToday = getLocalMidnightISOString(today);
         dispatch(Actions.setFitnessSelectedDate(localToday));
-        const cal = document.querySelector('#fitness-view hh-calendar[state-key="fitnessSelectedDate"]');
-        cal?.refresh?.();
-        requestAnimationFrame(() => cal?.scrollToSelected?.({ instant: false }));
       }
     }
-    // Use generic loader for all modules
-    if (viewId === 'home-view') {
-      await loadModule('home');
-    } else if (viewId === 'habits-view') {
-      await loadModule('habits');
-    } else if (viewId === 'fitness-view') {
-      await loadModule('fitness');
-    } else if (viewId === 'stats-view') {
-      await loadModule('stats');
-    } else if (viewId === 'profile-view') {
-      await loadModule('profile');
-    }
 
-    // Do not report the view as ready until its initial render has been
-    // committed. The startup loader relies on this to avoid revealing the
-    // static HTML shell before account-backed content is painted.
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        updateViews();
+        animateViewEntry(targetView);
+        requestAnimationFrame(resolve);
+      });
+    });
+
+    // Calendars need one visible frame before their final centering pass.
+    if (viewId === 'home-view') {
+      window.HomeModule?.refresh?.();
+      document
+        .querySelector('#home-view hh-calendar[state-key="selectedDate"]')
+        ?.scrollToSelected?.({ instant: !wasLoaded });
+    } else if (viewId === 'fitness-view') {
+      const calendar = document.querySelector(
+        '#fitness-view hh-calendar[state-key="fitnessSelectedDate"]'
+      );
+      calendar?.refresh?.();
+      calendar?.scrollToSelected?.({ instant: !wasLoaded });
+    }
   }
 
   // Force Home on startup (ignore saved tab)
@@ -239,7 +234,7 @@ export async function initializeNavigation() {
 
   function prefetchModule(moduleName) {
     const prefetchState = `_${moduleName}Prefetched`;
-    if (window[prefetchState] || moduleStates[moduleName]?.loaded) return;
+    if (window[prefetchState] || moduleStates[moduleName]?.loaded) return null;
 
     window[prefetchState] = true;
 
@@ -253,7 +248,10 @@ export async function initializeNavigation() {
         importPromise = import('../features/habits/HabitsModule.js');
         break;
       case 'fitness':
-        importPromise = import('../features/fitness/FitnessModule.js');
+        importPromise = Promise.all([
+          import('../features/fitness/FitnessModule.js'),
+          import('../features/fitness/RestToggle.js'),
+        ]);
         break;
       case 'stats':
         importPromise = import('../features/stats/stats.js');
@@ -262,19 +260,22 @@ export async function initializeNavigation() {
         importPromise = import('../features/profile/ProfileModule.js');
         break;
       default:
-        return;
+        return null;
     }
 
     importPromise.catch((err) => {
       console.warn(`Failed to prefetch ${moduleName} module:`, err);
       window[prefetchState] = false; // Reset on error
     });
+    return importPromise;
   }
 
-  // Prefetch when tabs are hovered
-  document.querySelectorAll('.tab-item[data-view]').forEach(tab => {
+  // Pointer-down runs before click on touchscreens, giving mobile navigation a
+  // useful head start. Pointer-enter retains the desktop hover optimization.
+  document.querySelectorAll('.tab-item[data-view]').forEach((tab) => {
     const moduleName = tab.dataset.view.replace('-view', '');
     if (moduleName) {
+      tab.addEventListener('pointerdown', () => prefetchModule(moduleName), { once: true });
       tab.addEventListener('pointerenter', () => prefetchModule(moduleName), { once: true });
     }
   });
@@ -289,14 +290,24 @@ export async function initializeNavigation() {
     }
   });
 
-  // Prefetch on idle time
+  // Warm every top-level page after Home is interactive. This downloads code
+  // only; it does not initialize hidden features or extend the startup loader.
   if ('requestIdleCallback' in window) {
     requestIdleCallback(
       () => {
-        prefetchModule('home');
         prefetchModule('habits');
+        prefetchModule('fitness');
+        prefetchModule('stats');
+        prefetchModule('profile');
       },
-      { timeout: 2000 }
+      { timeout: 1200 }
     );
+  } else {
+    setTimeout(() => {
+      prefetchModule('habits');
+      prefetchModule('fitness');
+      prefetchModule('stats');
+      prefetchModule('profile');
+    }, 250);
   }
 }

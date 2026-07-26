@@ -34,6 +34,8 @@ All notable user-facing and operational changes are documented here.
 - Holiday period and category/activity mutations refresh immediately
 - The branded loading screen remains visible until the hydrated account view is
   ready
+- First-time navigation keeps the current page visible until the lazy-loaded
+  destination is fully mounted, with idle preloading for all top-level pages
 
 ### Fixed
 

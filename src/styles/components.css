@@ -336,6 +336,57 @@ body {
   overflow: hidden;
   overscroll-behavior: none;
 }
+
+/* Prepare lazy pages at their final dimensions without exposing partial DOM. */
+.view {
+  background: var(--background-color);
+}
+
+.view.view-preparing {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@keyframes view-enter {
+  from {
+    opacity: 0.82;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.view.view-entering {
+  animation: view-enter 160ms ease-out both;
+}
+
+@keyframes tab-loading {
+  from {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.tab-item.is-loading .tab-icon {
+  animation: tab-loading 420ms ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view.view-entering,
+  .tab-item.is-loading .tab-icon {
+    animation: none;
+  }
+}
+
 /* App container locks to viewport */
 .app-container {
   position: fixed;
