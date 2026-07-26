@@ -57,7 +57,7 @@ export function renderActivitiesList(onActivityClick) {
         <div class="flex flex-col items-center justify-center py-20 text-center space-y-2">
           <span class="material-icons text-5xl text-gray-400">fitness_center</span>
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white">No activities recorded</h2>
-          <p class="text-sm text-gray-600 dark:text-gray-400">Tap "Record Activity" to log your fitness activities for this day.</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400">Tap "Activity" to log your fitness activities for this day.</p>
         </div>
       `;
     }
