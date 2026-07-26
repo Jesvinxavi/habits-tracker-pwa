@@ -408,7 +408,7 @@ breaking migration checksums. Read-time filtering is deterministic and conflict-
       `routines.ts`, `sync.ts`, `migration.ts`, `dataTransfer.ts`, `bootstrap.ts`, `state.js`,
       `persistenceRouter.js`, `stateHydration.js`, `cloudBootstrap.js`, `dataManagement.js`,
       `mergeNormalized.js`, `coordinator.js`, `normalizeLegacy.js`. Repeat for `programs`.
-- [ ] In `npm run dev` with a signed-in account, from the browser console:
+- [x] In `npm run dev` with a signed-in account, from the browser console:
       ```js
       const { addRoutine } = await import('/src/features/fitness/routines.js');
       await addRoutine({ name: 'Console Test', activityIds: [] });
@@ -416,10 +416,10 @@ breaking migration checksums. Read-time filtering is deterministic and conflict-
       ```
       Reload the page. `window.appData.routines` still contains it. **This is the critical
       proof that the whole chain is wired.**
-- [ ] With DevTools set to Offline, create another routine, confirm it appears in
+- [x] With DevTools set to Offline, create another routine, confirm it appears in
       `appData.routines`, then go back online and confirm the sync status pill returns to
       `synced` and the routine persists after a reload.
-- [ ] Add a program with an invalid range (`startDate > endDate`) via the console and confirm the
+- [x] Add a program with an invalid range (`startDate > endDate`) via the console and confirm the
       Convex mutation rejects with `INVALID_PROGRAM_RANGE`.
 - [x] Existing migration tests (`npm run test:migration`) still pass — the new empty tables did
       not break count/checksum verification.
