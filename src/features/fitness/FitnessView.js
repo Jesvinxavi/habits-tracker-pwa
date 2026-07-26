@@ -48,9 +48,13 @@ export const FitnessView = {
     const calendarWrapper = this._buildCalendarWrapper(callbacks.onDateChange);
     container.appendChild(calendarWrapper);
 
-    // Mount rest toggle
+    // Mount rest toggle. mountRestToggle takes an options object; passing the
+    // callback directly meant onToggle never fired.
     const restToggle = await import('./RestToggle.js').then((m) =>
-      m.mountRestToggle(callbacks.onRestToggle)
+      m.mountRestToggle({
+        onToggle: callbacks.onRestToggle,
+        addMenu: callbacks.addMenu,
+      })
     );
     container.appendChild(restToggle);
 

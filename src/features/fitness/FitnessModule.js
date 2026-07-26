@@ -6,6 +6,8 @@ import { getState, dispatch, Actions, subscribe } from '../../core/state.js';
 import { getLocalMidnightISOString, getLocalISODate } from '../../shared/datetime.js';
 import { FitnessCalendar } from './FitnessCalendar.js';
 import { isRestDay } from './restDays.js';
+import { getActivitiesForDate, getActivity } from './activities.js';
+import { recordRoutineForDate } from './routines.js';
 import { showConfirm } from '../../components/ConfirmDialog.js';
 import { isCloudBackend } from '../../core/dataBackend.js';
 
@@ -37,6 +39,64 @@ function handleActivityClick(activityId) {
 }
 
 
+
+/**
+ * Opens the routine builder pre-filled with the activities recorded on the
+ * selected date, so the user can trim the selection and name it.
+ * @returns {void}
+ */
+function openSaveTodayAsRoutine() {
+  const iso = getLocalISODate(getState().fitnessSelectedDate || new Date().toISOString());
+  const records = getActivitiesForDate(iso);
+  // The same activity recorded three times in a day becomes one routine entry.
+  const activityIds = [...new Set(records.map((record) => record.activityId))].filter((id) =>
+    Boolean(getActivity(id))
+  );
+
+  if (activityIds.length === 0) {
+    showConfirm({
+      title: 'Nothing to Save',
+      message: 'Record at least one activity before saving it as a routine.',
+      okText: 'OK',
+      cancelText: '',
+      onOK: () => {},
+    });
+    return;
+  }
+
+  Modals.openRoutineBuilder({
+    presetActivityIds: activityIds,
+    title: 'Save as Routine',
+    onSaved: () => {},
+  });
+}
+
+/**
+ * Builds the handlers for the + dropdown beside the Activities pill.
+ * @returns {Object} Handlers keyed by menu intent.
+ */
+function buildAddMenuActions() {
+  return {
+    onAddActivity: () =>
+      Modals.openActivityLibrary({
+        onActivityClick: (activityId) => handleActivityClick(activityId),
+        onStatsClick: (activityId) => Modals.openStats(activityId),
+        onEditClick: (activityId) => Modals.openEditActivity(activityId),
+      }),
+    onAddRoutine: () =>
+      Modals.openRoutinePicker({
+        onPick: (routineId) => {
+          const iso = getLocalISODate(
+            getState().fitnessSelectedDate || new Date().toISOString()
+          );
+          void recordRoutineForDate(routineId, iso);
+        },
+      }),
+    onSaveAsRoutine: () => openSaveTodayAsRoutine(),
+    onNewProgram: () => Modals.openProgramBuilder(),
+    onTimer: () => Timer.openModal(),
+  };
+}
 
 /**
  * Initializes the fitness view with all its modular components
@@ -79,6 +139,7 @@ export async function initializeFitness() {
         onEditClick: (activityId) => Modals.openEditActivity(activityId),
       }),
     onRoutines: () => Modals.openRoutines(),
+    addMenu: buildAddMenuActions(),
     onStatsClick: (activityId) => Modals.openStats(activityId),
     onEditClick: (activityId) => Modals.openEditActivity(activityId),
     onActivityClick: (activityId) => handleActivityClick(activityId),

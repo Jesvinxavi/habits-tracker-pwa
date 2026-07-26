@@ -5,6 +5,8 @@ import { StatsModal } from './Modals/StatsModal.js';
 import { ActivityLibraryModal } from './Modals/ActivityLibraryModal.js';
 import { RoutinesModal } from './Modals/RoutinesModal.js';
 import { RoutineBuilderModal } from './Modals/RoutineBuilderModal.js';
+import { RoutinePickerModal } from './Modals/RoutinePickerModal.js';
+import { showConfirm } from '../../components/ConfirmDialog.js';
 
 export const Modals = {
   /**
@@ -37,6 +39,28 @@ export const Modals = {
    */
   openEditRoutine(routineId, options) {
     RoutineBuilderModal.openEditMode(routineId, options);
+  },
+
+  /**
+   * Opens the routine picker for recording a routine on the selected day
+   * @param {Object} [options] - onPick callback receiving the routine ID
+   */
+  openRoutinePicker(options) {
+    RoutinePickerModal.open(options);
+  },
+
+  /**
+   * Opens the program builder. Phase 6 replaces this stub with the real modal;
+   * until then it explains itself rather than reading as a dead menu item.
+   */
+  openProgramBuilder() {
+    showConfirm({
+      title: 'Programs Coming Next',
+      message: 'Program scheduling is not available yet.',
+      okText: 'OK',
+      cancelText: '',
+      onOK: () => {},
+    });
   },
 
   /**

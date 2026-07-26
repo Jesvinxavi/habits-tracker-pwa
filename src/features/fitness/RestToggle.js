@@ -10,11 +10,13 @@ import { getLocalISODate } from '../../shared/datetime.js';
 import { getActivitiesForDate } from './activities.js';
 import { renderActivitiesList } from './ActivityList/ActivitiesList.js';
 import { showConfirm } from '../../components/ConfirmDialog.js';
+import { mountAddMenu } from './AddMenu.js';
 
 /**
  * Mounts the rest day toggle for the fitness view
  * @param {Object} options - Configuration options
  * @param {Function} options.onToggle - Callback when rest day is toggled
+ * @param {Object} [options.addMenu] - Handlers for the + dropdown items
  * @returns {HTMLElement} The rest day toggle element
  */
 export function mountRestToggle(options = {}) {
@@ -41,6 +43,10 @@ export function mountRestToggle(options = {}) {
 
   // Bind toggle event
   bindRestToggle(restRow, options.onToggle);
+
+  // Mount the + dropdown as a sibling of its anchor, inside the relative wrapper.
+  const addMenuBtn = restRow.querySelector('#fitness-add-menu-btn');
+  if (addMenuBtn) mountAddMenu(addMenuBtn, options.addMenu || {});
 
   // Update initial state
   updateRestToggle(restRow);

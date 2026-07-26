@@ -29,6 +29,7 @@ export class SyncEngine {
     this.deviceId = deviceId;
     this.client = client;
     this.running = false;
+    this.replayRequestedWhileRunning = false;
     this.authenticated = true;
     this.channel =
       typeof BroadcastChannel !== 'undefined'
@@ -47,7 +48,15 @@ export class SyncEngine {
   }
 
   requestReplay() {
-    if (this.running || !this.authenticated || !navigator.onLine) return;
+    // An operation committed between the running pass's last outbox read and its
+    // `running = false` would otherwise be orphaned in `pending` with no retry
+    // scheduled, clearing only on the next unrelated dispatch. Remember the
+    // request so replay() can pick it up before finishing.
+    if (this.running) {
+      this.replayRequestedWhileRunning = true;
+      return;
+    }
+    if (!this.authenticated || !navigator.onLine) return;
     const replay = () => this.replay();
     if (navigator.locks?.request) {
       navigator.locks.request(`habits-sync:${this.ownerKey}`, { ifAvailable: true }, (lock) =>
@@ -61,6 +70,7 @@ export class SyncEngine {
   async replay() {
     if (this.running) return;
     this.running = true;
+    this.replayRequestedWhileRunning = false;
     dispatch(Actions.setSyncStatus('syncing'));
     try {
       let operations = await listOutbox(this.ownerKey, ['pending', 'retry']);
@@ -99,6 +109,15 @@ export class SyncEngine {
       this.channel?.postMessage({ type: 'replay-complete' });
     } finally {
       this.running = false;
+    }
+
+    // Pick up anything committed while this pass was in flight. Deferred to a
+    // macrotask because replay() runs as the navigator.locks callback and the
+    // lock is only released once its promise settles — requesting again inline
+    // would fail the ifAvailable check and silently drop the work.
+    if (this.replayRequestedWhileRunning) {
+      this.replayRequestedWhileRunning = false;
+      setTimeout(() => this.requestReplay(), 0);
     }
   }
 

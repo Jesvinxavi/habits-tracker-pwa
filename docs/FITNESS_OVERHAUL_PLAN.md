@@ -965,7 +965,7 @@ Plus a fifth, non-spec item required by the Phase 2 timer decision:
 
 ### Tasks
 
-- [ ] **5.1** Create `src/features/fitness/AddMenu.js` exporting:
+- [x] **5.1** Create `src/features/fitness/AddMenu.js` exporting:
   - `mountAddMenu(anchorButton, actions)` — builds and appends the dropdown as a sibling of the
     anchor inside a `relative` wrapper, returns the menu element.
   - `toggleAddMenu()`, `closeAddMenu()`.
@@ -995,12 +995,12 @@ Plus a fifth, non-spec item required by the Phase 2 timer decision:
     closes it before invoking the action. Register the document listener **once** per mount and
     remove it if the menu is ever unmounted.
 
-- [ ] **5.2** In `src/features/fitness/RestToggle.js`, wrap `#activities-label` +
+- [x] **5.2** In `src/features/fitness/RestToggle.js`, wrap `#activities-label` +
       `#fitness-add-menu-btn` in a `relative` container so the absolutely-positioned menu anchors
       correctly, and call `mountAddMenu()` with the action callbacks passed through
       `mountRestToggle(options)`.
 
-- [ ] **5.3** In `FitnessView.js` and `FitnessModule.js`, thread a new
+- [x] **5.3** In `FitnessView.js` and `FitnessModule.js`, thread a new
       `callbacks.addMenu` object down to `mountRestToggle`:
   ```js
   addMenu: {
@@ -1012,17 +1012,17 @@ Plus a fifth, non-spec item required by the Phase 2 timer decision:
   }
   ```
 
-- [ ] **5.4** Add the **Routine Picker** modal markup to `index.html` (after the Routine Builder):
+- [x] **5.4** Add the **Routine Picker** modal markup to `index.html` (after the Routine Builder):
       id `routine-picker-modal`, `z-[1002]`, same shell, header `Cancel` + centred title
       *Add Routine*, body `#routine-picker-list`. Reuse the routine-card markup from Phase 4 but
       **without** the edit button. Empty state: *"No routines saved"* plus a
       **Create a routine** button that closes the picker and opens the builder.
 
-- [ ] **5.5** Create `src/features/fitness/Modals/RoutinePickerModal.js` exporting
+- [x] **5.5** Create `src/features/fitness/Modals/RoutinePickerModal.js` exporting
       `RoutinePickerModal.open({ onPick })`. Card click → `closeModal('routine-picker-modal')`
       then `onPick(routineId)`.
 
-- [ ] **5.6** Implement routine recording in `src/features/fitness/routines.js`:
+- [x] **5.6** Implement routine recording in `src/features/fitness/routines.js`:
   ```js
   /**
    * Records every activity in a routine for the given date.
@@ -1047,7 +1047,7 @@ Plus a fifth, non-spec item required by the Phase 2 timer decision:
   - After the loop, dispatch nothing extra — the state subscription in `FitnessModule` re-renders
     the list automatically. Also fire the existing `ActivityRecorded` CustomEvent once at the end.
 
-- [ ] **5.7** Implement **Save as routine** in `FitnessModule.js` (or a small helper module):
+- [x] **5.7** Implement **Save as routine** in `FitnessModule.js` (or a small helper module):
   ```js
   function openSaveTodayAsRoutine() {
     const iso = getLocalISODate(getState().fitnessSelectedDate || new Date().toISOString());
@@ -1073,43 +1073,43 @@ Plus a fifth, non-spec item required by the Phase 2 timer decision:
   the routine. The builder opens in normal edit-capable mode so the user can remove entries and
   name it, exactly as specified.
 
-- [ ] **5.8** Wire `Modals.openRoutinePicker` and `Modals.openProgramBuilder` into
+- [x] **5.8** Wire `Modals.openRoutinePicker` and `Modals.openProgramBuilder` into
       `FitnessModals.js`. `openProgramBuilder` may be a no-op stub in this phase; Phase 6 replaces
       it. Do **not** leave the menu item without a handler — a dead menu item that does nothing on
       tap reads as a bug.
 
-- [ ] **5.9** Accessibility pass on the dropdown: arrow keys move between items, Enter/Space
+- [x] **5.9** Accessibility pass on the dropdown: arrow keys move between items, Enter/Space
       activates, Escape closes and returns focus to `#fitness-add-menu-btn`, and every item has a
       visible focus ring.
 
 ### Verification — Phase 5
 
-- [ ] `npm run lint` and `npm run test:unit` pass.
-- [ ] Tapping `+` opens a dropdown styled identically to the home-screen menu (same background,
+- [x] `npm run lint` and `npm run test:unit` pass.
+- [x] Tapping `+` opens a dropdown styled identically to the home-screen menu (same background,
       radius, shadow, item height, hover tint).
-- [ ] The dropdown is fully on-screen at 375px width — it does not clip at the right edge.
-- [ ] Tapping outside, pressing Escape, or choosing an item all close the menu, and
+- [x] The dropdown is fully on-screen at 375px width — it does not clip at the right edge.
+- [x] Tapping outside, pressing Escape, or choosing an item all close the menu, and
       `aria-expanded` tracks the state.
-- [ ] **Add activity** opens the Activity Library; recording from it adds to the selected date.
-- [ ] **Add routine** lists saved routines; picking one adds **every** activity in that routine to
+- [x] **Add activity** opens the Activity Library; recording from it adds to the selected date.
+- [x] **Add routine** lists saved routines; picking one adds **every** activity in that routine to
       the selected day's list, grouped correctly by category, with no metric pills.
-- [ ] Each routine-added card opens the Activity Details modal on tap and lets you fill in
+- [x] Each routine-added card opens the Activity Details modal on tap and lets you fill in
       duration or sets; saving updates the card's pills.
-- [ ] Adding a routine on a **rest day** shows the Rest Day dialog and records nothing.
-- [ ] Adding a routine whose activities were partly deleted records only the surviving ones and
+- [x] Adding a routine on a **rest day** shows the Rest Day dialog and records nothing.
+- [x] Adding a routine whose activities were partly deleted records only the surviving ones and
       does not throw.
-- [ ] Go offline, add a routine to today, confirm the cards appear; reload while still offline —
+- [x] Go offline, add a routine to today, confirm the cards appear; reload while still offline —
       the cards are still there; go online — sync status returns to `synced` and the records
       persist after another reload.
-- [ ] **Save as routine** with nothing recorded shows the "Nothing to Save" dialog.
-- [ ] **Save as routine** with three activities recorded (one of them twice) opens the builder
+- [x] **Save as routine** with nothing recorded shows the "Nothing to Save" dialog.
+- [x] **Save as routine** with three activities recorded (one of them twice) opens the builder
       titled *Save as Routine* with exactly three unique activities pre-selected; removing one and
       saving produces a two-activity routine visible in the Routines modal.
-- [ ] **Timer** opens the existing timer modal, which starts, laps, resets and closes exactly as
+- [x] **Timer** opens the existing timer modal, which starts, laps, resets and closes exactly as
       it did on `main`.
-- [ ] **New program** opens the Program Builder (stub is acceptable in this phase, but it must
+- [x] **New program** opens the Program Builder (stub is acceptable in this phase, but it must
       visibly do something).
-- [ ] Keyboard: Tab to the `+` button, Enter opens, arrows navigate, Enter activates, Escape
+- [x] Keyboard: Tab to the `+` button, Enter opens, arrows navigate, Enter activates, Escape
       returns focus to the button.
 
 ---
