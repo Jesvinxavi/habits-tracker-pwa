@@ -316,6 +316,21 @@ The fitness page activity tiles now use the exact same visual design and interac
 Added by the fitness overhaul. Read this before touching anything under
 `src/features/fitness/`.
 
+### 12.0 Never await a raw animation frame
+
+`requestAnimationFrame` does not fire while the page is hidden. Anything that
+**awaits** a frame therefore stalls indefinitely in a background tab — and
+startup used to do it twice, in `navigation.js` and in the loader, so a page
+opened in a background tab loaded its data and then sat behind the loading
+screen until someone looked at it.
+
+Await `nextPaint()` from `src/shared/nextPaint.js` instead: it resolves at once
+when `document.hidden` (nothing can flash on a surface that is not painting) and
+otherwise races the frame against a 150ms backstop. Fire-and-forget
+`requestAnimationFrame` callbacks — the ones that reposition something once it
+is on screen, like `centerHorizontally()` — are fine as they are, since nothing
+waits on them.
+
 ### 12.1 Modal stack and z-index ladder
 
 `src/components/Modal.js` keeps a module-level `openStack`. `openModal(id)`
@@ -350,7 +365,40 @@ New modal markup lives in `index.html` in ascending z-order, and every modal
 module binds its permanent handlers once behind a `modal.dataset.listenerAttached`
 guard.
 
-### 12.2 Read-time referential integrity
+### 12.2 Archiving, not deleting
+
+Removing an activity or a routine sets `archivedAt` — an update, never a delete.
+The row stays, so everything that already points at it still resolves: recorded
+sessions, past program days, stats. Deleting outright took the history with it.
+
+- `listActivities()` / `getRoutines()` — what the library, the pickers and the
+  routines list show. Archived items are gone from all of them.
+- `getActivity(id)` / `getRoutine(id)` — resolve **whatever the id names**,
+  archived or not. Every historical surface goes through these.
+- `getProgramScheduledDays()` drops archived targets, so they leave the plan the
+  builder edits and what today asks for. **Progress passes
+  `{ includeArchived: true }`** and lets `plannedSlots()` apply the date cutoff:
+  filtering them out there instead erased the days they were pinned to before
+  they were archived, which is the history the archive exists to protect.
+
+An archived activity's recorded cards stay on the days they were done, carrying
+a **Deleted** pill on the row below the name. They are inert apart from swipe-to-delete: no details modal,
+and no "Add sets & details" prompt, since there is nothing left to add them to.
+`ActivityInfoModal` closes itself if the activity it is showing is archived,
+which also covers deleting from the editor stacked on top of it.
+
+There is no restore path in the UI yet. The data is all there — `archivedAt` is
+a single field to clear — but nothing surfaces it.
+
+**Names and categories follow the activity, not the record.** A record snapshots
+`activityName` and `categoryId` when written, but only as a fallback for a
+session whose activity is missing entirely. Cards and grouping resolve the live
+activity by id (`recordActivityView()`), so renaming an activity renames every
+session of it and moving it between categories moves its history with it. The
+reducer deliberately does **not** patch record rows on rename: it used to, while
+the server did not, so the two disagreed after a reload.
+
+### 12.3 Read-time referential integrity
 
 Deleting an activity does **not** rewrite routines, and deleting a routine does
 **not** rewrite programs. Cascading edits would bump revisions on records the
@@ -359,14 +407,18 @@ checksums. Dangling ids are filtered where they are read:
 
 - `getRoutineActivities(routineId)` — drops activity ids with no live activity.
   **The only place UI should read a routine's activities.**
-- `getProgramScheduledDays(programId)` — drops entries whose routine is gone or
-  whose weekday the program marks as rest.
-- `getProgramAnytimeRoutines(programId)` — drops entries whose routine is gone.
+- `getProgramScheduledDays(programId)` — drops entries whose routine or activity
+  is gone, or whose weekday the program marks as rest. `getProgramProgress()`
+  measures against this filtered schedule, so a deleted routine leaves no
+  unfillable slot behind.
+- `getProgramSchedulePhases(programId)` — a program's superseded schedules.
+  Unlike the live one it keeps archived targets: a phase is history, and the
+  days in it were planned with those items.
 
 Counts shown to the user must come from these filtered reads, so a routine
 referencing deleted activities reports honestly.
 
-### 12.3 Recording several things at once
+### 12.4 Recording several things at once
 
 `recordActivitiesForDate(activityIds, isoDate)` in `fitness/activities.js` is the
 single entry point for batch recording. It owns the rest-day guard, the
@@ -381,47 +433,130 @@ deterministic. Batch-created records deliberately carry no `duration`,
 `intensity` or `sets` — the card renders without metric pills and the user taps
 it to fill details in. This is intended behaviour, not a missing field.
 
-### 12.4 Program scheduling
+### 12.5 Program scheduling
 
-A program has a `scheduleMode`:
-
-- `prescriptive` — routines pinned to weekdays. A weekday may hold **several**
-  routines; the stored shape allows repeated `dayOfWeek` entries.
-- `freeform` — pinned days plus `anytimeRoutines`, each a routine with a
-  per-week `count` that can be met on any non-pinned, non-rest day.
+A program is its `scheduledDays`: routines and single activities pinned to
+weekdays. A weekday may hold **several** items, so the stored shape allows
+repeated `dayOfWeek` entries, and each entry sets exactly one of `routineId` /
+`activityId`. There is no second bucket and no mode switch — the pinned day says
+where a session belongs, not when it is allowed to count.
 
 `restDays` on the program is a list of **weekday indices** (0 = Sunday), distinct
-from `appData.restDays`, which is a map of specific date keys. Both suppress a
-day: the weekday list removes it from planning entirely, the date map excludes
-that one date from completion.
+from `appData.restDays`, which is a map of specific date keys. They act on
+different halves of the problem: the weekday list shapes the **plan**, so no slot
+is ever placed on a program rest weekday — but it does not veto **work**, and a
+session trained on one still counts towards its week. Marking a single date as
+rest leaves that date's slots standing (the work moves elsewhere in the week) and
+excludes that date from holding a session.
 
-`scheduleMode`, `restDays` and `anytimeRoutines` are **optional** in the Convex
-schema so they could be added without invalidating existing rows. Programs
-written before scheduling modes read back as `prescriptive` with empty arrays;
-preserve that defaulting in `stateHydration.js` if you touch it.
+Editing a running program **only affects the future**. So does archiving: an
+item is planned right up to the day it was archived and not after.
+
+Credit opens with the week the program was **created** in (`creditFrom`, the
+Monday of `program.createdAt`). A backdated block still plans the weeks before
+it existed, but nothing recorded in them counts — those sessions were not done
+for this plan, and crediting them made a block look part-finished the moment it
+was saved. A session earlier in the creation week does count, so making a
+program on Wednesday still credits that Monday. The schedule in force
+until the edit is closed off as a `schedulePhases` entry — `{startDate, endDate,
+scheduledDays, restDays}`, ending yesterday — and the live `scheduledDays` apply
+from today on. `plannedSlots()` expands each date against the schedule that was
+in force on it (see `scheduleSegments()`), so a week that has already happened
+keeps the plan it was measured against: work the edit deleted stays ticked, and
+work the edit added never appears in a week the user could not have done it in.
+`planUpdateWithHistory()` decides whether a split is needed — it is not, when the
+block has not started, when the current schedule has not been in force for a full
+day, or when nothing about the week changed. A closed phase also snapshots each
+routine's activity ids (`routineSnapshots`), so editing a routine's contents
+later cannot change whether a week that has already happened was completed: past
+slots match against the routine **as it was**, current ones against the routine
+as it is.
+
+`scheduleMode` and `anytimeRoutines` are **retired**. Nothing writes or reads
+them, but both stay declared as optional in the Convex schema, and the server
+still validates `anytimeRoutines` when a stale client sends it — rows written
+before the change still hold values and would otherwise fail validation.
+`stateHydration.js` drops both on the way in.
 
 All progress maths lives in `helpers/programProgress.js` as **pure functions** —
-no DOM, no `getState()`. Pass data in. Dates are converted with an explicit UTC
-time component (`Date.parse(`${key}T00:00:00.000Z`)`); never parse a bare date
-string, or day counts drift across DST boundaries. Progress is workout-based:
-completed counts planned dates on or before today that are not rest days and hold
-at least one record. Freeform anytime credit is capped **per week**, so a busy
-week cannot cover a later week's target.
+no DOM, no `getState()`. Pass data in; `getProgramProgress()` in `programs.js` is
+the one place that feeds it from state, so the tile and the details modal can
+never disagree. Dates are converted with an explicit UTC time component
+(`Date.parse(`${key}T00:00:00.000Z`)`); never parse a bare date string, or day
+counts drift across DST boundaries.
 
-### 12.5 Preloading program routines
+Weeks are **calendar weeks, Monday to Sunday**. A block starting mid-week gets a
+short first week rather than shifting every later week off the calendar, and the
+final week is short for the same reason — "Week 3" has to mean the same span in
+the app as it does on a wall planner. The rest-day selector runs Monday-first for
+the same reason. `programWeeks()` owns that partition and `currentWeek()` reads
+its position from it; nothing recomputes week boundaries elsewhere.
 
-`settings.programPreload` (a `userPreferences` field, exposed in Profile) decides
-whether a scheduled day fills itself. It defaults to **off**: filling a day
-writes records, so it stays an explicit choice.
+Progress is workout-based, and the unit is a **slot**: one pinned item on one
+date. A slot is satisfied by a session anywhere in its week, settled by
+allocation rather than a per-date lookup — `allocateWeek()` sweeps every open
+slot twice: first for a session on the slot's **own day**, then for one
+**anywhere else in that week**, earliest first.
 
-When on, preloading is **lazy** — `preloadProgramDayIfEnabled(isoDate)` runs when
-a day is opened, so nothing is written for days the user never visits and the
-block never syncs as one burst. `addProgramRoutinesToDate(isoDate)` is shared by
-the preference and the manual actions ("Add today's program" in the `+` dropdown,
-"Add to current day" in the builder) and refuses to fill a day that already has
-records, so a day is never doubled up.
+Both passes require a **match**: the session must hold the slot's activity, or —
+for a routine slot — one of that routine's activities. Training the program did
+not ask for earns nothing. Ticking Tuesday's squats off because the user swam on
+Tuesday would say something untrue, and it would then hide Tuesday's real session
+from the details modal, which reads its "what's next" from the same allocation.
 
-### 12.6 Contrast
+A claim consumes only the activities it recognises, so one day can satisfy two
+slots the user genuinely trained for — a routine and a separate run — while no
+session is ever spent twice. Credit never crosses a week boundary, so a burst in
+one week cannot cover the next.
+
+### 12.6 The program details modal
+
+Order is deliberate: the block's name and dates (with **Edit** as a small button
+inside that tile), then **today's** session, then progress, then notes. The
+session card always answers for *today*, never for the day the fitness page is
+showing — the user scrolling the page back to last Tuesday must not change what
+"what am I doing now" says, and **Add to today** records against today to match.
+When today is already logged, or holds nothing (a rest day, or a gap in the
+schedule), the card shows the next day the program does schedule something,
+named, and hides the add button. A quiet day reads as what is coming rather than
+as a dead end.
+
+The week list shows everything up to and including the current week; later weeks
+wait behind a disclosure, since the plan ahead is not what the user came for. One
+week is expanded at a time, seeded with the current week on open and held on the
+modal so a re-render does not collapse what is being read.
+
+Progress bars are graded — red to 33%, amber to 66%, green above — on both the
+block bar and each week's. Colour is never the only cue: every bar sits beside
+its own *n/m* count.
+
+### 12.7 The routines modals
+
+`RoutinesModal` and `RoutinePickerModal` follow the activity library and picker:
+**New** lives in the modal header, and a search sits between the header and the
+list. The library-style search (icon, clear button) is for the management list;
+the picker gets the picker's plainer filter input. Filtering the picker is a view
+over the list and never touches `_selectedIds` — a routine picked before typing
+is still confirmed afterwards.
+
+### 12.8 Adding a program's day
+
+A program **never records anything by itself**. Saving one plans days; filling
+them is always a user action — "Add today's program" in the `+` dropdown, or
+"Add to today" in the details modal. Both go through
+`addProgramRoutinesToDate(isoDate)`, which writes only the scheduled activities
+that are **not already on that date**. A day holding unrelated training, or half
+the session logged by hand, can still be topped up without stacking duplicates.
+
+Its result carries `scheduled` — how much the program wanted for that day —
+which is how a caller distinguishes "the program plans nothing here" from "it is
+all already recorded", and shows the right dialog for each.
+
+The old `programPreload` preference and `preloadProgramDayIfEnabled()` are gone,
+along with the Profile switch. The field survives as optional in the Convex
+schema so preference rows written before the removal still validate.
+
+### 12.9 Contrast
 
 The program tile fills left-to-right like a home target-habit card, but with a
 translucent fill (`0.45` alpha) rather than home's solid category colour: solid

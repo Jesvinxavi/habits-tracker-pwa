@@ -1,37 +1,42 @@
 // ProgramBuilderModal.js - Define a training block, its rest days and its schedule
 import { closeModal, openModal, topModalId } from '../../../components/Modal.js';
-import { showConfirm } from '../../../components/ConfirmDialog.js';
-import { getState } from '../../../core/state.js';
+import { showConfirm, showChoice } from '../../../components/ConfirmDialog.js';
 import { getLocalISODate } from '../../../shared/datetime.js';
-import { getRoutines, getRoutine, recordRoutinesForDate } from '../routines.js';
+import { hexToRgba } from '../../../shared/color.js';
 import {
   addProgram,
-  updateProgram,
+  updateProgramPlan,
   deleteProgram,
   setActiveProgram,
   getProgram,
   getProgramScheduledDays,
-  getProgramAnytimeRoutines,
-  PRESCRIPTIVE,
-  FREEFORM,
+  findOverlappingPrograms,
 } from '../programs.js';
+import { programItemPresentation } from '../helpers/programItems.js';
 import { RoutinePickerModal } from './RoutinePickerModal.js';
+import { ActivityPickerModal } from './ActivityPickerModal.js';
 
 const MODAL_ID = 'program-builder-modal';
 const DEFAULT_LENGTH_DAYS = 55; // today + 55 days is an eight-week block
 const MS_PER_DAY = 86400000;
 
-// Sunday-first indices with the habits page's single-letter labels, so the rest
-// selector reads exactly like the habit frequency day picker.
+// Single-letter labels by weekday index, as on the habits frequency picker.
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-// Monday-first display order for the schedule rows.
+// Monday-first display order, used by both the rest selector and the schedule
+// rows: a training week runs Monday to Sunday, and the progress view splits the
+// block on the same boundary.
 const ROW_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const ROW_LABELS = { 0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat' };
-
-const MODE_HINTS = {
-  [PRESCRIPTIVE]: 'Pick which routines you do on each day of the week.',
-  [FREEFORM]:
-    'Pin routines to days if you like, and set weekly targets that can be done any day.',
+// Picker headings spell the day out in full: "Monday Routines" reads as a title,
+// "Mon routines" reads as a truncated field label.
+const FULL_DAY_NAMES = {
+  0: 'Sunday',
+  1: 'Monday',
+  2: 'Tuesday',
+  3: 'Wednesday',
+  4: 'Thursday',
+  5: 'Friday',
+  6: 'Saturday',
 };
 
 /**
@@ -45,18 +50,114 @@ function addDays(iso, days) {
   return new Date(time + days * MS_PER_DAY).toISOString().slice(0, 10);
 }
 
+// The day add menu is a single element reused across rows: only one can be open,
+// and rebuilding it per row would leave listeners behind on every re-render.
+let dayAddMenuEl = null;
+let dayAddMenuAnchor = null;
+let dayAddMenuDismissHandler = null;
+
 /**
- * ProgramBuilderModal - creates and edits training programs in either mode.
+ * Closes the day add menu, if one is open.
+ * @returns {void}
+ */
+function closeDayAddMenu() {
+  if (dayAddMenuDismissHandler) {
+    document.removeEventListener('click', dayAddMenuDismissHandler, true);
+    document.removeEventListener('keydown', dayAddMenuDismissHandler, true);
+    dayAddMenuDismissHandler = null;
+  }
+  dayAddMenuAnchor?.setAttribute('aria-expanded', 'false');
+  dayAddMenuAnchor = null;
+  dayAddMenuEl?.remove();
+  dayAddMenuEl = null;
+}
+
+/**
+ * Opens the "add activity / add routine" choice anchored to a day's + button.
+ * @param {HTMLElement} button The + button the menu hangs from.
+ * @param {{onAddActivity: Function, onAddRoutine: Function}} actions Choice handlers.
+ * @returns {void}
+ */
+function openDayAddMenu(button, actions) {
+  const reopeningSameButton = dayAddMenuAnchor === button;
+  closeDayAddMenu();
+  if (reopeningSameButton) return;
+
+  dayAddMenuAnchor = button;
+  button.setAttribute('aria-expanded', 'true');
+
+  dayAddMenuEl = document.createElement('div');
+  dayAddMenuEl.className =
+    'absolute top-full left-0 mt-1 bg-gray-100 dark:bg-gray-900 rounded-[14px] shadow-lg min-w-max z-50 overflow-hidden p-1';
+  dayAddMenuEl.setAttribute('role', 'menu');
+  dayAddMenuEl.innerHTML = `
+    <button type="button" class="day-add-option flex items-center h-9 gap-2 px-3 w-full rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-sm font-medium text-gray-900 dark:text-white" data-choice="activity" role="menuitem">
+      <span class="material-icons text-[18px]">fitness_center</span><span>Add activity</span>
+    </button>
+    <button type="button" class="day-add-option flex items-center h-9 gap-2 px-3 w-full rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-sm font-medium text-gray-900 dark:text-white" data-choice="routine" role="menuitem">
+      <span class="material-icons text-[18px]">repeat</span><span>Add routine</span>
+    </button>
+  `;
+
+  dayAddMenuEl.addEventListener('click', (event) => {
+    const option = event.target.closest('.day-add-option');
+    if (!option) return;
+    event.stopPropagation();
+    const { choice } = option.dataset;
+    closeDayAddMenu();
+    if (choice === 'activity') actions.onAddActivity();
+    else actions.onAddRoutine();
+  });
+
+  button.parentElement?.appendChild(dayAddMenuEl);
+
+  // Left-anchored by default, but a + near the right edge would push the menu
+  // past the modal. Measure once it is in the DOM and flip it to right-anchored
+  // rather than guessing from the weekday index.
+  const bounds = button.closest('.modal-content') || document.documentElement;
+  const boundsRect = bounds.getBoundingClientRect();
+  if (dayAddMenuEl.getBoundingClientRect().right > boundsRect.right - 12) {
+    dayAddMenuEl.classList.remove('left-0');
+    dayAddMenuEl.classList.add('right-0');
+  }
+
+  dayAddMenuEl.querySelector('.day-add-option')?.focus();
+
+  // Capture phase, so a tap anywhere else dismisses before that target acts.
+  dayAddMenuDismissHandler = (event) => {
+    if (event.type === 'keydown') {
+      if (event.key !== 'Escape') return;
+      closeDayAddMenu();
+      button.focus();
+      return;
+    }
+    if (dayAddMenuEl?.contains(event.target) || button.contains(event.target)) return;
+    closeDayAddMenu();
+  };
+  document.addEventListener('click', dayAddMenuDismissHandler, true);
+  document.addEventListener('keydown', dayAddMenuDismissHandler, true);
+}
+
+/**
+ * ProgramBuilderModal - creates and edits training programs.
+ *
+ * There is one scheduling model: everything the week holds is pinned to a day.
+ * The day says where a session belongs, not when it is allowed to count —
+ * progress credits a session anywhere in its week — so a weekly target with no
+ * natural home is expressed by pinning it to whichever days suit. Programs saved
+ * under the older schemes still load; their anytime entries simply stop being
+ * read, and the next save drops them.
  */
 export const ProgramBuilderModal = {
   _editProgramId: null,
   _onSaved: null,
-  _mode: PRESCRIPTIVE,
   _restDays: new Set(),
-  // Map of weekday index -> ordered routine ids pinned to that day.
-  _dayRoutines: new Map(),
-  // Ordered list of { routineId, count } for the anytime bucket.
-  _anytime: [],
+  // Map of weekday index -> ordered { type, id } items pinned to that day, where
+  // type is 'routine' or 'activity'.
+  _dayItems: new Map(),
+  // Notes are owned by the program details modal; the builder carries the
+  // existing value through so a save never wipes it.
+  _notes: '',
 
   /**
    * Opens the builder for a new program, defaulting to an eight-week block from today.
@@ -68,17 +169,15 @@ export const ProgramBuilderModal = {
     this._bindStaticHandlers();
     this._editProgramId = null;
     this._onSaved = onSaved;
-    this._mode = PRESCRIPTIVE;
     this._restDays = new Set();
-    this._dayRoutines = new Map();
-    this._anytime = [];
+    this._dayItems = new Map();
+    this._notes = '';
 
     const todayKey = getLocalISODate(new Date());
     this._setTitle('New Program');
     this._setName('');
     this._setDates(todayKey, addDays(todayKey, DEFAULT_LENGTH_DAYS));
     this._setDeleteVisible(false);
-    this._setAddTodayVisible(false);
     this._renderAll();
     openModal(MODAL_ID);
   },
@@ -97,23 +196,27 @@ export const ProgramBuilderModal = {
     this._bindStaticHandlers();
     this._editProgramId = programId;
     this._onSaved = onSaved;
-    this._mode = program.scheduleMode === FREEFORM ? FREEFORM : PRESCRIPTIVE;
     this._restDays = new Set((program.restDays || []).map(Number));
+    this._notes = program.notes || '';
 
-    // Filtered reads: rows never show a routine that no longer exists.
-    this._dayRoutines = new Map();
+    // Filtered reads: rows never show a routine or activity that no longer exists.
+    this._dayItems = new Map();
     getProgramScheduledDays(programId).forEach((day) => {
       const key = Number(day.dayOfWeek);
-      if (!this._dayRoutines.has(key)) this._dayRoutines.set(key, []);
-      this._dayRoutines.get(key).push(day.routineId);
+      if (!this._dayItems.has(key)) this._dayItems.set(key, []);
+      this._dayItems
+        .get(key)
+        .push(
+          day.activityId
+            ? { type: 'activity', id: day.activityId }
+            : { type: 'routine', id: day.routineId }
+        );
     });
-    this._anytime = getProgramAnytimeRoutines(programId).map((entry) => ({ ...entry }));
 
     this._setTitle('Edit Program');
     this._setName(program.name || '');
     this._setDates(program.startDate, program.endDate);
     this._setDeleteVisible(true);
-    this._setAddTodayVisible(true);
     this._renderAll();
     openModal(MODAL_ID);
   },
@@ -123,6 +226,7 @@ export const ProgramBuilderModal = {
    * @returns {void}
    */
   close() {
+    closeDayAddMenu();
     closeModal(MODAL_ID);
   },
 
@@ -131,10 +235,8 @@ export const ProgramBuilderModal = {
    * @returns {void}
    */
   _renderAll() {
-    this._renderMode();
     this._renderRestDays();
     this._renderSchedule();
-    this._renderAnytime();
     this._validate();
   },
 
@@ -194,47 +296,6 @@ export const ProgramBuilderModal = {
   },
 
   /**
-   * @param {boolean} visible - Whether the add-to-current-day button shows
-   * @returns {void}
-   */
-  _setAddTodayVisible(visible) {
-    document.getElementById('program-add-today-btn')?.classList.toggle('hidden', !visible);
-  },
-
-  /**
-   * Reflects the selected mode on the segmented control.
-   * @returns {void}
-   */
-  _renderMode() {
-    document.querySelectorAll('.program-mode-btn').forEach((btn) => {
-      const active = btn.dataset.mode === this._mode;
-      btn.classList.toggle('bg-white', active);
-      btn.classList.toggle('dark:bg-gray-700', active);
-      btn.classList.toggle('text-gray-900', active);
-      btn.classList.toggle('dark:text-white', active);
-      btn.classList.toggle('border', active);
-      btn.classList.toggle('border-gray-200', active);
-      btn.classList.toggle('dark:border-gray-600', active);
-      btn.classList.toggle('shadow-sm', active);
-      btn.classList.toggle('text-gray-600', !active);
-      btn.classList.toggle('dark:text-gray-400', !active);
-      btn.setAttribute('aria-pressed', String(active));
-    });
-
-    const hint = document.getElementById('program-mode-hint');
-    if (hint) hint.textContent = MODE_HINTS[this._mode];
-
-    const heading = document.getElementById('program-schedule-heading');
-    if (heading) {
-      heading.textContent = this._mode === FREEFORM ? 'Pinned to days' : 'Weekly schedule';
-    }
-
-    document
-      .getElementById('program-anytime-section')
-      ?.classList.toggle('hidden', this._mode !== FREEFORM);
-  },
-
-  /**
    * Builds the seven rest-day buttons, matching the habits day picker.
    * @returns {void}
    */
@@ -243,9 +304,9 @@ export const ProgramBuilderModal = {
     if (!grid) return;
 
     if (grid.childElementCount === 0) {
-      grid.innerHTML = DAY_LABELS.map(
-        (label, index) => `
-        <button type="button" class="day-button program-rest-day flex-1 h-12 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-medium text-sm hover:border-ios-blue transition-colors" data-day="${index}" aria-label="${ROW_LABELS[index]} rest day" aria-pressed="false">${label}</button>
+      grid.innerHTML = ROW_ORDER.map(
+        (index) => `
+        <button type="button" class="day-button program-rest-day flex-1 h-12 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-medium text-sm hover:border-ios-blue transition-colors" data-day="${index}" aria-label="${ROW_LABELS[index]} rest day" aria-pressed="false">${DAY_LABELS[index]}</button>
       `
       ).join('');
       grid.querySelectorAll('.program-rest-day').forEach((btn) => {
@@ -271,7 +332,7 @@ export const ProgramBuilderModal = {
       this._restDays.delete(dayOfWeek);
     } else {
       this._restDays.add(dayOfWeek);
-      this._dayRoutines.delete(dayOfWeek);
+      this._dayItems.delete(dayOfWeek);
     }
     this._renderRestDays();
     this._renderSchedule();
@@ -279,189 +340,193 @@ export const ProgramBuilderModal = {
   },
 
   /**
-   * Renders one row per non-rest weekday, each listing the routines pinned to it.
+   * Renders one row per non-rest weekday. Each pinned routine or activity is its
+   * own tile, with the add button sitting immediately after the last one rather
+   * than pushed to the far edge, so the row reads as a single growing list.
    * @returns {void}
    */
   _renderSchedule() {
     const host = document.getElementById('program-schedule-rows');
     if (!host) return;
 
-    const routines = getRoutines();
-    const noRoutines = routines.length === 0;
-    const activeDays = ROW_ORDER.filter((day) => !this._restDays.has(day));
+    closeDayAddMenu();
 
-    document.getElementById('program-no-routines-notice')?.classList.toggle('hidden', !noRoutines);
+    const activeDays = ROW_ORDER.filter((day) => !this._restDays.has(day));
     document
       .getElementById('program-all-rest-notice')
-      ?.classList.toggle('hidden', noRoutines || activeDays.length > 0);
+      ?.classList.toggle('hidden', activeDays.length > 0);
 
-    if (noRoutines || activeDays.length === 0) {
-      host.innerHTML = '';
-      return;
-    }
+    host.innerHTML = activeDays.map((day) => this._buildDayRow(day)).join('');
 
-    host.innerHTML = activeDays
-      .map((day) => {
-        const ids = this._dayRoutines.get(day) || [];
-        const names = ids
-          .map((id) => getRoutine(id)?.name)
-          .filter(Boolean)
-          .join(', ');
-        const empty = names.length === 0;
-        return `
-        <div class="flex items-center justify-between gap-3">
-          <span class="text-sm font-medium text-gray-700 dark:text-gray-300 w-10 flex-shrink-0">${ROW_LABELS[day]}</span>
-          <button type="button" class="program-day-select flex-1 min-w-0 flex items-center justify-between gap-2 px-4 py-2 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-ios-blue/50 transition-all duration-200 h-10" data-day-of-week="${day}">
-            <span class="truncate text-sm ${empty ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-white font-medium'}">${empty ? 'Rest' : names}</span>
-            <span class="material-icons text-lg text-gray-400 flex-shrink-0">chevron_right</span>
-          </button>
-        </div>
-      `;
-      })
+    host.querySelectorAll('.program-day-item-remove').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this._removeDayItem(Number(btn.dataset.dayOfWeek), Number(btn.dataset.index));
+      });
+    });
+    host.querySelectorAll('.program-day-add').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this._openDayAddMenu(btn, Number(btn.dataset.dayOfWeek));
+      });
+    });
+  },
+
+  /**
+   * Builds one weekday row.
+   * @param {number} day - 0 = Sunday
+   * @returns {string} Row markup.
+   */
+  _buildDayRow(day) {
+    const items = this._dayItems.get(day) || [];
+    const tiles = items
+      .map((item, index) => this._buildDayItemTile(item, day, index))
+      .filter(Boolean)
       .join('');
 
-    host.querySelectorAll('.program-day-select').forEach((btn) => {
-      btn.addEventListener('click', () => this._openDayPicker(Number(btn.dataset.dayOfWeek)));
+    // Two columns: the weekday on the left, everything pinned to it on the
+    // right. The tiles and the + share one wrapping container, so the + sits in
+    // line with "Mon" on an empty day, trails the last tile once the day fills
+    // up, and a row that wraps keeps its second line clear of the day column.
+    return `
+      <div class="program-day-row flex items-start gap-2" data-day-of-week="${day}">
+        <span class="text-sm font-medium text-gray-700 dark:text-gray-300 w-9 h-9 flex-shrink-0 flex items-center">${ROW_LABELS[day]}</span>
+        <div class="flex flex-wrap items-center gap-2 min-w-0 flex-grow">
+          ${tiles}
+          <span class="relative inline-flex">
+            <button type="button" class="program-day-add w-9 h-9 rounded-xl bg-ios-blue/10 text-ios-blue flex items-center justify-center hover:bg-ios-blue/20 transition-colors focus:outline-none focus:ring-2 focus:ring-ios-blue/50" data-day-of-week="${day}" aria-haspopup="menu" aria-expanded="false" aria-label="Add to ${FULL_DAY_NAMES[day]}">
+              <span class="material-icons text-xl">add</span>
+            </button>
+          </span>
+        </div>
+      </div>
+    `;
+  },
+
+  /**
+   * Builds a single pinned-item tile.
+   * @param {{type: string, id: string}} item - The pinned routine or activity
+   * @param {number} day - Weekday the tile belongs to
+   * @param {number} index - Position within the day, used as the remove target
+   * @returns {string} Tile markup, or an empty string when the target is gone.
+   */
+  _buildDayItemTile(item, day, index) {
+    const presentation = programItemPresentation(item);
+    if (!presentation) return '';
+    const { name, color, iconHTML } = presentation;
+
+    return `
+      <span class="program-day-item inline-flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-xl text-sm font-medium text-gray-900 dark:text-white max-w-full" style="border:2px solid ${color}; background-color:${hexToRgba(color, 0.12)};">
+        ${iconHTML}
+        <span class="truncate">${name}</span>
+        <button type="button" class="program-day-item-remove w-5 h-5 rounded-full flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-black/10 dark:hover:bg-white/10 transition-colors flex-shrink-0" data-day-of-week="${day}" data-index="${index}" aria-label="Remove ${name} from ${FULL_DAY_NAMES[day]}">
+          <span class="material-icons text-sm">close</span>
+        </button>
+      </span>
+    `;
+  },
+
+  /**
+   * Drops one pinned item from a day.
+   * @param {number} dayOfWeek - 0 = Sunday
+   * @param {number} index - Position within the day
+   * @returns {void}
+   */
+  _removeDayItem(dayOfWeek, index) {
+    const items = this._dayItems.get(dayOfWeek);
+    if (!items) return;
+    items.splice(index, 1);
+    if (items.length === 0) this._dayItems.delete(dayOfWeek);
+    this._renderSchedule();
+    this._validate();
+  },
+
+  /**
+   * Offers the choice between adding an activity and adding a routine, anchored
+   * to the day's add button.
+   * @param {HTMLElement} button - The add button
+   * @param {number} dayOfWeek - 0 = Sunday
+   * @returns {void}
+   */
+  _openDayAddMenu(button, dayOfWeek) {
+    openDayAddMenu(button, {
+      onAddActivity: () => this._openDayActivityPicker(dayOfWeek),
+      onAddRoutine: () => this._openDayRoutinePicker(dayOfWeek),
     });
   },
 
   /**
    * Opens the routine picker for one weekday, seeded with that day's routines.
+   * Confirming replaces the day's routines and leaves its activities alone.
    * @param {number} dayOfWeek - 0 = Sunday
    * @returns {void}
    */
-  _openDayPicker(dayOfWeek) {
+  _openDayRoutinePicker(dayOfWeek) {
     RoutinePickerModal.open({
-      selectedIds: [...(this._dayRoutines.get(dayOfWeek) || [])],
-      title: `${ROW_LABELS[dayOfWeek]} routines`,
+      selectedIds: this._idsOfType(dayOfWeek, 'routine'),
+      title: `${FULL_DAY_NAMES[dayOfWeek]} Routines`,
       confirmLabel: 'Done',
       allowEmpty: true,
-      onConfirm: (routineIds) => {
-        if (routineIds.length === 0) this._dayRoutines.delete(dayOfWeek);
-        else this._dayRoutines.set(dayOfWeek, routineIds);
-        this._renderSchedule();
-        this._validate();
-      },
+      onConfirm: (routineIds) => this._replaceDayItems(dayOfWeek, 'routine', routineIds),
     });
   },
 
   /**
-   * Renders the anytime bucket: one row per routine with a weekly count stepper.
+   * Opens the activity picker for one weekday, seeded with that day's activities.
+   * Confirming replaces the day's activities and leaves its routines alone.
+   * @param {number} dayOfWeek - 0 = Sunday
    * @returns {void}
    */
-  _renderAnytime() {
-    const host = document.getElementById('program-anytime-rows');
-    if (!host) return;
-
-    const total = this._anytime.reduce((sum, entry) => sum + entry.count, 0);
-    const counter = document.getElementById('program-anytime-count');
-    if (counter) counter.textContent = `${total} per week`;
-
-    if (this._anytime.length === 0) {
-      host.innerHTML = `
-        <p class="text-xs text-gray-500 dark:text-gray-400 py-2">Nothing added yet.</p>
-      `;
-      return;
-    }
-
-    host.innerHTML = this._anytime
-      .map((entry) => {
-        const routine = getRoutine(entry.routineId);
-        if (!routine) return '';
-        return `
-        <div class="program-anytime-row flex items-center gap-2 px-3 py-2 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl" data-routine-id="${entry.routineId}">
-          <span class="material-icons text-ios-blue text-lg flex-shrink-0">repeat</span>
-          <span class="flex-grow min-w-0 truncate text-sm font-medium text-gray-900 dark:text-white">${routine.name}</span>
-          <div class="flex items-center gap-1 flex-shrink-0">
-            <button type="button" class="anytime-step w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors" data-routine-id="${entry.routineId}" data-delta="-1" aria-label="Decrease ${routine.name} weekly count">
-              <span class="material-icons text-base">remove</span>
-            </button>
-            <span class="anytime-count text-sm font-bold text-gray-900 dark:text-white w-6 text-center">${entry.count}</span>
-            <button type="button" class="anytime-step w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors" data-routine-id="${entry.routineId}" data-delta="1" aria-label="Increase ${routine.name} weekly count">
-              <span class="material-icons text-base">add</span>
-            </button>
-          </div>
-          <button type="button" class="anytime-remove w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-colors flex-shrink-0 ml-1" data-routine-id="${entry.routineId}" aria-label="Remove ${routine.name}">
-            <span class="material-icons text-base">close</span>
-          </button>
-        </div>
-      `;
-      })
-      .join('');
-
-    host.querySelectorAll('.anytime-step').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        this._stepAnytime(btn.dataset.routineId, Number(btn.dataset.delta));
-      });
-    });
-    host.querySelectorAll('.anytime-remove').forEach((btn) => {
-      btn.addEventListener('click', () => this._removeAnytime(btn.dataset.routineId));
-    });
-  },
-
-  /**
-   * Adjusts a routine's weekly count, removing the row when it drops below one.
-   * @param {string} routineId - Routine client id
-   * @param {number} delta - +1 or -1
-   * @returns {void}
-   */
-  _stepAnytime(routineId, delta) {
-    const entry = this._anytime.find((item) => item.routineId === routineId);
-    if (!entry) return;
-    const next = entry.count + delta;
-    if (next < 1) {
-      this._removeAnytime(routineId);
-      return;
-    }
-    entry.count = next;
-    this._renderAnytime();
-    this._validate();
-  },
-
-  /**
-   * Drops a routine from the anytime bucket.
-   * @param {string} routineId - Routine client id
-   * @returns {void}
-   */
-  _removeAnytime(routineId) {
-    this._anytime = this._anytime.filter((entry) => entry.routineId !== routineId);
-    this._renderAnytime();
-    this._validate();
-  },
-
-  /**
-   * Opens the routine picker to choose the anytime routines.
-   * @returns {void}
-   */
-  _openAnytimePicker() {
-    RoutinePickerModal.open({
-      selectedIds: this._anytime.map((entry) => entry.routineId),
-      title: 'Anytime routines',
+  _openDayActivityPicker(dayOfWeek) {
+    ActivityPickerModal.open({
+      selectedIds: this._idsOfType(dayOfWeek, 'activity'),
+      title: `${FULL_DAY_NAMES[dayOfWeek]} Activities`,
       confirmLabel: 'Done',
       allowEmpty: true,
-      onConfirm: (routineIds) => {
-        // Keep existing counts; new picks start at one a week.
-        const existing = new Map(this._anytime.map((entry) => [entry.routineId, entry.count]));
-        this._anytime = routineIds.map((routineId) => ({
-          routineId,
-          count: existing.get(routineId) || 1,
-        }));
-        this._renderAnytime();
-        this._validate();
-      },
+      onConfirm: (activityIds) => this._replaceDayItems(dayOfWeek, 'activity', activityIds),
     });
+  },
+
+  /**
+   * @param {number} dayOfWeek - 0 = Sunday
+   * @param {string} type - 'routine' or 'activity'
+   * @returns {string[]} The day's ids of that type, in order.
+   */
+  _idsOfType(dayOfWeek, type) {
+    return (this._dayItems.get(dayOfWeek) || [])
+      .filter((item) => item.type === type)
+      .map((item) => item.id);
+  },
+
+  /**
+   * Swaps out every item of one type on a day, keeping the other type in place.
+   * @param {number} dayOfWeek - 0 = Sunday
+   * @param {string} type - 'routine' or 'activity'
+   * @param {string[]} ids - The new ids of that type, in order
+   * @returns {void}
+   */
+  _replaceDayItems(dayOfWeek, type, ids) {
+    const kept = (this._dayItems.get(dayOfWeek) || []).filter((item) => item.type !== type);
+    const next = [...kept, ...ids.map((id) => ({ type, id }))];
+    if (next.length === 0) this._dayItems.delete(dayOfWeek);
+    else this._dayItems.set(dayOfWeek, next);
+    this._renderSchedule();
+    this._validate();
   },
 
   /**
    * Flattens the pinned day map into the stored schedule shape.
-   * @returns {Array<{dayOfWeek: number, routineId: string}>} Schedule entries.
+   * @returns {Array<{dayOfWeek: number, routineId?: string, activityId?: string}>} Schedule entries.
    */
   _collectSchedule() {
     const entries = [];
     ROW_ORDER.forEach((day) => {
       if (this._restDays.has(day)) return;
-      (this._dayRoutines.get(day) || []).forEach((routineId) => {
-        entries.push({ dayOfWeek: day, routineId });
+      (this._dayItems.get(day) || []).forEach((item) => {
+        entries.push(
+          item.type === 'activity'
+            ? { dayOfWeek: day, activityId: item.id }
+            : { dayOfWeek: day, routineId: item.id }
+        );
       });
     });
     return entries;
@@ -480,11 +545,7 @@ export const ProgramBuilderModal = {
     const inverted = Boolean(start && end && start > end);
     errorEl?.classList.toggle('hidden', !inverted);
 
-    // Flexible programs may rely purely on weekly targets, so either the pinned
-    // schedule or the anytime bucket is enough.
-    const hasSchedule =
-      this._collectSchedule().length > 0 ||
-      (this._mode === FREEFORM && this._anytime.length > 0);
+    const hasSchedule = this._collectSchedule().length > 0;
 
     const valid =
       this._name().length > 0 && Boolean(start) && Boolean(end) && !inverted && hasSchedule;
@@ -501,23 +562,79 @@ export const ProgramBuilderModal = {
     const name = this._name();
     const { start, end } = this._dates();
     const scheduledDays = this._collectSchedule();
-    const anytimeRoutines = this._mode === FREEFORM ? this._anytime.map((e) => ({ ...e })) : [];
     if (!name || !start || !end || start > end) return;
-    if (scheduledDays.length === 0 && anytimeRoutines.length === 0) return;
+    if (scheduledDays.length === 0) return;
 
     const payload = {
       name,
       startDate: start,
       endDate: end,
-      scheduleMode: this._mode,
       restDays: [...this._restDays],
       scheduledDays,
-      anytimeRoutines,
+      notes: this._notes,
     };
 
+    // Two blocks covering the same days would both claim those days, so make the
+    // clash a decision rather than something the user discovers later.
+    const clashes = findOverlappingPrograms(start, end, this._editProgramId);
+    if (clashes.length > 0) {
+      this._promptDateConflict(clashes, payload);
+      return;
+    }
+
+    await this._persist(payload);
+  },
+
+  /**
+   * Offers the ways out of a date clash: edit the block already covering those
+   * days, replace it with this one, or back out.
+   * @param {object[]} clashes - Overlapping programs
+   * @param {object} payload - The program about to be saved
+   * @returns {void}
+   */
+  _promptDateConflict(clashes, payload) {
+    const names = clashes.map((program) => `"${program.name}"`).join(', ');
+    const plural = clashes.length > 1;
+
+    showChoice({
+      title: 'Conflicting Dates',
+      message: `${names} already ${plural ? 'cover' : 'covers'} some of these days. Two programs cannot run over the same dates.`,
+      actions: [
+        {
+          label: plural ? 'Replace them with this one' : 'Replace it with this one',
+          destructive: true,
+          onSelect: async () => {
+            for (const program of clashes) {
+              // Sequential, matching the rest of the outbox writes.
+              // eslint-disable-next-line no-await-in-loop
+              const deleted = await deleteProgram(program.id);
+              if (!deleted) return;
+            }
+            await this._persist(payload);
+          },
+        },
+        {
+          label: plural ? `Edit "${clashes[0].name}" instead` : `Edit ${names} instead`,
+          onSelect: () => {
+            const onSaved = this._onSaved;
+            this.openEditMode(clashes[0].id, { onSaved });
+          },
+        },
+      ],
+    });
+  },
+
+  /**
+   * Writes the program, activates it and closes the builder.
+   * @param {object} payload - Program fields to persist
+   * @returns {Promise<void>}
+   */
+  async _persist(payload) {
     let programId = this._editProgramId;
     if (programId) {
-      const saved = await updateProgram(programId, payload);
+      // Edits apply from today: what the block planned before that is closed off
+      // as a phase, so past weeks keep the sessions they were measured against.
+      const saved = await updateProgramPlan(programId, payload);
       if (!saved) return;
     } else {
       // A newly created program becomes the active one — the user just chose to plan it.
@@ -532,42 +649,6 @@ export const ProgramBuilderModal = {
 
     closeModal(MODAL_ID);
     this._onSaved?.();
-  },
-
-  /**
-   * Records the selected day's scheduled routines straight away, for people who
-   * would rather pull the program into a day than have it appear on its own.
-   * @returns {Promise<void>}
-   */
-  async _handleAddToCurrentDay() {
-    const iso = getLocalISODate(getState().fitnessSelectedDate || new Date().toISOString());
-    const weekday = new Date(`${iso}T00:00:00.000Z`).getUTCDay();
-
-    if (this._restDays.has(weekday)) {
-      showConfirm({
-        title: 'Rest Day',
-        message: 'This weekday is a rest day in the program.',
-        okText: 'OK',
-        cancelText: '',
-        onOK: () => {},
-      });
-      return;
-    }
-
-    const routineIds = [...(this._dayRoutines.get(weekday) || [])];
-    if (routineIds.length === 0) {
-      showConfirm({
-        title: 'Nothing Scheduled',
-        message: 'No routines are scheduled for this day of the week.',
-        okText: 'OK',
-        cancelText: '',
-        onOK: () => {},
-      });
-      return;
-    }
-
-    const result = await recordRoutinesForDate(routineIds, iso);
-    if (result.recorded > 0) closeModal(MODAL_ID);
   },
 
   /**
@@ -605,25 +686,8 @@ export const ProgramBuilderModal = {
       el?.addEventListener('change', () => this._validate());
     });
 
-    document.querySelectorAll('.program-mode-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const mode = btn.dataset.mode === FREEFORM ? FREEFORM : PRESCRIPTIVE;
-        if (mode === this._mode) return;
-        this._mode = mode;
-        this._renderAll();
-      });
-    });
-
-    document.getElementById('program-add-anytime-btn')?.addEventListener('click', () => {
-      this._openAnytimePicker();
-    });
-
     document.getElementById('save-program-builder')?.addEventListener('click', () => {
       void this._handleSave();
-    });
-
-    document.getElementById('program-add-today-btn')?.addEventListener('click', () => {
-      void this._handleAddToCurrentDay();
     });
 
     document.getElementById('cancel-program-builder')?.addEventListener('click', () => {

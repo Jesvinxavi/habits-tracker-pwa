@@ -7,38 +7,64 @@ All notable user-facing and operational changes are documented here.
 ### Added
 
 - Routines: named, ordered sets of activities, created and edited from a
-  Routines modal reached by the new **Routines** button
-- Training programs with a fixed date block and one of two scheduling modes —
-  a prescriptive weekly schedule where a weekday may hold several routines, or a
-  flexible mode with weekly targets that can be met on any day
-- Program rest days chosen from a weekday selector matching the habit schedule
-  picker; rest weekdays drop out of the schedule entirely
+  Routines modal reached by the new **Routines** button, with a search and a
+  **New** button in its header
+- Training programs: a fixed date block with a weekly schedule of routines and
+  single activities pinned to weekdays, any weekday holding several
+- Program rest days chosen from a Monday-first weekday selector; rest weekdays
+  drop out of the schedule entirely
 - Program adherence tile on the fitness page showing the date range, current
   week, sessions completed against planned, and a fill that tracks progress
+- Program details modal: today's session, then progress week by week — one pill
+  per calendar week with its own bar, opening onto the days it plans and what
+  has been ticked off them
+- Weekly credit: a session counts towards the day it was pinned to as long as it
+  falls in the same week, whether it was done before that day or after
+- Schedule history: editing a running program only changes it from today, so
+  weeks that have already happened keep the plan they were measured against
 - Activity Library modal replacing the inline expanding search panel, with an
   always-visible filter and a **+ New** button
 - Multi-select activity and routine pickers behind the `+` menu, so several
   activities or whole routines can be logged in one action
 - **Save as routine**, turning a day's recorded activities into a reusable
   routine with duplicates collapsed
-- `Preload program routines` preference: when enabled, opening a scheduled day
-  fills it with that day's routines; otherwise routines are added on demand from
-  the `+` menu or the program builder
 - `routines` and `programs` threaded through the full persistence chain — Convex
   schema and mutations, sync, bootstrap, migration, export, offline cache and
   outbox, state and hydration
+- Separate build targets for GitHub Pages and a local server, with
+  `npm run preview:phone` for testing on a phone over the local network; see
+  `docs/BUILD_AND_DEPLOY.md`
 
 ### Changed
 
-- The fitness page's action buttons are now **Activity** and **Routines**; the
-  timer moved into the `+` menu and keeps all of its behaviour
+- Deleting an activity or a routine now **archives** it: the sessions already
+  recorded against it are kept, along with the days a program had planned it on
+  before the deletion. It leaves the library, the pickers and the plan going
+  forward, and its recorded cards carry a **Deleted** pill
+- Renaming an activity, or moving it to another category, applies to every
+  session of it, past ones included
+- Program weeks are calendar weeks, Monday to Sunday, so a block starting
+  mid-week gets a short first week rather than shifting every later week
+- A program slot is only satisfied by a session for that activity, or one in
+  that routine; unrelated training no longer ticks it off
+- A backdated program credits nothing from the weeks before it was created
+- The fitness page's action buttons are now **Activities** and **Routines**; the
+  timer has its own button beside the `+`
 - The routine builder lists only the activities chosen for the routine, with
   browsing delegated to the activity picker
-- The fitness empty state points at the **Activity** button rather than a
-  "Record Activity" control that never existed
+- The fitness empty state points at the `+` rather than a "Record Activity"
+  control that never existed
 
 ### Fixed
 
+- Deleting a second activity in one session did nothing until a reload: the
+  editor's delete button acted on whichever activity had been opened first
+- Deleting an activity erased it from the program weeks it had already been
+  planned in, instead of only from the plan going forward
+- Startup stalled indefinitely in a background tab. Two steps awaited an
+  animation frame, which browsers do not run while a page is hidden, so the app
+  loaded its data and then sat behind the loading screen until the tab was
+  looked at
 - Closing a stacked modal no longer restores page scrolling while a modal
   underneath is still open
 - A sync replay requested while a replay was already running is no longer
@@ -46,9 +72,16 @@ All notable user-facing and operational changes are documented here.
   `pending` until an unrelated dispatch
 - `FitnessView` passed the rest-toggle a bare callback where an options object
   was expected, so its `onToggle` had never fired
+- The performance workflow built for GitHub Pages and served the result from the
+  root, so Lighthouse was scoring a page whose assets all 404'd
 
 ### Removed
 
+- The two program scheduling modes and the "anytime that week" bucket: one
+  model remains, and a pinned day already counts anywhere in its week
+- The `Preload program routines` preference. A program never records anything by
+  itself; its day is added from the `+` menu or the details modal, which now
+  tops a day up rather than refusing one that already holds training
 - The inline expanding search panel, its expand/collapse and blur machinery, and
   the dead CSS and layout helpers that supported it
 - Timer button state code targeting the removed `#start-timer-btn`

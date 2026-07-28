@@ -131,15 +131,17 @@ test.describe('home page still works', () => {
 });
 
 test.describe('profile page still works', () => {
-  test('preference switches toggle, including the new one', async ({ page }) => {
+  test('preference switches toggle', async ({ page }) => {
     await open(page, 'Profile view');
-    for (const setting of ['hideCompleted', 'hideSkipped', 'programPreload']) {
+    for (const setting of ['hideCompleted', 'hideSkipped']) {
       const toggle = page.locator(`[data-setting="${setting}"]`);
       await expect(toggle).toBeVisible();
       const before = await toggle.getAttribute('aria-checked');
       await toggle.click();
       await expect(toggle).not.toHaveAttribute('aria-checked', before);
     }
+    // The program preload switch was removed with the feature.
+    await expect(page.locator('[data-setting="programPreload"]')).toHaveCount(0);
   });
 
   test('export includes the two new tables', async ({ page }) => {

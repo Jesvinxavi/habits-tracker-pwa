@@ -15,7 +15,7 @@
    VITE_CLERK_PUBLISHABLE_KEY=<Clerk publishable key>
    ```
 
-6. Run `npm test`, `npm run test:convex`, `npm run lint`, and `npm run build`.
+6. Run `npm test`, `npm run test:convex`, `npm run lint`, and `npm run build:local`.
 
 `npx convex dev` regenerates `convex/_generated` with deployment/schema-specific
 types. Commit those generated bindings.

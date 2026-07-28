@@ -27,7 +27,6 @@ const PERSISTENT_ACTIONS = new Set([
   ActionTypes.UPDATE_HOLIDAY_PERIOD,
   ActionTypes.ADD_ACTIVITY,
   ActionTypes.UPDATE_ACTIVITY,
-  ActionTypes.DELETE_ACTIVITY,
   ActionTypes.RECORD_ACTIVITY,
   ActionTypes.DELETE_RECORDED_ACTIVITY,
   ActionTypes.UPDATE_RECORDED_ACTIVITY,
@@ -35,7 +34,6 @@ const PERSISTENT_ACTIONS = new Set([
   ActionTypes.SET_REST_DAY,
   ActionTypes.ADD_ROUTINE,
   ActionTypes.UPDATE_ROUTINE,
-  ActionTypes.DELETE_ROUTINE,
   ActionTypes.ADD_PROGRAM,
   ActionTypes.UPDATE_PROGRAM,
   ActionTypes.DELETE_PROGRAM,
@@ -202,6 +200,9 @@ function activityDefinition(activity) {
     trackingType: activity.trackingType === 'sets-reps' ? 'sets-reps' : 'time',
     units: activity.units,
     muscleGroup: activity.muscleGroup,
+    notes: activity.notes,
+    betterDirection: activity.betterDirection === 'lower' ? 'lower' : undefined,
+    archivedAt: activity.archivedAt,
     revision: activity.revision || 0,
   });
 }
@@ -213,7 +214,7 @@ function activityDefinition(activity) {
  * @returns {object} Convex-shaped routine record.
  */
 export function routineRecord(routine, sortOrder) {
-  return {
+  const record = {
     clientId: routine.id || routine.clientId,
     name: routine.name,
     activityClientIds: [...(routine.activityIds || routine.activityClientIds || [])],
@@ -221,6 +222,10 @@ export function routineRecord(routine, sortOrder) {
     sortOrder,
     revision: routine.revision || 0,
   };
+  // Absent rather than undefined, so the optional Convex field stays unset for
+  // a routine that has never been archived.
+  if (routine.archivedAt != null) record.archivedAt = routine.archivedAt;
+  return record;
 }
 
 /**
@@ -235,16 +240,36 @@ export function programRecord(program, sortOrder) {
     name: program.name,
     startDateISO: String(program.startDate || program.startDateISO).slice(0, 10),
     endDateISO: String(program.endDate || program.endDateISO).slice(0, 10),
-    scheduleMode: program.scheduleMode === 'freeform' ? 'freeform' : 'prescriptive',
     restDays: [...(program.restDays || [])].map(Number),
-    scheduledDays: (program.scheduledDays || []).map((day) => ({
-      dayOfWeek: Number(day.dayOfWeek),
-      routineClientId: day.routineId || day.routineClientId,
+    scheduledDays: (program.scheduledDays || []).map((day) => {
+      // A day pins a routine or a single activity. Only the key in use is
+      // written, so the other stays absent rather than undefined.
+      const activityClientId = day.activityId || day.activityClientId;
+      if (activityClientId) return { dayOfWeek: Number(day.dayOfWeek), activityClientId };
+      return {
+        dayOfWeek: Number(day.dayOfWeek),
+        routineClientId: day.routineId || day.routineClientId,
+      };
+    }),
+    // Superseded schedules, so a running program's past weeks keep the plan they
+    // were measured against when it is edited.
+    schedulePhases: (program.schedulePhases || []).map((phase) => ({
+      startDateISO: String(phase.startDate || phase.startDateISO).slice(0, 10),
+      endDateISO: String(phase.endDate || phase.endDateISO).slice(0, 10),
+      scheduledDays: (phase.scheduledDays || []).map((day) => {
+        const activityClientId = day.activityId || day.activityClientId;
+        if (activityClientId) return { dayOfWeek: Number(day.dayOfWeek), activityClientId };
+        return {
+          dayOfWeek: Number(day.dayOfWeek),
+          routineClientId: day.routineId || day.routineClientId,
+        };
+      }),
+      restDays: [...(phase.restDays || [])].map(Number),
     })),
-    anytimeRoutines: (program.anytimeRoutines || []).map((entry) => ({
-      routineClientId: entry.routineId || entry.routineClientId,
-      count: Number(entry.count) || 1,
-    })),
+    // scheduleMode and anytimeRoutines are not written: one scheduling model
+    // survives, and a session counts anywhere in its week. Both stay in the
+    // Convex schema as optional so rows written by an older client still load.
+    notes: program.notes || '',
     active: Boolean(program.active),
     createdAtISO: String(program.createdAt || program.createdAtISO).slice(0, 10),
     sortOrder,
@@ -496,30 +521,15 @@ export async function persistStateAction(action, state) {
       );
       break;
     }
-    case ActionTypes.UPDATE_ACTIVITY:
-    case ActionTypes.DELETE_ACTIVITY: {
-      const id =
-        action.type === ActionTypes.DELETE_ACTIVITY
-          ? action.payload
-          : action.payload.activityId;
+    case ActionTypes.UPDATE_ACTIVITY: {
+      // Archiving is an update carrying archivedAt, not a delete: the records
+      // are the history, and activities:removeCascade would tombstone them.
+      const id = action.payload.activityId;
       const current = state.activities.find((item) => item.id === id);
       const base = activityDefinition(current);
-      const optimistic =
-        action.type === ActionTypes.DELETE_ACTIVITY
-          ? { ...base, deletedAt: Date.now() }
-          : activityDefinition({ ...current, ...action.payload.updates });
+      const optimistic = activityDefinition({ ...current, ...action.payload.updates });
       operations.push(
-        sharedOperation(
-          runtime,
-          'activities',
-          id,
-          action.type === ActionTypes.DELETE_ACTIVITY
-            ? 'activities:removeCascade'
-            : 'activities:update',
-          action.type === ActionTypes.DELETE_ACTIVITY ? { clientId: id } : optimistic,
-          base,
-          optimistic
-        )
+        sharedOperation(runtime, 'activities', id, 'activities:update', optimistic, base, optimistic)
       );
       break;
     }
@@ -602,29 +612,15 @@ export async function persistStateAction(action, state) {
       );
       break;
     }
-    case ActionTypes.UPDATE_ROUTINE:
-    case ActionTypes.DELETE_ROUTINE: {
-      const id =
-        action.type === ActionTypes.DELETE_ROUTINE ? action.payload : action.payload.routineId;
+    case ActionTypes.UPDATE_ROUTINE: {
+      // As with activities, archiving travels as an update.
+      const id = action.payload.routineId;
       const current = state.routines.find((item) => item.id === id);
       const sortOrder = state.routines.indexOf(current);
       const base = routineRecord(current, sortOrder);
-      const optimistic =
-        action.type === ActionTypes.DELETE_ROUTINE
-          ? { ...base, deletedAt: Date.now() }
-          : routineRecord({ ...current, ...action.payload.updates }, sortOrder);
+      const optimistic = routineRecord({ ...current, ...action.payload.updates }, sortOrder);
       operations.push(
-        sharedOperation(
-          runtime,
-          'routines',
-          id,
-          action.type === ActionTypes.DELETE_ROUTINE
-            ? 'routines:removeCascade'
-            : 'routines:update',
-          action.type === ActionTypes.DELETE_ROUTINE ? { clientId: id } : optimistic,
-          base,
-          optimistic
-        )
+        sharedOperation(runtime, 'routines', id, 'routines:update', optimistic, base, optimistic)
       );
       break;
     }

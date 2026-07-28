@@ -20,7 +20,7 @@ async function seed(page) {
 // Recording flows through the two multi-select pickers live in
 // pickers.spec.js; this file covers the menu itself.
 test.describe('the + add menu', () => {
-  test('menu matches the home dropdown and has six items', async ({ page }) => {
+  test('menu matches the home dropdown and has five items', async ({ page }) => {
     await seed(page);
     const btn = page.locator('#fitness-add-menu-btn');
     await expect(btn).toHaveAttribute('aria-expanded', 'false');
@@ -29,13 +29,14 @@ test.describe('the + add menu', () => {
     const menu = page.locator('#fitness-add-menu');
     await expect(menu).toBeVisible();
     await expect(btn).toHaveAttribute('aria-expanded', 'true');
-    await expect(menu.locator('.dropdown-item')).toHaveCount(6);
+    await expect(menu.locator('.dropdown-item')).toHaveCount(5);
     await expect(menu).toContainText('Add activity');
     await expect(menu).toContainText('Add routine');
     await expect(menu).toContainText('program');
     await expect(menu).toContainText('Save as routine');
     await expect(menu).toContainText('New program');
-    await expect(menu).toContainText('Timer');
+    // The timer has its own button beside the Schedule pill.
+    await expect(menu).not.toContainText('Timer');
     await expect(menu).toHaveAttribute('role', 'menu');
 
     // Same visual treatment as the home-screen menu.
@@ -80,9 +81,9 @@ test.describe('the + add menu', () => {
     await expect(btn).toBeFocused();
 
     await btn.click();
-    await menu.locator('[data-action="timer"]').click();
+    await menu.locator('[data-action="new-program"]').click();
     await expect(menu).toBeHidden();
-    await expect(page.locator('#timer-modal')).toBeVisible();
+    await expect(page.locator('#program-builder-modal')).toBeVisible();
   });
 
   test('keyboard: arrows navigate, Enter activates, Escape restores focus', async ({ page }) => {
@@ -101,7 +102,7 @@ test.describe('the + add menu', () => {
     await expect(menu.locator('[data-action="add-activity"]')).toBeFocused();
     // Wraps at the top.
     await page.keyboard.press('ArrowUp');
-    await expect(menu.locator('[data-action="timer"]')).toBeFocused();
+    await expect(menu.locator('[data-action="new-program"]')).toBeFocused();
 
     await page.keyboard.press('Escape');
     await expect(menu).toBeHidden();
@@ -168,10 +169,17 @@ test.describe('the + add menu', () => {
     await expect(page.locator('#program-builder-modal')).toBeVisible();
   });
 
-  test('Timer opens and still works', async ({ page }) => {
+  test('Timer has its own button and still works', async ({ page }) => {
     await seed(page);
-    await page.locator('#fitness-add-menu-btn').click();
-    await page.locator('[data-action="timer"]').click();
+    // Between the Schedule pill and the + button, not inside the dropdown.
+    const order = await page.evaluate(() => {
+      const row = document.querySelector('.rest-toggle-row > div');
+      // The dropdown is mounted in here too; only the controls are ordered.
+      return [...row.children].map((el) => el.id).filter((id) => id !== 'fitness-add-menu');
+    });
+    expect(order).toEqual(['activities-label', 'fitness-timer-btn', 'fitness-add-menu-btn']);
+
+    await page.locator('#fitness-timer-btn').click();
     await expect(page.locator('#timer-modal')).toBeVisible();
     await expect(page.locator('#close-timer-modal')).toBeVisible();
     await page.locator('#close-timer-modal').click();

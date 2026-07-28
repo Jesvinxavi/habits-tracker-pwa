@@ -5,6 +5,7 @@ import {
   getActivityCategory,
   getActivity,
   deleteRecordedActivity,
+  recordActivityView,
 } from '../activities.js';
 import { isRestDay } from '../restDays.js';
 import { getState } from '../../../core/state.js';
@@ -57,17 +58,19 @@ export function renderActivitiesList(onActivityClick) {
         <div class="flex flex-col items-center justify-center py-20 text-center space-y-2">
           <span class="material-icons text-5xl text-gray-400">fitness_center</span>
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white">No activities recorded</h2>
-          <p class="text-sm text-gray-600 dark:text-gray-400">Tap "Activity" to log your fitness activities for this day.</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400">Tap the "+" to log activities and routines for this day.</p>
         </div>
       `;
     }
     return;
   }
 
-  // Group activities by category
+  // Group activities by category, following the live activity rather than the
+  // record's snapshot: moving an activity to another category moves its past
+  // sessions with it.
   const groupedActivities = {};
   activities.forEach((record) => {
-    const category = getActivityCategory(record.categoryId);
+    const category = getActivityCategory(recordActivityView(record).categoryId);
     if (!groupedActivities[category.id]) {
       groupedActivities[category.id] = {
         category,

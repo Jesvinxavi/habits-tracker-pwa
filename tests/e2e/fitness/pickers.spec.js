@@ -66,7 +66,16 @@ test.describe('add-activity picker', () => {
 
     const selected = tile(page, 'Cycling');
     await expect(selected).toHaveAttribute('aria-checked', 'true');
-    await expect(selected).toHaveClass(/(^|\s)ring-2(\s|$)/);
+    // The selected edge is drawn inside the tile. An outer ring would be clipped
+    // on the right by the picker's scrolling list and read as a thinner border.
+    const edge = await selected.evaluate((el) => {
+      const shadow = getComputedStyle(el).boxShadow;
+      const box = el.getBoundingClientRect();
+      const scroller = el.closest('.overflow-y-auto').getBoundingClientRect();
+      return { shadow, fitsInside: box.right <= scroller.right };
+    });
+    expect(edge.shadow).toContain('inset');
+    expect(edge.fitsInside).toBe(true);
     await expect(selected.locator('.selection-indicator .material-icons')).toBeVisible();
     await expect(page.locator('#activity-picker-count')).toHaveText('1 selected');
     await expect(page.locator('#confirm-activity-picker')).toBeEnabled();
@@ -132,14 +141,16 @@ test.describe('add-activity picker', () => {
     expect(await page.evaluate(() => Object.values(window.appData.recordedActivities).flat().length)).toBe(0);
   });
 
-  test('the Activity button still opens the full library', async ({ page }) => {
+  test('the Activities button still opens the full library', async ({ page }) => {
     await seed(page);
     await page.locator('#fitness-activity-btn').click();
     await expect(page.locator('#activity-library-modal')).toBeVisible();
     await expect(page.locator('#activity-picker-modal')).toBeHidden();
-    // Stats and edit remain there.
-    await expect(page.locator('#activity-library-content .stats-btn').first()).toBeVisible();
-    await expect(page.locator('#activity-library-content .edit-activity-btn').first()).toBeVisible();
+    // Categories, collapsed, with the per-tile actions now living in the
+    // activity details modal.
+    await expect(page.locator('.search-category-section').first()).toHaveClass(/collapsed/);
+    await expect(page.locator('#activity-library-content .stats-btn')).toHaveCount(0);
+    await expect(page.locator('#activity-library-content .edit-activity-btn')).toHaveCount(0);
   });
 });
 
@@ -163,7 +174,7 @@ test.describe('add-routine picker', () => {
     await expect(page.locator('#routine-picker-count')).toHaveText('1 selected');
     const first = page.locator('#routine-picker-list .selectable-routine-item').filter({ hasText: 'Cardio Day' });
     await expect(first).toHaveAttribute('aria-checked', 'true');
-    await expect(first).toHaveClass(/(^|\s)ring-2(\s|$)/);
+    await expect(first).toHaveCSS('box-shadow', /inset/);
 
     await page.locator('#routine-picker-list .selectable-routine-item').filter({ hasText: 'Push Day' }).click();
     await expect(page.locator('#routine-picker-count')).toHaveText('2 selected');
@@ -177,6 +188,32 @@ test.describe('add-routine picker', () => {
       Object.values(window.appData.recordedActivities).flat().map((r) => r.activityName).sort()
     );
     expect(recorded).toEqual(['Bench Press', 'Cycling', 'Treadmill Run']);
+  });
+
+  test('the filter narrows the list without dropping the selection', async ({ page }) => {
+    await seed(page);
+    await makeRoutine(page, 'Cardio Day', ['Treadmill Run']);
+    await makeRoutine(page, 'Push Day', ['Bench Press']);
+    await openMenu(page, 'add-routine');
+
+    const cards = page.locator('#routine-picker-list .selectable-routine-item');
+    await cards.filter({ hasText: 'Cardio Day' }).click();
+    await expect(page.locator('#routine-picker-count')).toHaveText('1 selected');
+
+    const filter = page.locator('#routine-picker-filter');
+    await expect(filter).toHaveAttribute('placeholder', 'Filter routines...');
+    await filter.fill('push');
+    await expect(cards).toHaveCount(1);
+    await expect(cards).toContainText('Push Day');
+    // Filtering is a view, not a deselection.
+    await expect(page.locator('#routine-picker-count')).toHaveText('1 selected');
+
+    await filter.fill('zzz');
+    await expect(page.locator('#routine-picker-list')).toContainText('No routines match');
+
+    await filter.fill('');
+    await expect(cards).toHaveCount(2);
+    await expect(cards.filter({ hasText: 'Cardio Day' })).toHaveAttribute('aria-checked', 'true');
   });
 
   test('deselecting works and a rest day shows one dialog for the batch', async ({ page }) => {

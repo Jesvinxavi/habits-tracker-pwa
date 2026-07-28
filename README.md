@@ -18,7 +18,7 @@ working without a connection and reconcile changes later.
 - Reusable routines: named, ordered sets of activities logged in one action
 - Training programs with a fixed date block and either a prescriptive weekly
   schedule or flexible weekly targets, plus an adherence tile on the fitness page
-- Optional preloading of a program's routines into each scheduled day
+- One-tap adding of a program's scheduled session to a day
 - Derived habit and fitness statistics
 - Realtime multi-device updates
 - Thirty-day device-local offline authorization lease
@@ -83,11 +83,26 @@ npm run lint
 npm run test:unit
 npm run test:migration
 npm run test:convex
-npm run build
+npm run build:local
 npm run test:e2e
 ```
 
-## Deployment
+## Building and deploying
+
+There is no plain `npm run build`: a build is made either for GitHub Pages or for
+a local server, and the two bake different asset paths into `index.html`.
+`vite build` refuses to guess.
+
+```bash
+npm run build:pages     # GitHub Pages  (base /habits-tracker-pwa/)
+npm run build:local     # a local server (base /)
+npm run preview:local   # build local, serve on http://localhost:4180
+npm run preview:phone   # the same, reachable from a phone on the same Wi-Fi
+npm run deploy          # build:pages, then publish to the gh-pages branch
+```
+
+`docs/BUILD_AND_DEPLOY.md` explains what goes wrong when the two are mixed up,
+and how to clear a stale service worker.
 
 GitHub Actions verifies the application, deploys Convex functions when
 `CONVEX_DEPLOY_KEY` is configured, builds the PWA with protected environment

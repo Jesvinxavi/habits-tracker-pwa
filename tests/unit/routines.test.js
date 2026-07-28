@@ -64,7 +64,7 @@ describe('routines', () => {
     expect(getRoutines().map((routine) => routine.name)).toEqual(['First', 'Second']);
   });
 
-  it('filters activity ids whose activity has been deleted', async () => {
+  it('filters activity ids whose activity is gone or archived', async () => {
     seedActivity('a1', 'Bench Press');
     seedActivity('a2', 'Treadmill Run');
     const routine = await addRoutine({ name: 'Mixed', activityIds: ['a1', 'gone', 'a2'] });
@@ -74,7 +74,7 @@ describe('routines', () => {
       'Treadmill Run',
     ]);
 
-    dispatch(Actions.deleteActivity('a1'));
+    dispatch(Actions.updateActivity('a1', { archivedAt: Date.now() }));
     expect(getRoutineActivities(routine.id).map((activity) => activity.name)).toEqual([
       'Treadmill Run',
     ]);

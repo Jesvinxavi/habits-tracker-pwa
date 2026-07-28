@@ -148,7 +148,7 @@ describe('compatibility hydration', () => {
   it('round-trips routines and programs from cache shape to in-app shape', () => {
     const state = normalizedToCompatibilityState({
       profile: { appFirstOpenDate: '2024-01-01' },
-      preferences: { programPreload: true },
+      preferences: {},
       habitCategories: [],
       habits: [],
       habitEntries: [],
@@ -193,8 +193,20 @@ describe('compatibility hydration', () => {
           endDateISO: '2026-12-13',
           scheduleMode: 'freeform',
           restDays: [0],
-          scheduledDays: [{ dayOfWeek: 1, routineClientId: 'routine-a' }],
+          scheduledDays: [
+            { dayOfWeek: 1, routineClientId: 'routine-a' },
+            { dayOfWeek: 4, activityClientId: 'act-1' },
+          ],
           anytimeRoutines: [{ routineClientId: 'routine-b', count: 2 }],
+          schedulePhases: [
+            {
+              startDateISO: '2026-10-19',
+              endDateISO: '2026-10-27',
+              scheduledDays: [{ dayOfWeek: 2, activityClientId: 'act-1' }],
+              restDays: [0],
+            },
+          ],
+          notes: 'Deload in week 5',
           active: true,
           createdAtISO: '2026-07-26',
           sortOrder: 0,
@@ -212,15 +224,31 @@ describe('compatibility hydration', () => {
     expect(program.id).toBe('program-1');
     expect(program.startDate).toBe('2026-10-19');
     expect(program.endDate).toBe('2026-12-13');
-    expect(program.scheduleMode).toBe('freeform');
     expect(program.restDays).toEqual([0]);
-    expect(program.scheduledDays).toEqual([{ dayOfWeek: 1, routineId: 'routine-a' }]);
-    expect(program.anytimeRoutines).toEqual([{ routineId: 'routine-b', count: 2 }]);
+    // The two-mode fields are dropped on the way in: a row written by an older
+    // client still holds them, but nothing in the app reads them any more.
+    expect(program).not.toHaveProperty('scheduleMode');
+    expect(program).not.toHaveProperty('anytimeRoutines');
+    // An activity pinned to a day comes back as activityId, never as an empty
+    // routineId that would then read as a deleted routine.
+    expect(program.scheduledDays).toEqual([
+      { dayOfWeek: 1, routineId: 'routine-a' },
+      { dayOfWeek: 4, activityId: 'act-1' },
+    ]);
+    // A superseded schedule comes back in the in-app shape, ids and all.
+    expect(program.schedulePhases).toEqual([
+      {
+        startDate: '2026-10-19',
+        endDate: '2026-10-27',
+        scheduledDays: [{ dayOfWeek: 2, activityId: 'act-1' }],
+        restDays: [0],
+      },
+    ]);
+    expect(program.notes).toBe('Deload in week 5');
     expect(program.createdAt).toBe('2026-07-26');
-    expect(state.settings.programPreload).toBe(true);
   });
 
-  it('reads a program written before scheduling modes as prescriptive', () => {
+  it('reads a program written before rest days and notes existed', () => {
     const state = normalizedToCompatibilityState({
       profile: {},
       preferences: {},
@@ -249,10 +277,8 @@ describe('compatibility hydration', () => {
       ],
     });
 
-    expect(state.programs[0].scheduleMode).toBe('prescriptive');
     expect(state.programs[0].restDays).toEqual([]);
-    expect(state.programs[0].anytimeRoutines).toEqual([]);
-    expect(state.settings.programPreload).toBe(false);
+    expect(state.programs[0].scheduledDays).toEqual([{ dayOfWeek: 2, routineId: 'routine-a' }]);
   });
 
   it('overlays pending routine and program operations onto the cache', () => {

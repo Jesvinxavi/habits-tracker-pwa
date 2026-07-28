@@ -1,46 +1,17 @@
 // ActivityTile.js - Activity tile with action buttons and keyboard navigation
 
 /**
- * Binds event handlers for activity tiles
+ * Binds event handlers for activity tiles. The whole tile is the target — stats
+ * and edit moved into the activity details modal the tile opens.
  * @param {HTMLElement} content - The search results content container
- * @param {Function} onActivityClick - Callback when activity is clicked
- * @param {Function} onStatsClick - Callback when stats button is clicked
- * @param {Function} onEditClick - Callback when edit button is clicked
+ * @param {Function} onActivityClick - Callback when an activity tile is activated
  */
-export function bindActivityTileEvents(content, onActivityClick, onStatsClick, onEditClick) {
-  if (!content) return;
+export function bindActivityTileEvents(content, onActivityClick) {
+  if (!content || !onActivityClick) return;
 
-  // Activity action buttons
-  content.querySelectorAll('.stats-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (onStatsClick) {
-        onStatsClick(btn.dataset.activityId);
-      }
-    });
-  });
-
-  content.querySelectorAll('.edit-activity-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (onEditClick) {
-        onEditClick(btn.dataset.activityId);
-      }
-    });
-  });
-
-  // Main activity tile clicks for direct recording
   content.querySelectorAll('.search-activity-item').forEach((item) => {
-    item.addEventListener('click', (e) => {
-      // Don't trigger if clicking on action buttons
-      if (e.target.closest('.activity-actions')) {
-        return;
-      }
-
-      const activityId = item.dataset.activityId;
-      if (onActivityClick) {
-        onActivityClick(activityId);
-      }
+    item.addEventListener('click', () => {
+      onActivityClick(item.dataset.activityId);
     });
   });
 }

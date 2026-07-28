@@ -2,6 +2,9 @@
 import { getActivityCategory } from '../activities.js';
 import { calculateActivityStatistics, buildStatsContent } from '../helpers/activityStats.js';
 import { getState } from '../../../core/state.js';
+import { closeModal, openModal, topModalId } from '../../../components/Modal.js';
+
+const MODAL_ID = 'activity-stats-modal';
 
 export const StatsModal = {
   /**
@@ -17,7 +20,7 @@ export const StatsModal = {
 
     this._createModal(activity, stats, category);
     this._bindCloseHandlers();
-    this._showModal();
+    openModal(MODAL_ID);
   },
 
   /**
@@ -34,8 +37,11 @@ export const StatsModal = {
    * @private
    */
   _createModal(activity, stats, category) {
+    // z-[1004] rather than the old z-50: this modal is opened from the activity
+    // details modal (z-[1002]) and the library beneath it, so anything under
+    // that ladder renders behind them and looks like nothing happened.
     const modalHTML = `
-      <div id="activity-stats-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+      <div id="${MODAL_ID}" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[1004] hidden">
         <div class="modal-content bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] flex flex-col">
           <div class="modal-header flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
             <div class="flex items-center gap-3">
@@ -62,7 +68,7 @@ export const StatsModal = {
     `;
 
     // Remove existing modal if present
-    const existingModal = document.getElementById('activity-stats-modal');
+    const existingModal = document.getElementById(MODAL_ID);
     if (existingModal) {
       existingModal.remove();
     }
@@ -72,36 +78,42 @@ export const StatsModal = {
   },
 
   /**
+   * Closes the modal and takes it back out of the DOM, leaving whichever modal
+   * opened it on top of the stack.
+   * @returns {void}
+   */
+  close() {
+    const modal = document.getElementById(MODAL_ID);
+    if (!modal) return;
+    closeModal(MODAL_ID);
+    modal.remove();
+  },
+
+  /**
    * Binds close event handlers
    * @private
    */
   _bindCloseHandlers() {
-    const modal = document.getElementById('activity-stats-modal');
+    const modal = document.getElementById(MODAL_ID);
     const closeIcon = document.getElementById('close-stats-modal');
 
-    const closeModal = () => {
-      if (modal) {
-        modal.classList.add('hidden');
-        setTimeout(() => modal.remove(), 300);
-      }
-    };
-
-    if (closeIcon) closeIcon.addEventListener('click', closeModal);
+    if (closeIcon) closeIcon.addEventListener('click', () => this.close());
     if (modal) {
       modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
+        if (e.target === modal) this.close();
       });
+    }
+
+    if (!this._escapeBound) {
+      document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        if (topModalId() !== MODAL_ID) return;
+        event.preventDefault();
+        this.close();
+      });
+      this._escapeBound = true;
     }
   },
 
-  /**
-   * Shows the modal
-   * @private
-   */
-  _showModal() {
-    const modal = document.getElementById('activity-stats-modal');
-    if (modal) {
-      modal.classList.remove('hidden');
-    }
-  },
+  _escapeBound: false,
 };

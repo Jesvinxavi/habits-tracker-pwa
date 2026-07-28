@@ -5,11 +5,10 @@ import { Timer } from './TimerModule.js';
 import { getState, dispatch, Actions, subscribe } from '../../core/state.js';
 import { getLocalMidnightISOString, getLocalISODate } from '../../shared/datetime.js';
 import { FitnessCalendar } from './FitnessCalendar.js';
-import { isRestDay } from './restDays.js';
 import { getActivitiesForDate, getActivity, recordActivitiesForDate } from './activities.js';
 import { recordRoutinesForDate } from './routines.js';
 import { renderProgramTile } from './ProgramTile.js';
-import { addProgramRoutinesToDate, preloadProgramDayIfEnabled } from './programs.js';
+import { addProgramRoutinesToDate } from './programs.js';
 import { showConfirm } from '../../components/ConfirmDialog.js';
 import { isCloudBackend } from '../../core/dataBackend.js';
 
@@ -17,26 +16,12 @@ import { isCloudBackend } from '../../core/dataBackend.js';
 let _initialized = false;
 
 /**
- * Handles activity click with rest day check
+ * Opens the record modal. The rest-day guard lives inside that modal, so every
+ * route to recording refuses a rest day identically.
  * @param {string} activityId - The activity ID
+ * @returns {void}
  */
 function handleActivityClick(activityId) {
-  const selectedDate = getState().fitnessSelectedDate || new Date().toISOString();
-  const isoDate = getLocalISODate(selectedDate);
-  
-  // Check if the selected date is a rest day
-  if (isRestDay(isoDate)) {
-    showConfirm({
-      title: 'Rest Day',
-      message: 'Unable to record activity as selected day is a rest day.',
-      okText: 'OK',
-      cancelText: '',
-      onOK: () => {},
-    });
-    return;
-  }
-  
-  // If not a rest day, proceed with opening activity details
   Modals.openActivityDetails(activityId);
 }
 
@@ -81,23 +66,17 @@ function openSaveTodayAsRoutine() {
 async function addProgramDayToSelectedDate() {
   const iso = getLocalISODate(getState().fitnessSelectedDate || new Date().toISOString());
 
-  if (getActivitiesForDate(iso).length > 0) {
-    showConfirm({
-      title: 'Already Logged',
-      message: 'This day already has activities recorded.',
-      okText: 'OK',
-      cancelText: '',
-      onOK: () => {},
-    });
-    return;
-  }
-
   const result = await addProgramRoutinesToDate(iso);
   if (result.recorded > 0 || result.blocked) return;
 
+  // Nothing was written: either the program plans nothing for this day, or
+  // everything it plans is already on it.
   showConfirm({
-    title: 'Nothing Scheduled',
-    message: 'No active program schedules routines for this day.',
+    title: result.scheduled > 0 ? 'Already Logged' : 'Nothing Scheduled',
+    message:
+      result.scheduled > 0
+        ? 'Everything this program schedules for this day is already recorded.'
+        : 'No active program schedules routines for this day.',
     okText: 'OK',
     cancelText: '',
     onOK: () => {},
@@ -168,16 +147,14 @@ export async function initializeFitness() {
 
   // Mount the complete fitness view with all components
   await FitnessView.mount(fitnessView, {
+    // A library tile opens the activity's details rather than recording it
+    // outright; recording is one explicit button further in.
     onActivityLibrary: () =>
       Modals.openActivityLibrary({
-        onActivityClick: (activityId) => handleActivityClick(activityId),
-        onStatsClick: (activityId) => Modals.openStats(activityId),
-        onEditClick: (activityId) => Modals.openEditActivity(activityId),
+        onActivityClick: (activityId) => Modals.openActivityInfo(activityId),
       }),
     onRoutines: () => Modals.openRoutines(),
     addMenu: buildAddMenuActions(),
-    onStatsClick: (activityId) => Modals.openStats(activityId),
-    onEditClick: (activityId) => Modals.openEditActivity(activityId),
     onActivityClick: (activityId) => handleActivityClick(activityId),
     onDateChange: () => {
       // The calendar owns the date state update; this callback handles
@@ -220,9 +197,6 @@ export async function initializeFitness() {
     if (getState().fitnessSelectedDate !== lastFitnessDate) {
       lastFitnessDate = getState().fitnessSelectedDate;
       FitnessView.updateRestToggle();
-      // Preloading is lazy: opening a day fills it, so nothing is written for
-      // days never visited and the block never syncs as one burst.
-      void preloadProgramDayIfEnabled(getLocalISODate(lastFitnessDate));
     }
   });
 
@@ -237,9 +211,6 @@ export async function initializeFitness() {
 
   // Render the program tile for the active program, if there is one
   renderProgramTile();
-
-  // The day the view opens on also gets preloaded when the preference is on.
-  void preloadProgramDayIfEnabled(getLocalISODate(getState().fitnessSelectedDate));
 
   // Set up responsive behavior
   FitnessView.setupResponsiveBehavior();

@@ -2,7 +2,7 @@
  * Action Buttons Component
  *
  * Universal component for building action buttons row
- * Supports both habits (New Category + New Habit) and fitness (Activity + Routines) use cases
+ * Supports both habits (New Category + New Habit) and fitness (Activities + Routines) use cases
  */
 
 import { getState, subscribe } from '../core/state.js';
@@ -14,7 +14,7 @@ import { getState, subscribe } from '../core/state.js';
  * @param {Object} options.callbacks - Event handlers for buttons
  * @param {Function} options.callbacks.onNewCategory - Handler for new category button (habits)
  * @param {Function} options.callbacks.onNewHabit - Handler for new habit button (habits)
- * @param {Function} options.callbacks.onActivityLibrary - Handler for the Activity button (fitness)
+ * @param {Function} options.callbacks.onActivityLibrary - Handler for the Activities button (fitness)
  * @param {Function} options.callbacks.onRoutines - Handler for the Routines button (fitness)
  * @returns {HTMLElement} The action buttons element
  */
@@ -82,9 +82,9 @@ export function mountActionButtons(options = {}) {
     });
   } else if (type === 'fitness') {
     actionButtons.innerHTML = `
-      <button id="fitness-activity-btn" class="flex-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 py-1.5 px-4 rounded-xl font-medium flex items-center justify-center gap-2" aria-label="Open activity library">
+      <button id="fitness-activity-btn" class="flex-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 py-1.5 px-4 rounded-xl font-medium flex items-center justify-center gap-2" aria-label="Open activities">
         <span class="material-icons text-xl">fitness_center</span>
-        Activity
+        Activities
       </button>
       <button id="fitness-routines-btn" class="flex-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 py-1.5 px-4 rounded-xl font-medium flex items-center justify-center gap-2" aria-label="Open routines">
         <span class="material-icons text-xl">repeat</span>

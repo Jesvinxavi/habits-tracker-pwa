@@ -7,14 +7,20 @@ const MODAL_ID = 'routines-modal';
 
 /**
  * RoutinesModal - the saved-routine list behind the Routines button.
+ *
+ * Laid out like the activity library: create sits in the header, and an
+ * always-visible search narrows the list in place.
  */
 export const RoutinesModal = {
   /**
-   * Opens the routines list.
+   * Opens the routines list, with the search cleared.
    * @returns {void}
    */
   open() {
     this._bindStaticHandlers();
+    const filter = document.getElementById('routines-filter');
+    if (filter) filter.value = '';
+    this._toggleClearButton('');
     this._render();
     openModal(MODAL_ID);
   },
@@ -28,6 +34,22 @@ export const RoutinesModal = {
   },
 
   /**
+   * @returns {string} The current search text.
+   */
+  _currentQuery() {
+    return document.getElementById('routines-filter')?.value || '';
+  },
+
+  /**
+   * Shows the clear button only when the search holds text.
+   * @param {string} value - Current search value
+   * @returns {void}
+   */
+  _toggleClearButton(value) {
+    document.getElementById('routines-filter-clear')?.classList.toggle('hidden', value.length === 0);
+  },
+
+  /**
    * Renders the routine cards, or the empty state.
    * @returns {void}
    */
@@ -35,10 +57,22 @@ export const RoutinesModal = {
     const list = document.getElementById('routines-list');
     if (!list) return;
 
-    const routines = getRoutines();
+    const query = this._currentQuery().trim().toLowerCase();
+    const all = getRoutines();
+    const routines = query
+      ? all.filter((routine) => routine.name.toLowerCase().includes(query))
+      : all;
 
     if (routines.length === 0) {
-      list.innerHTML = `
+      // Two different empty states: nothing saved yet, or nothing matching.
+      list.innerHTML = query
+        ? `
+        <div class="flex flex-col items-center justify-center py-10 text-center space-y-2">
+          <span class="material-icons text-4xl text-gray-400">search_off</span>
+          <p class="text-gray-600 dark:text-gray-400 font-medium">No routines match "${query}"</p>
+        </div>
+      `
+        : `
         <div class="flex flex-col items-center justify-center py-10 text-center space-y-2">
           <span class="material-icons text-4xl text-gray-400">repeat</span>
           <p class="text-gray-600 dark:text-gray-400 font-medium">No routines saved</p>
@@ -119,6 +153,19 @@ export const RoutinesModal = {
 
     document.getElementById('close-routines-modal')?.addEventListener('click', () => {
       this.close();
+    });
+
+    const filter = document.getElementById('routines-filter');
+    filter?.addEventListener('input', () => {
+      this._toggleClearButton(filter.value);
+      this._render();
+    });
+
+    document.getElementById('routines-filter-clear')?.addEventListener('click', () => {
+      if (filter) filter.value = '';
+      this._toggleClearButton('');
+      this._render();
+      filter?.focus();
     });
 
     modal.addEventListener('click', (event) => {

@@ -43,6 +43,14 @@ The critical path included work that was not required to display Home:
   hydrated-view handoff.
 - Lightweight startup phase marks are exposed on the root element as
   `data-startup-timings` for repeatable diagnostics.
+- Startup no longer waits on an animation frame that a hidden page never
+  produces. `navigation.js` awaited a pair of `requestAnimationFrame` callbacks
+  and the loader awaited three more, so a page opened in a background tab
+  finished loading its data and then sat behind the loading screen until the tab
+  was looked at — `initializeNavigation()` never returned, so the reveal was
+  never reached. Both await `nextPaint()` (`src/shared/nextPaint.js`), which
+  resolves at once on a hidden page and races a 150 ms backstop on a visible
+  one. Measured on a hidden tab: previously indefinite, now `visible` at 267 ms.
 - Removing the bundled Clerk component UI reduced the generated service-worker
   precache from about 3.95 MiB to about 2.05 MiB.
 

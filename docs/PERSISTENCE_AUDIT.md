@@ -51,15 +51,26 @@ state are device/session state.
 | `currentDate`, `selectedDate`, `fitnessSelectedDate`, `selectedGroup` | device/session only |
 
 Array order is authoritative category/habit order. Deleting a habit category
-cascades to habits and their embedded history. Deleting an activity cascades to
-recorded activity history.
+cascades to habits and their embedded history.
+
+Activities and routines are **archived, not deleted**: removing one from the
+library or the list writes `archivedAt` and leaves the row, its recorded
+sessions and the days a program had already planned it on untouched. The
+`activities:removeCascade` mutation still exists for older clients but nothing
+calls it — it tombstoned every record of the activity, which is the only record
+that the training happened.
+
+A program carries its own history in `schedulePhases`: the schedules it has been
+through, each closed off when the plan was edited mid-block. Dates before a
+phase's end are measured against it rather than against the live `scheduledDays`,
+so editing a running program never rewrites the weeks it has already been
+through. The field is optional in the Convex schema and validated server-side.
 
 `routines` and `programs` are deliberately **outside** the cascade. Deleting an
 activity does not rewrite routines and deleting a routine does not rewrite
 programs; dangling ids are filtered at read time by
-`getRoutineActivities()`, `getProgramScheduledDays()` and
-`getProgramAnytimeRoutines()`. Cascading would bump revisions on records the user
-never touched, producing spurious sync conflicts and breaking migration
+`getRoutineActivities()` and `getProgramScheduledDays()`. Cascading would bump
+revisions on records the user never touched, producing spurious sync conflicts and breaking migration
 checksums. Both tables are small, always-needed definition data and so are
 fetched in `bootstrap:getCore` rather than the paginated history window.
 

@@ -1,7 +1,7 @@
 // AddEditActivityModal.js - Add/Edit Activity Modal component
 import { openModal, closeModal } from '../../../components/Modal.js';
 import { getState } from '../../../core/state.js';
-import { addActivity, updateActivity, deleteActivity, getActivity } from '../activities.js';
+import { addActivity, updateActivity, archiveActivity, getActivity } from '../activities.js';
 
 /**
  * AddEditActivityModal component for managing activity creation and editing
@@ -56,6 +56,9 @@ export const AddEditActivityModal = {
     const unitsSelect = document.getElementById('units-select');
     if (unitsSection) unitsSection.classList.add('hidden');
     if (unitsSelect) unitsSelect.value = 'none';
+
+    // A new activity assumes more is better until told otherwise.
+    this._setBetterDirection('higher');
 
     // Populate category dropdown
     const categorySelect = document.getElementById('activity-category-select');
@@ -155,15 +158,24 @@ export const AddEditActivityModal = {
       if (unitsSelect) unitsSelect.value = 'none';
     }
 
+    // Activities saved before the direction existed read as higher-is-better,
+    // which is what the app assumed all along.
+    this._setBetterDirection(activity.betterDirection === 'lower' ? 'lower' : 'higher');
+    this._toggleDirectionSection(trackingType);
+
     // Show delete button for edit mode
     const delBtn = document.getElementById('delete-activity-btn');
     if (delBtn) {
       delBtn.classList.remove('hidden');
-      // Set up delete button handler
+      // Set up delete button handler. The listener is attached once for the
+      // page's lifetime, so the id has to be read at click time — closing over
+      // this open's activityId meant every later delete acted on whichever
+      // activity was edited first, and the one actually on screen survived.
       if (!delBtn.dataset.listenerAttached) {
         delBtn.addEventListener('click', (e) => {
           e.preventDefault();
-          this._handleDeleteActivity(activityId);
+          const editing = document.getElementById('add-activity-modal')?.dataset.editActivityId;
+          if (editing) this._handleDeleteActivity(editing);
         });
         delBtn.dataset.listenerAttached = 'true';
       }
@@ -378,7 +390,8 @@ export const AddEditActivityModal = {
         ? document.getElementById('units-select')?.value || 'none'
         : null;
 
-    // Create activity object
+    // Create activity object. Only time-tracked activities carry a direction —
+    // for sets and reps, more is always the improvement.
     const activity = {
       name,
       categoryId,
@@ -386,6 +399,7 @@ export const AddEditActivityModal = {
       muscleGroup: muscleGroup || null,
       trackingType,
       units: units || null,
+      betterDirection: trackingType === 'time' ? this._getBetterDirection() : null,
     };
 
     // Check if editing or adding
@@ -427,6 +441,50 @@ export const AddEditActivityModal = {
 
   _setSelectedTrackingType(type) {
     this._selectedTrackingType = type;
+  },
+
+  /**
+   * @returns {string} 'lower' when a smaller figure is the better one.
+   * @private
+   */
+  _getBetterDirection() {
+    return this._betterDirection === 'lower' ? 'lower' : 'higher';
+  },
+
+  /**
+   * Selects a direction and reflects it on the segmented control.
+   * @param {string} direction - 'higher' or 'lower'
+   * @private
+   */
+  _setBetterDirection(direction) {
+    this._betterDirection = direction === 'lower' ? 'lower' : 'higher';
+
+    document.querySelectorAll('.direction-toggle').forEach((btn) => {
+      const active = btn.dataset.direction === this._betterDirection;
+      btn.classList.toggle('bg-white', active);
+      btn.classList.toggle('dark:bg-gray-700', active);
+      btn.classList.toggle('text-gray-900', active);
+      btn.classList.toggle('dark:text-white', active);
+      btn.classList.toggle('border', active);
+      btn.classList.toggle('border-gray-200', active);
+      btn.classList.toggle('dark:border-gray-600', active);
+      btn.classList.toggle('shadow-sm', active);
+      btn.classList.toggle('text-gray-600', !active);
+      btn.classList.toggle('dark:text-gray-400', !active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+  },
+
+  /**
+   * The direction only means something for a time-tracked activity: with sets
+   * and reps, more is the improvement.
+   * @param {string} trackingType - The activity's tracking type
+   * @private
+   */
+  _toggleDirectionSection(trackingType) {
+    document
+      .getElementById('direction-section')
+      ?.classList.toggle('hidden', trackingType !== 'time');
   },
 
 
@@ -553,6 +611,7 @@ export const AddEditActivityModal = {
 
         // Show units section for sets-reps
         if (unitsSection) unitsSection.classList.remove('hidden');
+        this._toggleDirectionSection('sets-reps');
       } else {
         timeToggle.classList.add(
           'bg-white',
@@ -579,6 +638,7 @@ export const AddEditActivityModal = {
 
         // Hide units section for time-based
         if (unitsSection) unitsSection.classList.add('hidden');
+        this._toggleDirectionSection('time');
       }
     };
 
@@ -605,6 +665,12 @@ export const AddEditActivityModal = {
       timeToggle.dataset.listenerAttached = 'true';
     }
 
+    document.querySelectorAll('.direction-toggle').forEach((btn) => {
+      if (btn.dataset.listenerAttached) return;
+      btn.addEventListener('click', () => this._setBetterDirection(btn.dataset.direction));
+      btn.dataset.listenerAttached = 'true';
+    });
+
     // Add category change handler to update toggle states
     if (categorySelect && !categorySelect.dataset.toggleListenerAttached) {
       categorySelect.addEventListener('change', updateToggleStates);
@@ -620,11 +686,11 @@ export const AddEditActivityModal = {
     import('../../../components/ConfirmDialog.js').then(({ showConfirm }) => {
       showConfirm({
         title: 'Delete Activity?',
-        message: 'This activity will be permanently removed. This action cannot be undone.',
+        message: 'Sessions you have already recorded will be kept.',
         okText: 'Delete',
         cancelText: 'Cancel',
         onOK: async () => {
-          const saved = await deleteActivity(activityId);
+          const saved = await archiveActivity(activityId);
           if (!saved) return;
           closeModal('add-activity-modal');
 

@@ -21,6 +21,12 @@ const crud = createCrudMutations({
       if (!Number.isInteger(day?.dayOfWeek) || day.dayOfWeek < 0 || day.dayOfWeek > 6) {
         throw new Error("INVALID_PROGRAM_SCHEDULE");
       }
+      // Exactly one target per entry: a routine or a single activity.
+      const hasRoutine = Boolean(day.routineClientId);
+      const hasActivity = Boolean(day.activityClientId);
+      if (hasRoutine === hasActivity) {
+        throw new Error("INVALID_PROGRAM_SCHEDULE");
+      }
     }
     if (payload.restDays !== undefined) {
       if (!Array.isArray(payload.restDays)) throw new Error("INVALID_PROGRAM_REST_DAYS");
@@ -30,12 +36,44 @@ const crud = createCrudMutations({
         }
       }
     }
+    if (payload.schedulePhases !== undefined) {
+      if (!Array.isArray(payload.schedulePhases)) {
+        throw new Error("INVALID_PROGRAM_SCHEDULE_PHASES");
+      }
+      for (const phase of payload.schedulePhases) {
+        assertDate(phase?.startDateISO, "phase.startDateISO");
+        assertDate(phase?.endDateISO, "phase.endDateISO");
+        if (phase.startDateISO > phase.endDateISO) {
+          throw new Error("INVALID_PROGRAM_SCHEDULE_PHASES");
+        }
+        if (!Array.isArray(phase.scheduledDays)) {
+          throw new Error("INVALID_PROGRAM_SCHEDULE_PHASES");
+        }
+        for (const day of phase.scheduledDays) {
+          if (!Number.isInteger(day?.dayOfWeek) || day.dayOfWeek < 0 || day.dayOfWeek > 6) {
+            throw new Error("INVALID_PROGRAM_SCHEDULE_PHASES");
+          }
+          // Exactly one target per entry, as on the live schedule.
+          if (Boolean(day.routineClientId) === Boolean(day.activityClientId)) {
+            throw new Error("INVALID_PROGRAM_SCHEDULE_PHASES");
+          }
+        }
+      }
+    }
+
+    // Legacy only: the current client never sends anytimeRoutines, but a device
+    // still running an older build might, and a stale write must not be able to
+    // put a malformed entry in the table.
     if (payload.anytimeRoutines !== undefined) {
       if (!Array.isArray(payload.anytimeRoutines)) {
         throw new Error("INVALID_PROGRAM_ANYTIME");
       }
       for (const entry of payload.anytimeRoutines) {
-        if (!entry?.routineClientId || !Number.isInteger(entry.count) || entry.count < 1) {
+        if (!Number.isInteger(entry?.count) || entry.count < 1) {
+          throw new Error("INVALID_PROGRAM_ANYTIME");
+        }
+        // Exactly one target per entry: a routine or a single activity.
+        if (Boolean(entry.routineClientId) === Boolean(entry.activityClientId)) {
           throw new Error("INVALID_PROGRAM_ANYTIME");
         }
       }

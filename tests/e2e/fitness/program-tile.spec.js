@@ -10,7 +10,7 @@ async function setup(page, pct) {
     const { addRoutine } = await import('/src/features/fitness/routines.js');
     const { addProgram, setActiveProgram } = await import('/src/features/fitness/programs.js');
     const { getLocalISODate } = await import('/src/shared/datetime.js');
-    const { plannedDates } = await import('/src/features/fitness/helpers/programProgress.js');
+    const { plannedSlots } = await import('/src/features/fitness/helpers/programProgress.js');
     const a = await addActivity({ name: 'Bench Press', categoryId: 'strength', trackingType: 'sets-reps', muscleGroup: 'Chest' });
     const r = await addRoutine({ name: 'Push Day', activityIds: [a.id] });
     const today = new Date();
@@ -20,7 +20,8 @@ async function setup(page, pct) {
     const days = [{ dayOfWeek: 1, routineId: r.id }, { dayOfWeek: 3, routineId: r.id }, { dayOfWeek: 5, routineId: r.id }];
     const p = await addProgram({ name: 'Autumn Hypertrophy', startDate: startKey, endDate: endKey, scheduledDays: days });
     await setActiveProgram(p.id);
-    const planned = plannedDates(startKey, endKey, days);
+    const planned = plannedSlots({ startDate: startKey, endDate: endKey, scheduledDays: days })
+      .map((slot) => slot.date);
     const todayKey = getLocalISODate(today);
     const past = planned.filter((d) => d <= todayKey);
     const want = Math.round((targetPct / 100) * planned.length);
@@ -106,10 +107,10 @@ test('fill tracks the percentage and there is no separate bar', async ({ page })
     const { recordActivity } = await import('/src/features/fitness/activities.js');
     const { getState } = await import('/src/core/state.js');
     const { getActiveProgram } = await import('/src/features/fitness/programs.js');
-    const { plannedDates } = await import('/src/features/fitness/helpers/programProgress.js');
+    const { plannedSlots } = await import('/src/features/fitness/helpers/programProgress.js');
     const { getLocalISODate } = await import('/src/shared/datetime.js');
     const p = getActiveProgram();
-    const planned = plannedDates(p.startDate, p.endDate, p.scheduledDays);
+    const planned = plannedSlots(p).map((slot) => slot.date);
     const todayKey = getLocalISODate(new Date());
     const past = planned.filter((d) => d <= todayKey);
     for (const d of past) await recordActivity(getState().activities[0].id, d, {});

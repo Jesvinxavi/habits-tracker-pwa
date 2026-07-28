@@ -363,7 +363,7 @@ describe('Convex authenticated domain API', () => {
     ).rejects.toThrow('INVALID_ACTIVITY_LIST');
   });
 
-  it('validates program ranges, weekdays, rest days and anytime targets', async () => {
+  it('validates program ranges, weekdays, rest days and legacy anytime targets', async () => {
     const testBackend = convexTest(schema, modules);
     const client = authenticated(testBackend, 'program-validation');
     await provision(client);
@@ -400,6 +400,26 @@ describe('Convex authenticated domain API', () => {
       client.mutation(anyApi.programs.create, operation('op-rest', { ...base, restDays: [7] }))
     ).rejects.toThrow('INVALID_PROGRAM_REST_DAYS');
 
+    // A scheduled day targets exactly one thing: neither zero nor both.
+    await expect(
+      client.mutation(
+        anyApi.programs.create,
+        operation('op-no-target', { ...base, scheduledDays: [{ dayOfWeek: 1 }] })
+      )
+    ).rejects.toThrow('INVALID_PROGRAM_SCHEDULE');
+
+    await expect(
+      client.mutation(
+        anyApi.programs.create,
+        operation('op-two-targets', {
+          ...base,
+          scheduledDays: [
+            { dayOfWeek: 1, routineClientId: 'routine-1', activityClientId: 'act-1' },
+          ],
+        })
+      )
+    ).rejects.toThrow('INVALID_PROGRAM_SCHEDULE');
+
     await expect(
       client.mutation(
         anyApi.programs.create,
@@ -410,7 +430,8 @@ describe('Convex authenticated domain API', () => {
       )
     ).rejects.toThrow('INVALID_PROGRAM_ANYTIME');
 
-    // The valid shape, including both optional fields, is accepted.
+    // The current client sends neither scheduleMode nor anytimeRoutines, but a
+    // device still running an older build does, and its writes must keep working.
     const created = await client.mutation(
       anyApi.programs.create,
       operation('op-ok', {
@@ -423,6 +444,15 @@ describe('Convex authenticated domain API', () => {
     expect(created.status).toBe('applied');
     expect(created.canonicalRecord.scheduleMode).toBe('freeform');
     expect(created.canonicalRecord.restDays).toEqual([0, 6]);
+
+    // What the client writes today: the pinned schedule and nothing else.
+    const current = await client.mutation(
+      anyApi.programs.create,
+      operation('op-current', { ...base, clientId: 'program-2', restDays: [0], sortOrder: 1 })
+    );
+    expect(current.status).toBe('applied');
+    expect(current.canonicalRecord.scheduleMode).toBeUndefined();
+    expect(current.canonicalRecord.anytimeRoutines).toBeUndefined();
   });
 
   it('accepts several routines pinned to the same weekday', async () => {
@@ -437,13 +467,11 @@ describe('Convex authenticated domain API', () => {
         name: 'Split',
         startDateISO: '2026-10-19',
         endDateISO: '2026-12-13',
-        scheduleMode: 'prescriptive',
         restDays: [],
         scheduledDays: [
           { dayOfWeek: 1, routineClientId: 'routine-1' },
           { dayOfWeek: 1, routineClientId: 'routine-2' },
         ],
-        anytimeRoutines: [],
         active: true,
         createdAtISO: '2026-07-26',
         sortOrder: 0,
@@ -451,5 +479,36 @@ describe('Convex authenticated domain API', () => {
     );
     expect(created.status).toBe('applied');
     expect(created.canonicalRecord.scheduledDays).toHaveLength(2);
+  });
+
+  it('accepts an activity pinned to a weekday alongside a routine', async () => {
+    const testBackend = convexTest(schema, modules);
+    const client = authenticated(testBackend, 'program-activity-day');
+    await provision(client);
+
+    const created = await client.mutation(
+      anyApi.programs.create,
+      operation('op-activity-day', {
+        clientId: 'program-1',
+        name: 'Split',
+        startDateISO: '2026-10-19',
+        endDateISO: '2026-12-13',
+        restDays: [],
+        scheduledDays: [
+          { dayOfWeek: 1, routineClientId: 'routine-1' },
+          { dayOfWeek: 1, activityClientId: 'act-1' },
+        ],
+        notes: 'Deload in week 5',
+        active: true,
+        createdAtISO: '2026-07-26',
+        sortOrder: 0,
+      })
+    );
+    expect(created.status).toBe('applied');
+    expect(created.canonicalRecord.scheduledDays[1]).toEqual({
+      dayOfWeek: 1,
+      activityClientId: 'act-1',
+    });
+    expect(created.canonicalRecord.notes).toBe('Deload in week 5');
   });
 });

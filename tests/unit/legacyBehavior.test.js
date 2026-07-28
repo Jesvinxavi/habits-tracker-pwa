@@ -26,7 +26,7 @@ describe('legacy cascade behavior', () => {
     expect(result.habits).toEqual([{ id: 'read', categoryId: 'work' }]);
   });
 
-  it('deleting an activity removes all of its recorded history', () => {
+  it('archiving an activity keeps all of its recorded history', () => {
     const state = {
       ...structuredClone(initialState),
       activities: [{ id: 'run' }, { id: 'lift' }],
@@ -35,14 +35,32 @@ describe('legacy cascade behavior', () => {
         '2025-01-02': [{ id: 'r3', activityId: 'run' }],
       },
     };
+    // Removing an activity from the library is an update, not a delete: the
+    // sessions are the only record that the training happened.
     const result = reducer(state, {
-      type: ActionTypes.DELETE_ACTIVITY,
-      payload: 'run',
+      type: ActionTypes.UPDATE_ACTIVITY,
+      payload: { activityId: 'run', updates: { archivedAt: 1735689600000 } },
     });
-    expect(result.activities).toEqual([{ id: 'lift' }]);
-    expect(result.recordedActivities).toEqual({
-      '2025-01-01': [{ id: 'r2', activityId: 'lift' }],
+    expect(result.activities.map((activity) => activity.id)).toEqual(['run', 'lift']);
+    expect(result.activities[0].archivedAt).toBe(1735689600000);
+    expect(result.recordedActivities).toEqual(state.recordedActivities);
+  });
+
+  it('leaves a record\'s name snapshot alone when the activity is renamed', () => {
+    const state = {
+      ...structuredClone(initialState),
+      activities: [{ id: 'run', name: 'Run' }],
+      recordedActivities: { '2025-01-01': [{ id: 'r1', activityId: 'run', activityName: 'Run' }] },
+    };
+    // Display resolves the live activity by id, so rows are never rewritten —
+    // the client used to patch them while the server did not, and the two
+    // disagreed after a reload.
+    const result = reducer(state, {
+      type: ActionTypes.UPDATE_ACTIVITY,
+      payload: { activityId: 'run', updates: { name: 'Treadmill Run' } },
     });
+    expect(result.activities[0].name).toBe('Treadmill Run');
+    expect(result.recordedActivities['2025-01-01'][0].activityName).toBe('Run');
   });
 });
 

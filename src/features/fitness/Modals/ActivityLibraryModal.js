@@ -29,18 +29,22 @@ const MODAL_ID = 'activity-library-modal';
 export const ActivityLibraryModal = {
   _callbacks: {},
   _unsubscribe: null,
+  // Category ids the user has expanded. The list re-renders on every state
+  // change while open, so without this a recorded activity would snap every
+  // section shut underneath the user.
+  _expanded: new Set(),
 
   /**
    * Opens the library.
    * @param {Object} callbacks - Handlers for tile interactions
    * @param {Function} callbacks.onActivityClick - Called when an activity tile is tapped
-   * @param {Function} callbacks.onStatsClick - Called when the stats button is tapped
-   * @param {Function} callbacks.onEditClick - Called when the edit button is tapped
    * @returns {void}
    */
   open(callbacks = {}) {
     this._callbacks = callbacks;
     this._bindStaticHandlers();
+    // Every visit starts on the collapsed category list.
+    this._expanded.clear();
 
     const filter = document.getElementById('activity-library-filter');
     if (filter) filter.value = '';
@@ -107,17 +111,25 @@ export const ActivityLibraryModal = {
     let html = '';
 
     if (query.trim() === '') {
-      // Show all activities grouped by category
+      // Show all activities grouped by category, collapsed: the unfiltered
+      // library opens as a list of categories to drill into. A search is an
+      // explicit request to see matches, so filtered sections stay expanded.
       const groupedActivities = getActivitiesByCategory();
 
       Object.values(groupedActivities).forEach(({ category, activities }) => {
         if (activities.length === 0) return;
 
+        const collapsed = !this._expanded.has(category.id);
         // Special handling for Strength Training – show muscle group sub-headers
         if (category.id === 'strength') {
-          html += buildCategorySection(category, null, groupActivitiesByMuscleGroup(activities));
+          html += buildCategorySection(
+            category,
+            null,
+            groupActivitiesByMuscleGroup(activities),
+            collapsed
+          );
         } else {
-          html += buildCategorySection(category, activities);
+          html += buildCategorySection(category, activities, null, collapsed);
         }
       });
     } else {
@@ -176,13 +188,15 @@ export const ActivityLibraryModal = {
    * @returns {void}
    */
   _bindContentEvents(content) {
-    bindCategorySectionEvents(content, (button) => this._handleCategoryColorChange(button));
-    bindActivityTileEvents(
+    bindCategorySectionEvents(
       content,
-      this._callbacks.onActivityClick,
-      this._callbacks.onStatsClick,
-      this._callbacks.onEditClick
+      (button) => this._handleCategoryColorChange(button),
+      (categoryId, expanded) => {
+        if (expanded) this._expanded.add(categoryId);
+        else this._expanded.delete(categoryId);
+      }
     );
+    bindActivityTileEvents(content, this._callbacks.onActivityClick);
     bindSearchKeyboardNavigation(content, document.getElementById('activity-library-filter'));
   },
 

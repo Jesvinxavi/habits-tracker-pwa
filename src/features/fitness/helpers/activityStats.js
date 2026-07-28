@@ -6,7 +6,7 @@
  */
 
 import { getState } from '../../../core/state.js';
-import { getActivity, getActivityCategory } from '../activities.js';
+import { getActivity } from '../activities.js';
 import { formatDuration, formatLastPerformed } from '../../../shared/datetime.js';
 
 /**
@@ -98,7 +98,8 @@ export function calculateActivityStatistics(activityId) {
   } else {
     // Time-based tracking
     const intensities = {};
-    let maxDuration = 0;
+    const lowerIsBetter = prefersLower(activity);
+    let bestDuration = null;
     let bestSessionRecord = null;
 
     allRecords.forEach((record) => {
@@ -114,9 +115,13 @@ export function calculateActivityStatistics(activityId) {
 
         stats.totalDuration += durationInMinutes;
 
-        // Track best session by duration
-        if (durationInMinutes > maxDuration) {
-          maxDuration = durationInMinutes;
+        // Best session is the longest, or the quickest when the activity is one
+        // where a smaller figure is the improvement.
+        const better =
+          bestDuration === null ||
+          (lowerIsBetter ? durationInMinutes < bestDuration : durationInMinutes > bestDuration);
+        if (better) {
+          bestDuration = durationInMinutes;
           bestSessionRecord = record;
         }
       }
@@ -225,18 +230,8 @@ export function buildStatsContent(activity, stats, category) {
         }
       </div>
     `;
-
-    // Strength progression chart (e.g., max weight per session)
-    const progressionData = extractStrengthProgressionData(activity.id);
-    if (progressionData.length > 1) {
-      content += `
-        <div class="mt-6">
-          <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Progression</h4>
-          <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-            ${generateLineChartSVG(progressionData, category.color, activity)}
-          </div>
-        </div>`;
-    }
+    // No progression chart here: the activity details modal already charts it,
+    // and this modal is the numbers view.
   } else {
     content += `
       <div class="stats-section">
@@ -349,88 +344,12 @@ export function formatBestSession(session, activity) {
         ${durationText}${session.intensity ? ` • ${session.intensity} intensity` : ''}
       </div>
       <div class="text-xs text-gray-600 dark:text-gray-300">
-        Longest duration session
+        ${prefersLower(activity) ? 'Quickest session' : 'Longest duration session'}
       </div>
     `;
   }
 }
 
-/**
- * Opens activity statistics modal with calculated data
- * @param {Object} activity - The activity object
- * @param {Object} stats - The calculated statistics
- */
-export function openActivityStatsModal(activity, stats) {
-  const category = getActivityCategory(activity.categoryId);
-
-  // Create modal HTML
-  const modalHTML = `
-    <div id="activity-stats-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-      <div class="modal-content bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] flex flex-col">
-        <div class="modal-header flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <div class="flex items-center gap-3">
-            <div class="activity-icon w-10 h-10 rounded-full flex items-center justify-center text-xl" style="background-color: ${category.color}20; color: ${category.color};">
-              ${activity.icon || category.icon}
-            </div>
-            <div>
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${activity.name}</h3>
-              <p class="text-sm text-gray-500 dark:text-gray-400">Activity Statistics</p>
-            </div>
-          </div>
-          <button id="close-stats-modal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </button>
-        </div>
-        
-        <div class="modal-body flex-1 overflow-y-auto p-4">
-          ${buildStatsContent(activity, stats, category)}
-        </div>
-      </div>
-    </div>
-  `;
-
-  // Remove existing modal if present
-  const existingModal = document.getElementById('activity-stats-modal');
-  if (existingModal) {
-    existingModal.remove();
-  }
-
-  // Add modal to document
-  document.body.insertAdjacentHTML('beforeend', modalHTML);
-
-  // Bind close handlers
-  const modal = document.getElementById('activity-stats-modal');
-  const closeIcon = document.getElementById('close-stats-modal');
-
-  const closeModal = () => {
-    if (modal) {
-      modal.classList.add('hidden');
-      setTimeout(() => modal.remove(), 300);
-    }
-  };
-
-  if (closeIcon) closeIcon.addEventListener('click', closeModal);
-  if (modal) {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeModal();
-    });
-  }
-
-  // Show modal
-  if (modal) {
-    modal.classList.remove('hidden');
-  }
-}
-
-/**
- * Extracts progression data (e.g., max weight per session) for strength-type activities.
- * Returned values are sorted by date ascending and suitable for plotting a line chart.
- *
- * @param {string} activityId The ID of the activity
- * @returns {Array<{date: string, value: number}>} Progression data
- */
 /**
  * Gets the weight unit used for an activity by looking at recent recorded sets
  * @param {string} activityId - The activity ID
@@ -458,6 +377,50 @@ export function getWeightUnitForActivity(activityId) {
   }
 
   return 'lbs'; // Default fallback
+}
+
+/**
+ * Extracts progression data for a time-tracked activity: one point per session,
+ * holding the session's duration normalised to minutes.
+ * @param {string} activityId The activity ID.
+ * @returns {Array<{date: string, value: number}>} Progression data, oldest first.
+ */
+export function extractDurationProgressionData(activityId) {
+  const activity = getActivity(activityId);
+  if (!activity || activity.trackingType === 'sets-reps') return [];
+
+  const allRecords = [];
+  Object.values(getState().recordedActivities || {}).forEach((dayRecords) => {
+    dayRecords.forEach((record) => {
+      if (record.activityId === activityId && record.duration) allRecords.push(record);
+    });
+  });
+
+  allRecords.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+  return allRecords.map((record) => {
+    let minutes = parseFloat(record.duration) || 0;
+    if (record.durationUnit === 'hours') minutes *= 60;
+    else if (record.durationUnit === 'seconds') minutes /= 60;
+    return { date: record.date, value: Math.round(minutes * 10) / 10 };
+  });
+}
+
+/**
+ * Resolves the progression series to plot for an activity, whichever way it is
+ * tracked, so one chart component serves both.
+ * @param {Object} activity The activity object.
+ * @returns {{points: Array<{date: string, value: number}>, unit: string}} Series and its unit.
+ */
+export function extractProgressionSeries(activity) {
+  if (!activity) return { points: [], unit: '' };
+  if (activity.trackingType === 'sets-reps') {
+    return {
+      points: extractStrengthProgressionData(activity.id),
+      unit: getWeightUnitForActivity(activity.id),
+    };
+  }
+  return { points: extractDurationProgressionData(activity.id), unit: 'min' };
 }
 
 export function extractStrengthProgressionData(activityId) {
@@ -504,143 +467,240 @@ export function extractStrengthProgressionData(activityId) {
 }
 
 /**
- * Generates a responsive SVG line chart with axes for the given progression data.
+ * Reports whether a smaller figure is the better one for an activity.
  *
- * Features:
- * - X-axis shows session dates with equal spacing regardless of time gaps
- * - Y-axis shows value range with grid lines
- * - Data points are connected with a line
- * - Responsive design with proper margins for labels
- *
- * @param {Array<{date: string, value: number}>} data Progression data – must have length ≥ 2
- * @param {string} color Stroke color for the line (hex)
- * @param {Object} activity Activity object to get unit information
- * @returns {string} SVG markup
+ * Only time-tracked activities can set this: with sets and reps, more is always
+ * the improvement. Activities saved before the setting existed read as higher.
+ * @param {Object} activity The activity object.
+ * @returns {boolean} True when lower is better.
  */
-export function generateLineChartSVG(data, color = '#3b82f6', activity = null) {
-  if (!data || data.length < 2) return '';
+export function prefersLower(activity) {
+  return activity?.trackingType !== 'sets-reps' && activity?.betterDirection === 'lower';
+}
 
-  const chartWidth = 320;
-  const chartHeight = 200;
-  const margin = { top: 20, right: 30, bottom: 50, left: 70 };
-  const plotWidth = chartWidth - margin.left - margin.right;
-  const plotHeight = chartHeight - margin.top - margin.bottom;
+/**
+ * Picks the better of a set of figures for an activity, honouring its direction.
+ * @param {number[]} values Candidate figures.
+ * @param {Object} activity The activity object.
+ * @returns {number} The best figure.
+ */
+export function bestValue(values, activity) {
+  return prefersLower(activity) ? Math.min(...values) : Math.max(...values);
+}
 
-  const maxValue = Math.max(...data.map((d) => d.value));
-  const minValue = Math.min(...data.map((d) => d.value));
-  const range = maxValue === minValue ? 1 : maxValue - minValue;
-
-  // Add 10% padding to the Y-axis range for better visualization
-  // Ensure Y-axis never goes below 0
-  const paddedMin = Math.max(0, minValue - range * 0.1);
-  const paddedMax = maxValue + range * 0.1;
-  const paddedRange = paddedMax - paddedMin;
-
-  // Calculate Y-axis ticks (4-5 nice round numbers) - now from bottom to top
-  const yTickCount = 4;
-  const yTicks = [];
-  for (let i = 0; i <= yTickCount; i++) {
-    const value = paddedMin + (i * paddedRange / yTickCount);
-    yTicks.push(Math.round(value * 10) / 10); // Round to 1 decimal
+/**
+ * Picks round axis values covering a range.
+ *
+ * Steps are constrained to 1, 2, 2.5 or 5 times a power of ten, which is what
+ * makes an axis read as 0/20/40/60 rather than 0/23.7/47.4/71.1. The domain is
+ * widened to the outermost ticks so the top and bottom rules bound the plot.
+ * @param {number} min Lowest value in the series.
+ * @param {number} max Highest value in the series.
+ * @param {number} [targetCount] Rough number of gaps wanted.
+ * @returns {{ticks: number[], min: number, max: number}} Ticks and the padded domain.
+ */
+function niceTicks(min, max, targetCount = 4) {
+  const rawSpan = max - min;
+  if (!Number.isFinite(rawSpan) || rawSpan <= 0) {
+    return { ticks: [min], min, max: min || 1 };
   }
 
-  // Generate plot points with equal spacing on x-axis - FIXED Y-AXIS INVERSION
-  const points = data
-    .map((d, idx) => {
-      const x = margin.left + (idx / (data.length - 1)) * plotWidth;
-      // Fixed: Higher values should be higher on chart (smaller y coordinate)
-      const y = margin.top + plotHeight - ((d.value - paddedMin) / paddedRange) * plotHeight;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(' ');
+  const rawStep = rawSpan / targetCount;
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const normalised = rawStep / magnitude;
+  const niceStep =
+    (normalised <= 1 ? 1 : normalised <= 2 ? 2 : normalised <= 2.5 ? 2.5 : normalised <= 5 ? 5 : 10) *
+    magnitude;
 
-  // Generate data point circles - FIXED Y-AXIS INVERSION
-  const circles = data
-    .map((d, idx) => {
-      const x = margin.left + (idx / (data.length - 1)) * plotWidth;
-      // Fixed: Higher values should be higher on chart (smaller y coordinate)
-      const y = margin.top + plotHeight - ((d.value - paddedMin) / paddedRange) * plotHeight;
-      return `<circle cx="${x}" cy="${y}" r="4" fill="${color}" stroke="white" stroke-width="2"/>`;
-    })
-    .join('');
+  const start = Math.floor(min / niceStep) * niceStep;
+  const end = Math.ceil(max / niceStep) * niceStep;
 
-  // Generate Y-axis grid lines and labels - FIXED Y-AXIS INVERSION
-  const yAxisElements = yTicks
-    .map((value, idx) => {
-      // Fixed: Bottom tick (idx=0) should be at bottom of chart
-      const y = margin.top + plotHeight - (idx / (yTicks.length - 1)) * plotHeight;
+  const ticks = [];
+  // Floating-point steps drift, so compute each tick from the index and guard
+  // the loop bound with a small epsilon rather than accumulating.
+  const count = Math.round((end - start) / niceStep);
+  for (let i = 0; i <= count; i += 1) {
+    ticks.push(Number((start + i * niceStep).toPrecision(12)));
+  }
+
+  return { ticks, min: start, max: end };
+}
+
+/**
+ * Formats an axis tick without trailing zeroes.
+ * @param {number} value Tick value.
+ * @returns {string} Label.
+ */
+function formatTick(value) {
+  if (Number.isInteger(value)) return String(value);
+  return String(Number(value.toFixed(2)));
+}
+
+/**
+ * Formats a YYYY-MM-DD key as a short DD/MM label.
+ * @param {string} iso Date key.
+ * @returns {string} Short label, or an empty string for an unparsable key.
+ */
+export function shortDateLabel(iso) {
+  const time = Date.parse(`${String(iso || '').slice(0, 10)}T00:00:00.000Z`);
+  if (Number.isNaN(time)) return '';
+  const date = new Date(time);
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  return `${day}/${month}`;
+}
+
+/**
+ * Renders a compact progression sparkline for the activity details modal.
+ *
+ * Built for the width a detail card gives it: horizontal rules rather than a
+ * full axis box, a filled area under the line, and only the first, middle and
+ * last dates labelled.
+ *
+ * @param {Array<{date: string, value: number}>} data Progression points, oldest first.
+ * @param {string} color Line colour.
+ * @param {string} unit Unit shown beside the peak value.
+ * @param {string} [axisLabel] Y-axis title, e.g. "Max weight (kg)".
+ * @returns {string} SVG markup, or an empty string with fewer than two points.
+ */
+export function generateProgressChartSVG(data, color = '#3b82f6', unit = '', axisLabel = '') {
+  if (!data || data.length < 2) return '';
+
+  const width = 320;
+  const height = 140;
+  // Left gutter fits the rotated axis title plus a four-digit tick label, bottom
+  // fits the tick marks and dates, and the top leaves room for the value printed
+  // above each point. The x axis carries only its dates — what they are is
+  // obvious, and a title there would cost a row of height for nothing.
+  const margin = { top: 22, right: 14, bottom: 26, left: axisLabel ? 54 : 40 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+
+  const values = data.map((point) => point.value);
+  const maxValue = Math.max(...values);
+  const minValue = Math.min(...values);
+  // A flat series would divide by zero; give it a nominal range so the line
+  // renders through the middle of the plot instead of collapsing onto an edge.
+  const flat = maxValue === minValue;
+  const pad = flat ? Math.max(1, Math.abs(maxValue) * 0.2) : 0;
+  const { ticks, min: low, max: high } = niceTicks(minValue - pad, maxValue + pad);
+  const span = high - low || 1;
+
+  const x = (index) => margin.left + (index / (data.length - 1)) * plotWidth;
+  const y = (value) => margin.top + plotHeight - ((value - low) / span) * plotHeight;
+
+  const line = data.map((point, index) => `${x(index).toFixed(1)},${y(point.value).toFixed(1)}`);
+  const area = [
+    `${margin.left},${margin.top + plotHeight}`,
+    ...line,
+    `${margin.left + plotWidth},${margin.top + plotHeight}`,
+  ].join(' ');
+
+  // Dots crowd the line once a series gets long; the shape carries it from there.
+  const dots =
+    data.length > 12
+      ? ''
+      : data
+          .map(
+            (point, index) =>
+              `<circle cx="${x(index).toFixed(1)}" cy="${y(point.value).toFixed(1)}" r="3" fill="${color}"/>`
+          )
+          .join('');
+
+  // Horizontal rules only, on round values. A full axis box would box in a chart
+  // this small; the rules alone carry the scale.
+  const grid = ticks
+    .map((value) => {
+      const rowY = y(value);
+      const baseline = value === ticks[0];
       return `
-        <line x1="${margin.left}" y1="${y}" x2="${margin.left + plotWidth}" y2="${y}" stroke="#e5e7eb" stroke-width="1" opacity="0.5"/>
-        <text x="${margin.left - 8}" y="${y + 4}" text-anchor="end" font-size="11" font-weight="500" fill="currentColor" class="text-gray-700 dark:text-gray-300">${value}</text>
+        <line x1="${margin.left}" y1="${rowY.toFixed(1)}" x2="${(margin.left + plotWidth).toFixed(1)}" y2="${rowY.toFixed(1)}" stroke="currentColor" stroke-width="${baseline ? 1.5 : 1}" opacity="${baseline ? 0.6 : 0.22}"/>
+        <text class="axis-tick" x="${margin.left - 8}" y="${(rowY + 3.5).toFixed(1)}" text-anchor="end" font-size="10" font-weight="600" fill="currentColor" opacity="0.9">${formatTick(value)}</text>
       `;
     })
     .join('');
 
-  // Generate X-axis labels (dates) - FIXED DATE REPETITION
-  const showEveryNth = data.length > 8 ? Math.ceil(data.length / 6) : 1;
-  const xAxisElements = data
-    .map((d, idx) => {
-      // Show first, last, and every Nth date to avoid repetition
-      if (idx % showEveryNth !== 0 && idx !== data.length - 1 && idx !== 0) return '';
-      
-      const x = margin.left + (idx / (data.length - 1)) * plotWidth;
-      const y = margin.top + plotHeight + 20;
-      
-      // Format date as DD/MM (UK style)
-      const date = new Date(d.date);
-      const dateLabel = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-      
+  // First, middle and last dates. More than three labels collide at this width.
+  const labelIndices =
+    data.length > 2 ? [0, Math.floor((data.length - 1) / 2), data.length - 1] : [0, data.length - 1];
+  const xLabels = [...new Set(labelIndices)]
+    .map((index) => {
+      const anchor = index === 0 ? 'start' : index === data.length - 1 ? 'end' : 'middle';
       return `
-        <line x1="${x}" y1="${margin.top + plotHeight}" x2="${x}" y2="${margin.top + plotHeight + 6}" stroke="currentColor" stroke-width="1" class="text-gray-400"/>
-        <text x="${x}" y="${y}" text-anchor="middle" font-size="10" font-weight="500" fill="currentColor" class="text-gray-700 dark:text-gray-300">${dateLabel}</text>
+        <line x1="${x(index).toFixed(1)}" y1="${(margin.top + plotHeight).toFixed(1)}" x2="${x(index).toFixed(1)}" y2="${(margin.top + plotHeight + 4).toFixed(1)}" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+        <text class="axis-date" x="${x(index).toFixed(1)}" y="${height - 5}" text-anchor="${anchor}" font-size="10" font-weight="600" fill="currentColor" opacity="0.9">${shortDateLabel(data[index].date)}</text>
       `;
     })
     .join('');
 
-  // Get weight unit for Y-axis label
-  const weightUnit = activity ? getWeightUnitForActivity(activity.id) : 'lbs';
+  // The exact figure sits above its point. Past roughly eight sessions the
+  // labels would overlap, so only the peak and the latest keep theirs.
+  const labelledPoints =
+    data.length <= 8
+      ? data.map((_, index) => index)
+      : [...new Set([values.indexOf(maxValue), data.length - 1])];
+  const valueLabels = labelledPoints
+    .map((index) => {
+      const point = data[index];
+      // Nudge the end labels inwards so they do not run past the plot edges.
+      const anchor = index === 0 ? 'start' : index === data.length - 1 ? 'end' : 'middle';
+      return `
+        <text class="point-value" x="${x(index).toFixed(1)}" y="${(y(point.value) - 8).toFixed(1)}" text-anchor="${anchor}" font-size="9.5" font-weight="700" fill="${color}">${formatTick(point.value)}</text>
+      `;
+    })
+    .join('');
+
+  const gradientId = `progress-fill-${Math.random().toString(36).slice(2, 9)}`;
+  const firstLabel = shortDateLabel(data[0].date);
+  const lastLabel = shortDateLabel(data[data.length - 1].date);
+
+  const axisTitle = axisLabel
+    ? `<text class="axis-title" x="12" y="${(margin.top + plotHeight / 2).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor" opacity="0.9" transform="rotate(-90, 12, ${(margin.top + plotHeight / 2).toFixed(1)})">${axisLabel}</text>`
+    : '';
 
   return `
-    <div class="w-full">
-      <svg viewBox="0 0 ${chartWidth} ${chartHeight}" class="w-full h-40 text-gray-600 dark:text-gray-400">
-        <!-- Y-axis grid lines and labels -->
-        ${yAxisElements}
-        
-        <!-- X-axis -->
-        <line x1="${margin.left}" y1="${margin.top + plotHeight}" x2="${margin.left + plotWidth}" y2="${margin.top + plotHeight}" stroke="currentColor" stroke-width="2" class="text-gray-500"/>
-        
-        <!-- Y-axis -->
-        <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${margin.top + plotHeight}" stroke="currentColor" stroke-width="2" class="text-gray-500"/>
-        
-        <!-- X-axis labels and tick marks -->
-        ${xAxisElements}
-        
-        <!-- Y-axis label (vertical) -->
-        <text x="15" y="${margin.top + plotHeight / 2}" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor" class="text-gray-700 dark:text-gray-300" transform="rotate(-90, 15, ${margin.top + plotHeight / 2})">Max Weight (${weightUnit})</text>
-        
-        <!-- X-axis label (horizontal) -->
-        <text x="${margin.left + plotWidth / 2}" y="${chartHeight - 10}" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor" class="text-gray-700 dark:text-gray-300">Session Dates</text>
-        
-        <!-- Data line with gradient effect -->
-        <defs>
-          <linearGradient id="lineGradient-${activity?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" style="stop-color:${color};stop-opacity:0.8" />
-            <stop offset="100%" style="stop-color:${color};stop-opacity:1" />
-          </linearGradient>
-        </defs>
-        
-        <!-- Data line -->
-        <polyline
-          fill="none"
-          stroke="url(#lineGradient-${activity?.id || 'default'})"
-          stroke-width="3"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          points="${points}"/>
-        
-        <!-- Data points -->
-        ${circles}
-      </svg>
-    </div>
+    <svg viewBox="0 0 ${width} ${height}" class="w-full h-36 text-gray-600 dark:text-gray-300" role="img" aria-label="Progression from ${firstLabel} to ${lastLabel}, peak ${maxValue}${unit ? ` ${unit}` : ''}">
+      <defs>
+        <linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${color}" stop-opacity="0.32"/>
+          <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      ${axisTitle}
+      ${grid}
+      <polygon points="${area}" fill="url(#${gradientId})"/>
+      <polyline points="${line.join(' ')}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      ${dots}
+      ${valueLabels}
+      ${xLabels}
+    </svg>
   `;
+}
+
+/**
+ * Builds the progress card for the activity details modal: a chart once there
+ * are at least two sessions to compare, and an explanatory placeholder before
+ * that, so the section never renders as an empty box.
+ * @param {Object} activity The activity object.
+ * @param {Object} category The activity's category, for the line colour.
+ * @returns {string} HTML markup for the progress card body.
+ */
+export function buildProgressCard(activity, category) {
+  const { points, unit } = extractProgressionSeries(activity);
+  const metric = activity?.trackingType === 'sets-reps' ? 'Max weight' : 'Duration';
+
+  if (points.length < 2) {
+    const remaining = 2 - points.length;
+    return `
+      <div class="flex flex-col items-center justify-center text-center py-6 px-3 space-y-1">
+        <span class="material-icons text-3xl text-gray-400" aria-hidden="true">show_chart</span>
+        <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Progress being calculated</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">Record ${remaining} more ${remaining === 1 ? 'session' : 'sessions'} to see a progress graph.</p>
+      </div>
+    `;
+  }
+
+  // The metric and unit live on the y axis rather than in a caption above it.
+  const axisLabel = `${metric}${unit ? ` (${unit})` : ''}`;
+  return generateProgressChartSVG(points, category?.color || '#3b82f6', unit, axisLabel);
 }

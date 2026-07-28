@@ -8,14 +8,37 @@
  * Generates activity pills based on the record type and data
  * @param {Object} record - The activity record
  * @param {Object} category - The activity category
+ * @param {Object} [options] - Display options
+ * @param {boolean} [options.archived] - Whether the activity has been deleted
  * @returns {string} HTML string for the activity pills
  */
-export function generateActivityPills(record, category) {
+export function generateActivityPills(record, category, { archived = false } = {}) {
   if (record.sets && record.sets.length > 0) {
     return generateSetsPills(record, category);
-  } else {
-    return generateTimePills(record, category);
   }
+
+  const timePills = generateTimePills(record, category);
+  if (timePills) return timePills;
+
+  // Nothing measured yet — a record added straight to the schedule. Say so on
+  // the card, so an empty tile reads as unfinished rather than as a session
+  // that genuinely had nothing to it. A deleted activity has nowhere to add
+  // them, so it is left without the invitation.
+  return archived ? '' : generateAddDetailsPrompt(category);
+}
+
+/**
+ * Builds the prompt shown on a record that carries no metrics yet.
+ * @param {Object} category - The activity category, for the accent colour
+ * @returns {string} HTML string for the prompt pill
+ */
+export function generateAddDetailsPrompt(category) {
+  return `
+    <span class="add-details-prompt inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium border border-dashed"
+          style="color:${category.color}; border-color:${category.color};">
+      <span class="material-icons text-sm" aria-hidden="true">add</span>Add sets &amp; details
+    </span>
+  `;
 }
 
 /**

@@ -1,10 +1,8 @@
 // ProgramTile.js - At-a-glance progress for the active program
-import { getState } from '../../core/state.js';
-import { getLocalISODate } from '../../shared/datetime.js';
 import { hexToRgba } from '../../shared/color.js';
-import { getActiveProgram } from './programs.js';
-import { computeProgramProgress } from './helpers/programProgress.js';
-import { ProgramBuilderModal } from './Modals/ProgramBuilderModal.js';
+import { getActiveProgram, getProgramProgress } from './programs.js';
+import { dateRangeLabel, weekLabel } from './helpers/programLabels.js';
+import { ProgramDetailsModal } from './Modals/ProgramDetailsModal.js';
 
 const PROGRAM_COLOR = '#007AFF'; // ios-blue
 
@@ -32,52 +30,6 @@ function fillGradient(percent) {
 }
 
 /**
- * Formats a single date as "20 Oct", with the year appended when asked.
- *
- * The day is placed before the month explicitly rather than leaving the order to
- * toLocaleDateString, which follows the ambient locale and renders "Oct 20" under
- * en-US. Only the month name is localised.
- * @param {Date} date UTC-anchored date.
- * @param {boolean} withYear Whether to append the year.
- * @returns {string} Formatted date.
- */
-function formatDay(date, withYear) {
-  const month = date.toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' });
-  const day = date.getUTCDate();
-  return withYear ? `${day} ${month} ${date.getUTCFullYear()}` : `${day} ${month}`;
-}
-
-/**
- * Formats a program's date range, e.g. "20 Oct – 13 Dec". The year is appended
- * when the block spans a year boundary.
- * @param {string} startISO Start date key.
- * @param {string} endISO End date key.
- * @returns {string} Human-readable range.
- */
-function dateRangeLabel(startISO, endISO) {
-  const start = new Date(`${startISO}T00:00:00.000Z`);
-  const end = new Date(`${endISO}T00:00:00.000Z`);
-  if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf())) return '';
-
-  const spansYears = start.getUTCFullYear() !== end.getUTCFullYear();
-  return `${formatDay(start, spansYears)} – ${formatDay(end, spansYears)}`;
-}
-
-/**
- * Builds the pill text describing where the user is in the program.
- * @param {{phase: string, week: number, totalWeeks: number, daysUntilStart: number}} progress
- *   Computed progress figures.
- * @returns {string} Pill label.
- */
-function weekLabel({ phase, week, totalWeeks, daysUntilStart }) {
-  if (phase === 'before') {
-    return daysUntilStart === 1 ? 'Starts in 1 day' : `Starts in ${daysUntilStart} days`;
-  }
-  if (phase === 'after') return 'Completed';
-  return `Week ${week} of ${totalWeeks}`;
-}
-
-/**
  * Renders the active program's tile into #fitness-program-host, or clears the
  * host when no program is active.
  * @returns {void}
@@ -92,14 +44,7 @@ export function renderProgramTile() {
     return;
   }
 
-  const state = getState();
-  const progress = computeProgramProgress({
-    program,
-    todayISO: getLocalISODate(new Date()),
-    recordedActivities: state.recordedActivities,
-    restDays: state.restDays,
-  });
-
+  const progress = getProgramProgress(program);
   const label = weekLabel(progress);
   const range = dateRangeLabel(program.startDate, program.endDate);
 
@@ -108,7 +53,7 @@ export function renderProgramTile() {
   // vertically centred. The tile is the progress indicator, so it carries the
   // progressbar role and a textual value — the fill is never the only cue.
   host.innerHTML = `
-    <div id="program-tile" class="program-tile relative overflow-hidden mb-2 mt-2 flex items-center px-4 py-3 rounded-2xl bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-shadow hover:shadow-md" data-program-id="${program.id}" role="progressbar" aria-valuenow="${progress.percent}" aria-valuemin="0" aria-valuemax="100" aria-valuetext="${progress.completedWorkouts} of ${progress.plannedWorkouts} workouts completed, ${progress.percent} percent" tabindex="0" aria-label="Program ${program.name}. Activate to edit.">
+    <div id="program-tile" class="program-tile relative overflow-hidden mb-2 mt-2 flex items-center px-4 py-3 rounded-2xl bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-shadow hover:shadow-md" data-program-id="${program.id}" role="progressbar" aria-valuenow="${progress.percent}" aria-valuemin="0" aria-valuemax="100" aria-valuetext="${progress.completedWorkouts} of ${progress.plannedWorkouts} workouts completed, ${progress.percent} percent" tabindex="0" aria-label="Program ${program.name}. Activate to open details.">
       <div class="program-tile-fill absolute inset-0 pointer-events-none transition-[background] duration-300" style="background:${fillGradient(progress.percent)}" aria-hidden="true"></div>
 
       <div class="program-icon relative z-10 w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center mr-3 bg-white dark:bg-gray-800" style="border:2px solid ${PILL_COLOR};" aria-hidden="true">
@@ -131,11 +76,11 @@ export function renderProgramTile() {
   `;
 
   const tile = host.querySelector('#program-tile');
-  const openEditor = () => ProgramBuilderModal.openEditMode(program.id);
-  tile?.addEventListener('click', openEditor);
+  const openDetails = () => ProgramDetailsModal.open(program.id);
+  tile?.addEventListener('click', openDetails);
   tile?.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
-    openEditor();
+    openDetails();
   });
 }

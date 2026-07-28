@@ -24,6 +24,7 @@ const MODAL_ID = 'activity-picker-modal';
 export const ActivityPickerModal = {
   _selectedIds: [],
   _onConfirm: null,
+  _allowEmpty: false,
 
   /**
    * Opens the picker.
@@ -31,14 +32,23 @@ export const ActivityPickerModal = {
    * @param {string[]} [options.selectedIds] - Activities to start selected, in order
    * @param {string} [options.title] - Header title
    * @param {string} [options.confirmLabel] - Confirm button label
+   * @param {boolean} [options.allowEmpty] - Allow confirming with nothing selected,
+   *   so a caller managing an existing set can clear it
    * @param {Function} [options.onConfirm] - Receives the ordered selected activity ids
    * @returns {void}
    */
-  open({ selectedIds = [], title = 'Add Activities', confirmLabel = 'Add', onConfirm = null } = {}) {
+  open({
+    selectedIds = [],
+    title = 'Add Activities',
+    confirmLabel = 'Add',
+    allowEmpty = false,
+    onConfirm = null,
+  } = {}) {
     this._bindStaticHandlers();
     // Filter out ids whose activity has been deleted so they never re-enter a selection.
     this._selectedIds = selectedIds.filter((id) => Boolean(getActivity(id)));
     this._onConfirm = onConfirm;
+    this._allowEmpty = allowEmpty;
 
     const titleEl = document.getElementById('activity-picker-title');
     if (titleEl) titleEl.textContent = title;
@@ -153,7 +163,7 @@ export const ActivityPickerModal = {
 
     const confirmBtn = document.getElementById('confirm-activity-picker');
     if (!confirmBtn) return;
-    const enabled = this._selectedIds.length > 0;
+    const enabled = this._allowEmpty || this._selectedIds.length > 0;
     confirmBtn.disabled = !enabled;
     confirmBtn.classList.toggle('opacity-50', !enabled);
   },
@@ -164,7 +174,7 @@ export const ActivityPickerModal = {
    */
   _handleConfirm() {
     const selected = this._selectedIds.filter((id) => Boolean(getActivity(id)));
-    if (selected.length === 0) return;
+    if (selected.length === 0 && !this._allowEmpty) return;
     closeModal(MODAL_ID);
     this._onConfirm?.(selected);
   },

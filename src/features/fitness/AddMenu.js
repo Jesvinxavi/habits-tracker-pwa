@@ -6,13 +6,14 @@ let anchorEl = null;
 let documentClickHandler = null;
 let documentKeyHandler = null;
 
+// The timer is deliberately absent: it has its own button beside the Schedule
+// pill, since it is reached mid-session.
 const ITEMS = [
   { action: 'add-activity', icon: 'fitness_center', label: 'Add activity' },
   { action: 'add-routine', icon: 'repeat', label: 'Add routine' },
   { action: 'add-program-day', icon: 'playlist_add', label: 'Add today\u2019s program' },
   { action: 'save-routine', icon: 'bookmark_add', label: 'Save as routine' },
   { action: 'new-program', icon: 'calendar_month', label: 'New program' },
-  { action: 'timer', icon: 'schedule', label: 'Timer' },
 ];
 
 const ITEM_CLASS =
@@ -92,7 +93,6 @@ function moveFocus(delta) {
  * @param {Function} [actions.onAddProgramDay] - Records the day's scheduled program routines
  * @param {Function} [actions.onSaveAsRoutine] - Saves the day's activities as a routine
  * @param {Function} [actions.onNewProgram] - Opens the program builder
- * @param {Function} [actions.onTimer] - Opens the timer modal
  * @returns {HTMLElement|null} The mounted menu element.
  */
 export function mountAddMenu(anchorButton, actions = {}) {
@@ -124,7 +124,6 @@ export function mountAddMenu(anchorButton, actions = {}) {
     'add-program-day': actions.onAddProgramDay,
     'save-routine': actions.onSaveAsRoutine,
     'new-program': actions.onNewProgram,
-    timer: actions.onTimer,
   };
 
   const activate = (item) => {

@@ -1,5 +1,6 @@
 import { dispatch, Actions, getState } from '../core/state.js';
 import { isCloudBackend } from './dataBackend.js';
+import { nextPaint } from '../shared/nextPaint.js';
 
 export async function initializeNavigation() {
   const tabItems = document.querySelectorAll('.tab-item');
@@ -166,13 +167,13 @@ export async function initializeNavigation() {
       }
     }
 
-    await new Promise((resolve) => {
-      requestAnimationFrame(() => {
-        updateViews();
-        animateViewEntry(targetView);
-        requestAnimationFrame(resolve);
-      });
-    });
+    // Paint, swap the views, then let that land. Awaiting raw frames here
+    // stalled startup completely in a hidden tab: the view never switched, so
+    // initializeNavigation never returned and the loading screen never lifted.
+    await nextPaint();
+    updateViews();
+    animateViewEntry(targetView);
+    await nextPaint();
 
     // Calendars need one visible frame before their final centering pass.
     if (viewId === 'home-view') {

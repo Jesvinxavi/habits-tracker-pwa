@@ -44,6 +44,9 @@ export const RoutinePickerModal = {
     const confirmBtn = document.getElementById('confirm-routine-picker');
     if (confirmBtn) confirmBtn.textContent = confirmLabel;
 
+    const filter = document.getElementById('routine-picker-filter');
+    if (filter) filter.value = '';
+
     this._render();
     this._updateCount();
     openModal(MODAL_ID);
@@ -65,7 +68,25 @@ export const RoutinePickerModal = {
     const list = document.getElementById('routine-picker-list');
     if (!list) return;
 
-    const routines = getRoutines();
+    const query = (document.getElementById('routine-picker-filter')?.value || '')
+      .trim()
+      .toLowerCase();
+    const all = getRoutines();
+    // Filtering hides cards but never touches the selection: a routine picked
+    // before typing is still confirmed afterwards.
+    const routines = query
+      ? all.filter((routine) => routine.name.toLowerCase().includes(query))
+      : all;
+
+    if (routines.length === 0 && query) {
+      list.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-10 text-center space-y-2">
+          <span class="material-icons text-4xl text-gray-400">search_off</span>
+          <p class="text-gray-600 dark:text-gray-400 font-medium">No routines match "${query}"</p>
+        </div>
+      `;
+      return;
+    }
 
     if (routines.length === 0) {
       list.innerHTML = `
@@ -88,9 +109,11 @@ export const RoutinePickerModal = {
       .map((routine) => {
         const count = getRoutineActivities(routine.id).length;
         const isSelected = this._selectedIds.includes(routine.id);
-        const ring = isSelected ? ' ring-2 ring-ios-blue' : '';
+        // Inset rather than an outer ring, for the same reason as the activity
+        // picker: an outer ring is clipped by the scrolling list.
+        const selectedEdge = isSelected ? ` style="box-shadow: inset 0 0 0 2px ${INDICATOR_COLOR};"` : '';
         return `
-        <div class="routine-card selectable-routine-item flex items-center px-3 py-3 rounded-xl w-full bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 transition-colors cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600${ring}" data-routine-id="${routine.id}" role="checkbox" aria-checked="${isSelected}" tabindex="0">
+        <div class="routine-card selectable-routine-item flex items-center px-3 py-3 rounded-xl w-full bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 transition-colors cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600" data-routine-id="${routine.id}" role="checkbox" aria-checked="${isSelected}" tabindex="0"${selectedEdge}>
           <div class="w-9 h-9 flex-shrink-0 rounded-lg bg-ios-blue/10 flex items-center justify-center mr-3">
             <span class="material-icons text-ios-blue text-xl">repeat</span>
           </div>
@@ -171,6 +194,10 @@ export const RoutinePickerModal = {
 
     document.getElementById('cancel-routine-picker')?.addEventListener('click', () => {
       this.close();
+    });
+
+    document.getElementById('routine-picker-filter')?.addEventListener('input', () => {
+      this._render();
     });
 
     modal.addEventListener('click', (event) => {

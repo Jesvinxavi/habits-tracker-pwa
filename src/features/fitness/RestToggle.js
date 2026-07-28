@@ -25,10 +25,15 @@ export function mountRestToggle(options = {}) {
   restRow.className = 'flex items-center justify-between px-4 py-1 rest-toggle-row';
   restRow.innerHTML = `
     <div class="flex items-center gap-2 relative">
-      <div id="activities-label" class="bg-blue-50 dark:bg-gray-800 text-gray-900 dark:text-white px-6 py-1.5 rounded-full text-xl font-bold flex items-center justify-center gap-2">
-        <span class="material-icons text-xl">fitness_center</span>
-        Activities
+      <div id="activities-label" class="bg-blue-50 dark:bg-gray-800 text-gray-900 dark:text-white px-5 py-1.5 rounded-full text-xl font-bold flex items-center justify-center gap-2">
+        <span class="material-icons text-xl">event_note</span>
+        Schedule
       </div>
+      <button id="fitness-timer-btn"
+              class="w-9 h-9 rounded-full bg-blue-50 dark:bg-gray-800 text-ios-blue flex items-center justify-center transition-colors hover:bg-blue-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-ios-blue"
+              aria-label="Open timer">
+        <span class="material-icons text-xl">schedule</span>
+      </button>
       <button id="fitness-add-menu-btn"
               class="w-9 h-9 rounded-full bg-blue-50 dark:bg-gray-800 text-ios-blue flex items-center justify-center transition-colors hover:bg-blue-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-ios-blue"
               aria-label="Add to today" aria-haspopup="true" aria-expanded="false">
@@ -47,6 +52,13 @@ export function mountRestToggle(options = {}) {
   // Mount the + dropdown as a sibling of its anchor, inside the relative wrapper.
   const addMenuBtn = restRow.querySelector('#fitness-add-menu-btn');
   if (addMenuBtn) mountAddMenu(addMenuBtn, options.addMenu || {});
+
+  // The timer is a first-class action rather than a dropdown item: it is reached
+  // mid-session, when hunting through a menu is exactly the wrong interaction.
+  const timerBtn = restRow.querySelector('#fitness-timer-btn');
+  if (timerBtn && options.addMenu?.onTimer) {
+    timerBtn.addEventListener('click', options.addMenu.onTimer);
+  }
 
   // Update initial state
   updateRestToggle(restRow);

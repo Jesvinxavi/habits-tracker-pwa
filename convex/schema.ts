@@ -48,6 +48,9 @@ export default defineSchema({
     hideSkipped: v.boolean(),
     holidayMode: v.boolean(),
     // Optional so it can be added without invalidating existing preference rows.
+    // Retired with the program preload feature: nothing writes or reads it, but
+    // rows saved before it was dropped still hold a value and would otherwise
+    // fail validation.
     programPreload: v.optional(v.boolean()),
     homeSectionVisibility: v.object({
       Completed: v.boolean(),
@@ -175,6 +178,17 @@ export default defineSchema({
       trackingType: v.union(v.literal("time"), v.literal("sets-reps")),
       units: v.optional(v.string()),
       muscleGroup: v.optional(v.string()),
+      // Free-text note kept against the activity itself, edited from the
+      // activity details modal. Optional so existing rows stay valid.
+      notes: v.optional(v.string()),
+      // Which way is an improvement for a time-tracked activity: a 5k is better
+      // lower, a plank better higher. Absent means higher, the old behaviour.
+      betterDirection: v.optional(v.union(v.literal("higher"), v.literal("lower"))),
+      // Set when the user removes the activity from their library. The row and
+      // its records stay: the sessions are history, and a program's past weeks
+      // resolve their tiles through the activity itself. Distinct from
+      // deletedAt, which is the sync tombstone.
+      archivedAt: v.optional(v.number()),
     }),
   ).index("by_owner_generation_category", [
     "ownerKey",
@@ -222,6 +236,9 @@ export default defineSchema({
       name: v.string(),
       activityClientIds: v.array(v.string()),
       createdAtISO: v.string(),
+      // As on activities: removing a routine from the list archives it, so the
+      // days it was planned on keep it.
+      archivedAt: v.optional(v.number()),
       sortOrder: v.number(),
     }),
   ).index("by_owner_generation_order", ["ownerKey", "generation", "sortOrder"]),
@@ -232,19 +249,59 @@ export default defineSchema({
       name: v.string(),
       startDateISO: v.string(),
       endDateISO: v.string(),
-      // Repeated dayOfWeek entries are allowed: a day may hold several routines.
+      // Repeated dayOfWeek entries are allowed: a day may hold several items.
+      // Each entry pins either a routine or a single activity, so both id
+      // fields are optional and exactly one is set.
       scheduledDays: v.array(
-        v.object({ dayOfWeek: v.number(), routineClientId: v.string() }),
+        v.object({
+          dayOfWeek: v.number(),
+          routineClientId: v.optional(v.string()),
+          activityClientId: v.optional(v.string()),
+        }),
       ),
-      // Optional so the fields can be added without invalidating existing rows.
-      // The client defaults scheduleMode to "prescriptive" and the rest to empty.
+      // Retired with the two-mode scheduling scheme: nothing writes or reads
+      // scheduleMode any more. It stays declared, and optional, because rows
+      // written before it was dropped still hold a value and would otherwise
+      // fail validation.
       scheduleMode: v.optional(
         v.union(v.literal("prescriptive"), v.literal("freeform")),
       ),
       restDays: v.optional(v.array(v.number())),
+      // Also retired: a session now counts anywhere in its week, so a separate
+      // anytime bucket says nothing a pinned day does not. Kept declared for
+      // the same reason as scheduleMode. Each entry targeted a routine or a
+      // single activity, so both id fields are optional.
       anytimeRoutines: v.optional(
-        v.array(v.object({ routineClientId: v.string(), count: v.number() })),
+        v.array(
+          v.object({
+            routineClientId: v.optional(v.string()),
+            activityClientId: v.optional(v.string()),
+            count: v.number(),
+          }),
+        ),
       ),
+      // Schedules this program has been through, each closed off when the plan
+      // was edited mid-block. Dates before a phase's end are measured against
+      // it rather than against the live scheduledDays, so editing a running
+      // program never rewrites the weeks it has already been through.
+      schedulePhases: v.optional(
+        v.array(
+          v.object({
+            startDateISO: v.string(),
+            endDateISO: v.string(),
+            scheduledDays: v.array(
+              v.object({
+                dayOfWeek: v.number(),
+                routineClientId: v.optional(v.string()),
+                activityClientId: v.optional(v.string()),
+              }),
+            ),
+            restDays: v.optional(v.array(v.number())),
+          }),
+        ),
+      ),
+      // Free-text note kept against the program, edited from program details.
+      notes: v.optional(v.string()),
       active: v.boolean(),
       createdAtISO: v.string(),
       sortOrder: v.number(),

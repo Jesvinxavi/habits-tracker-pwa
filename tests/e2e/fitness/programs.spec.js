@@ -33,11 +33,19 @@ async function openBuilder(page) {
 }
 
 async function pinFirstRoutine(page, day) {
-  await page.locator(`.program-day-select[data-day-of-week="${day}"]`).click();
+  await page.locator(`.program-day-add[data-day-of-week="${day}"]`).click();
+  await page.locator('.day-add-option[data-choice="routine"]').click();
   await expect(page.locator('#routine-picker-modal')).toBeVisible();
   await page.locator('#routine-picker-list .selectable-routine-item').first().click();
   await page.locator('#confirm-routine-picker').click();
   await expect(page.locator('#routine-picker-modal')).toBeHidden();
+}
+
+async function openProgramEditor(page) {
+  await page.locator('#program-tile').click();
+  await expect(page.locator('#program-details-modal')).toBeVisible();
+  await page.locator('#program-details-edit-btn').click();
+  await expect(page.locator('#program-builder-modal')).toBeVisible();
 }
 
 async function createProgram(page, { name, start, end, days }) {
@@ -64,16 +72,15 @@ test.describe('program builder and tile', () => {
     expect(box).toEqual({ height: 0, children: 0 });
   });
 
-  test('with zero routines the builder explains itself and Save stays off', async ({ page }) => {
+  test('with nothing scheduled Save stays off', async ({ page }) => {
     await openFitness(page);
     await openBuilder(page);
-    await expect(page.locator('#program-no-routines-notice')).toBeVisible();
-    await expect(page.locator('#program-no-routines-notice')).toContainText(
-      'Create a routine first to schedule it.'
-    );
     await page.locator('#program-name-input').fill('Doomed');
     await expect(page.locator('#save-program-builder')).toBeDisabled();
-    await expect(page.locator('.program-day-select')).toHaveCount(0);
+    // The rows are still there — a day can now take an activity even when no
+    // routine exists yet.
+    await expect(page.locator('.program-day-row')).toHaveCount(7);
+    await expect(page.locator('.program-day-item')).toHaveCount(0);
   });
 
   test('one Monday-first row per day, each offering every routine', async ({ page }) => {
@@ -83,16 +90,17 @@ test.describe('program builder and tile', () => {
     await makeRoutine(page, 'Pull');
     await openBuilder(page);
 
-    const rows = page.locator('.program-day-select');
+    const rows = page.locator('.program-day-row');
     await expect(rows).toHaveCount(7);
     const labels = await page
       .locator('#program-schedule-rows > div > span:first-child')
       .allTextContents();
     expect(labels).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
-    // Unassigned days read as Rest.
-    await expect(rows.first()).toContainText('Rest');
+    // An unassigned day carries only its add button.
+    await expect(rows.first().locator('.program-day-item')).toHaveCount(0);
 
-    await rows.first().click();
+    await rows.first().locator('.program-day-add').click();
+    await page.locator('.day-add-option[data-choice="routine"]').click();
     const cards = page.locator('#routine-picker-list .selectable-routine-item');
     await expect(cards).toHaveCount(2);
     await expect(cards.nth(0)).toContainText('Push');
@@ -273,7 +281,7 @@ test.describe('program builder and tile', () => {
     expect(activeCount).toBe(1);
   });
 
-  test('tapping the tile opens the builder pre-populated', async ({ page }) => {
+  test('tapping the tile opens the details, which lead to the builder', async ({ page }) => {
     await openFitness(page);
     await seedActivity(page);
     await makeRoutine(page, 'Push');
@@ -285,6 +293,13 @@ test.describe('program builder and tile', () => {
     });
 
     await page.locator('#program-tile').click();
+    await expect(page.locator('#program-details-modal')).toBeVisible();
+    await expect(page.locator('#program-details-name')).toHaveText('Editable');
+    await expect(page.locator('#program-details-range')).toHaveText('20 Oct – 13 Dec');
+    // Mon and Fri across the block.
+    await expect(page.locator('#program-details-workouts')).toContainText('of 15 planned workouts');
+
+    await page.locator('#program-details-edit-btn').click();
     await expect(page.locator('#program-builder-modal')).toBeVisible();
     await expect(page.locator('#program-builder-title')).toHaveText('Edit Program');
     await expect(page.locator('#program-name-input')).toHaveValue('Editable');
@@ -293,12 +308,35 @@ test.describe('program builder and tile', () => {
     await expect(page.locator('#delete-program-btn')).toBeVisible();
 
     const selected = await page.evaluate(() =>
-      [...document.querySelectorAll('.program-day-select')]
-        .filter((btn) => !btn.textContent.includes('Rest'))
-        .map((btn) => Number(btn.dataset.dayOfWeek))
+      [...document.querySelectorAll('.program-day-row')]
+        .filter((row) => row.querySelector('.program-day-item'))
+        .map((row) => Number(row.dataset.dayOfWeek))
         .sort()
     );
     expect(selected).toEqual([1, 5]);
+  });
+
+  test('the details modal keeps a note against the program', async ({ page }) => {
+    await openFitness(page);
+    await seedActivity(page);
+    await makeRoutine(page, 'Push');
+    await createProgram(page, {
+      name: 'Noted',
+      start: '2026-10-20',
+      end: '2026-12-13',
+      days: [1],
+    });
+
+    await page.locator('#program-tile').click();
+    await page.locator('#program-details-notes').fill('Deload in week 5');
+    await page.locator('#program-details-notes').blur();
+    await expect
+      .poll(() => page.evaluate(() => window.appData.programs.find((p) => p.active).notes))
+      .toBe('Deload in week 5');
+
+    await page.locator('#close-program-details').click();
+    await page.locator('#program-tile').click();
+    await expect(page.locator('#program-details-notes')).toHaveValue('Deload in week 5');
   });
 
   test('deleting the program empties the host', async ({ page }) => {
@@ -312,7 +350,7 @@ test.describe('program builder and tile', () => {
       days: [1],
     });
 
-    await page.locator('#program-tile').click();
+    await openProgramEditor(page);
     await page.locator('#delete-program-btn').click();
     await expect(page.locator('#global-confirm-modal')).toContainText('Delete Program?');
     await page.locator('#global-confirm-modal button', { hasText: 'Delete' }).first().click();

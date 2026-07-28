@@ -4,7 +4,7 @@ import { showConfirm } from '../../../components/ConfirmDialog.js';
 import { hexToRgba } from '../../../shared/color.js';
 import { getActivity, getActivityCategory } from '../activities.js';
 import { ActivityPickerModal } from './ActivityPickerModal.js';
-import { addRoutine, updateRoutine, deleteRoutine, getRoutine, getRoutineActivities } from '../routines.js';
+import { addRoutine, updateRoutine, archiveRoutine, getRoutine, getRoutineActivities } from '../routines.js';
 
 const MODAL_ID = 'routine-builder-modal';
 
@@ -237,7 +237,7 @@ export const RoutineBuilderModal = {
   },
 
   /**
-   * Confirms and deletes the routine being edited.
+   * Confirms and archives the routine being edited.
    * @returns {void}
    */
   _handleDelete() {
@@ -245,11 +245,11 @@ export const RoutineBuilderModal = {
     const routineId = this._editRoutineId;
     showConfirm({
       title: 'Delete Routine?',
-      message: 'This routine will be permanently removed. This action cannot be undone.',
+      message: 'Sessions you have already recorded will be kept.',
       okText: 'Delete',
       cancelText: 'Cancel',
       onOK: async () => {
-        const deleted = await deleteRoutine(routineId);
+        const deleted = await archiveRoutine(routineId);
         if (!deleted) return;
         closeModal(MODAL_ID);
         this._onSaved?.();

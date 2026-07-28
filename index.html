@@ -788,13 +788,26 @@
         <div class="modal-header flex justify-between items-center px-6 py-1 bg-white/90 dark:bg-gray-800/90 border-b border-gray-200/50 dark:border-gray-700/50 flex-shrink-0 rounded-t-2xl backdrop-blur-xl">
           <button id="close-routines-modal" class="px-4 py-2 text-ios-blue hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 font-medium">Close</button>
           <span class="text-lg font-semibold text-gray-900 dark:text-white">Routines</span>
-          <span class="w-[72px]"></span>
+          <button id="new-routine-btn" class="px-4 py-2 text-ios-blue rounded-lg font-medium hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-200 flex items-center gap-1" aria-label="Create a new routine">
+            <span class="material-icons text-lg">add</span>New
+          </button>
+        </div>
+        <div class="px-4 pt-3 pb-2 flex-shrink-0">
+          <div class="relative border-2 border-gray-300 dark:border-gray-500 rounded-xl bg-gray-100 dark:bg-gray-700 transition-all duration-200">
+            <svg class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <input id="routines-filter" type="text" placeholder="Search routines..." autocomplete="off" spellcheck="false"
+                   class="w-full pl-10 pr-10 py-2 bg-transparent text-gray-700 dark:text-gray-300 rounded-xl border-none outline-none focus:ring-0 placeholder-gray-500 dark:placeholder-gray-400">
+            <button id="routines-filter-clear" class="absolute right-3 top-1/2 transform -translate-y-1/2 w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors hidden rounded-full hover:bg-gray-200 dark:hover:bg-gray-600" aria-label="Clear filter">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
-          <div class="p-4 space-y-4">
-            <button id="new-routine-btn" class="w-full py-3 px-4 bg-ios-blue/10 text-ios-blue rounded-xl font-semibold hover:bg-ios-blue/20 transition-colors flex items-center justify-center gap-2">
-              <span class="material-icons text-xl">add</span>New Routine
-            </button>
+          <div class="px-4 pb-4">
             <div id="routines-list" class="space-y-2"></div>
           </div>
         </div>
@@ -867,12 +880,74 @@
           <span id="routine-picker-title" class="text-lg font-semibold text-gray-900 dark:text-white">Add Routines</span>
           <button id="confirm-routine-picker" class="px-4 py-2 text-ios-blue rounded-lg font-medium opacity-50 transition-all duration-200 hover:bg-gray-100/50 dark:hover:bg-gray-800/50" disabled>Add</button>
         </div>
-        <div class="px-4 pt-3 pb-1 flex-shrink-0 flex items-center justify-between">
-          <span class="text-xs text-gray-600 dark:text-gray-400">Select one or more routines.</span>
-          <span id="routine-picker-count" class="text-xs font-medium text-gray-500 dark:text-gray-400">0 selected</span>
+        <div class="px-4 pt-3 pb-2 flex-shrink-0 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-gray-600 dark:text-gray-400">Select one or more routines.</span>
+            <span id="routine-picker-count" class="text-xs font-medium text-gray-500 dark:text-gray-400">0 selected</span>
+          </div>
+          <input id="routine-picker-filter" type="text" placeholder="Filter routines..." autocomplete="off" spellcheck="false"
+                 class="w-full px-4 py-2 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-ios-blue/50 transition-all duration-200">
         </div>
         <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
           <div id="routine-picker-list" class="p-4 space-y-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Program Details Modal -->
+    <div id="program-details-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1001] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate flex flex-col">
+        <div class="modal-header flex justify-between items-center px-6 py-1 bg-white/90 dark:bg-gray-800/90 border-b border-gray-200/50 dark:border-gray-700/50 flex-shrink-0 rounded-t-2xl backdrop-blur-xl">
+          <button id="close-program-details" class="px-4 py-2 text-ios-blue hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 font-medium">Close</button>
+          <span class="text-lg font-semibold text-gray-900 dark:text-white">Program Details</span>
+          <span class="w-[72px]"></span>
+        </div>
+        <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
+          <div class="p-4 space-y-4">
+            <!-- Name, dates and the way in to the builder -->
+            <div class="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+              <div class="flex-grow min-w-0 space-y-2">
+                <h2 id="program-details-name" class="text-2xl font-bold text-gray-900 dark:text-white break-words"></h2>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span id="program-details-range" class="px-2 py-0.5 rounded-lg text-xs font-medium text-white whitespace-nowrap"></span>
+                  <span id="program-details-week" class="px-2 py-0.5 text-xs font-bold rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white whitespace-nowrap"></span>
+                </div>
+              </div>
+              <button id="program-details-edit-btn" type="button" class="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 bg-ios-blue/10 text-ios-blue rounded-lg text-xs font-semibold hover:bg-ios-blue/20 transition-colors" aria-label="Edit program">
+                <span class="material-icons text-base">edit</span>Edit
+              </button>
+            </div>
+
+            <!-- Today's session, with the action that acts on it -->
+            <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+              <h3 id="program-details-session-heading" class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Scheduled for today</h3>
+              <div id="program-details-session"></div>
+              <button id="program-details-add-today-btn" type="button" class="w-full py-2.5 px-4 bg-ios-blue text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
+                <span class="material-icons text-xl">playlist_add</span>Add to today
+              </button>
+            </div>
+
+            <!-- Progress: the block as a whole, then week by week -->
+            <div class="space-y-2 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+              <div class="flex items-center justify-between">
+                <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Progress</h3>
+                <span id="program-details-percent" class="text-sm font-bold text-gray-900 dark:text-white"></span>
+              </div>
+              <div id="program-details-bar-track" class="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                <div id="program-details-bar" class="h-full rounded-full transition-[width] duration-300"></div>
+              </div>
+              <p id="program-details-workouts" class="text-xs text-gray-600 dark:text-gray-400"></p>
+              <div id="program-details-weeks" class="space-y-2 pt-2"><!-- week pills injected by ProgramDetailsModal --></div>
+              <button id="program-details-more-weeks-btn" type="button" class="hidden w-full py-2 px-4 text-ios-blue rounded-xl text-sm font-semibold hover:bg-ios-blue/10 transition-colors items-center justify-center gap-1" aria-expanded="false" aria-controls="program-details-weeks"></button>
+            </div>
+
+            <!-- Notes -->
+            <div class="space-y-2 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+              <label for="program-details-notes" class="block text-gray-700 dark:text-gray-300 text-sm font-semibold">Notes</label>
+              <textarea id="program-details-notes" rows="3" maxlength="200" placeholder="Any observations?"
+                        class="w-full px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 resize-none"></textarea>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -904,15 +979,6 @@
               <p id="program-date-error" class="text-xs text-red-600 dark:text-red-400 hidden">End date must be on or after the start date.</p>
             </div>
             <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
-              <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">How is it scheduled?</h3>
-              <div class="flex bg-gray-100 dark:bg-gray-900 rounded-lg p-1 gap-1">
-                <button id="program-mode-prescriptive" type="button" class="program-mode-btn flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 shadow-sm" data-mode="prescriptive">Set days</button>
-                <button id="program-mode-freeform" type="button" class="program-mode-btn flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white" data-mode="freeform">Flexible</button>
-              </div>
-              <p id="program-mode-hint" class="text-xs text-gray-600 dark:text-gray-400">Pick which routines you do on each day of the week.</p>
-            </div>
-
-            <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
               <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Rest days</h3>
               <p class="text-xs text-gray-600 dark:text-gray-400">Selected days are rest days and drop out of the schedule below.</p>
               <div class="grid grid-cols-7 gap-2" id="program-rest-day-grid"><!-- buttons injected by ProgramBuilderModal --></div>
@@ -920,29 +986,60 @@
 
             <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
               <h3 id="program-schedule-heading" class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Weekly schedule</h3>
-              <p id="program-no-routines-notice" class="text-xs text-gray-600 dark:text-gray-400 hidden">Create a routine first to schedule it.</p>
+              <p class="text-xs text-gray-600 dark:text-gray-400">Put each routine and activity on the day it belongs. A session still counts towards its day if you do it later that week.</p>
               <p id="program-all-rest-notice" class="text-xs text-gray-600 dark:text-gray-400 hidden">Every day is marked as rest. Unselect a day to schedule it.</p>
-              <div id="program-schedule-rows" class="space-y-2"></div>
+              <div id="program-schedule-rows" class="space-y-3"></div>
             </div>
 
-            <div id="program-anytime-section" class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl hidden">
-              <div class="flex items-center justify-between">
-                <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Anytime that week</h3>
-                <span id="program-anytime-count" class="text-xs font-medium text-gray-500 dark:text-gray-400">0 per week</span>
-              </div>
-              <p class="text-xs text-gray-600 dark:text-gray-400">Routines that need doing each week, on whichever day suits.</p>
-              <div id="program-anytime-rows" class="space-y-2"></div>
-              <button id="program-add-anytime-btn" type="button" class="w-full py-2.5 px-4 bg-ios-blue/10 text-ios-blue rounded-xl font-semibold hover:bg-ios-blue/20 transition-colors flex items-center justify-center gap-2">
-                <span class="material-icons text-xl">add</span>Add routines
-              </button>
-            </div>
-
-            <button id="program-add-today-btn" type="button" class="w-full py-3 px-4 bg-ios-blue/10 text-ios-blue rounded-xl font-semibold hover:bg-ios-blue/20 transition-colors flex items-center justify-center gap-2 hidden">
-              <span class="material-icons text-xl">playlist_add</span>Add to current day
-            </button>
             <button id="delete-program-btn" class="w-full py-3 px-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors hidden">
               Delete Program
             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity Details Modal (read-only overview; recording lives in the record modal) -->
+    <div id="activity-info-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1002] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate flex flex-col">
+        <div class="modal-header flex justify-between items-center px-6 py-1 bg-white/90 dark:bg-gray-800/90 border-b border-gray-200/50 dark:border-gray-700/50 flex-shrink-0 rounded-t-2xl backdrop-blur-xl">
+          <button id="close-activity-info" class="px-4 py-2 text-ios-blue hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 font-medium">Close</button>
+          <span class="text-lg font-semibold text-gray-900 dark:text-white">Activity Details</span>
+          <span class="w-[72px]"></span>
+        </div>
+        <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
+          <div class="p-4 space-y-4">
+            <!-- Details tile -->
+            <div class="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+              <div id="activity-info-icon" class="w-12 h-12 flex-shrink-0 rounded-lg flex items-center justify-center text-2xl" aria-hidden="true"></div>
+              <div class="flex-grow min-w-0">
+                <h3 id="activity-info-name" class="font-semibold text-gray-900 dark:text-white truncate"></h3>
+                <p id="activity-info-category" class="text-sm text-gray-600 dark:text-gray-400 truncate"></p>
+              </div>
+              <button id="activity-info-edit-btn" class="w-9 h-9 flex-shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors" aria-label="Edit activity">
+                <span class="material-icons text-lg">edit</span>
+              </button>
+            </div>
+
+            <!-- Progress -->
+            <div class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+              <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">Progress</h3>
+              <div id="activity-info-progress"></div>
+              <button id="activity-info-stats-btn" class="w-full py-2.5 px-4 bg-ios-blue/10 text-ios-blue rounded-xl font-semibold hover:bg-ios-blue/20 transition-colors flex items-center justify-center gap-2">
+                <span class="material-icons text-xl">bar_chart</span>View full statistics
+              </button>
+            </div>
+
+            <button id="activity-info-record-btn" class="w-full py-3 px-4 bg-ios-blue text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
+              <span class="material-icons text-xl">add_circle_outline</span>Record to today&rsquo;s schedule
+            </button>
+
+            <!-- Notes -->
+            <div class="space-y-2 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl">
+              <label for="activity-info-notes" class="block text-gray-700 dark:text-gray-300 text-sm font-semibold">Notes</label>
+              <textarea id="activity-info-notes" rows="3" maxlength="200" placeholder="Any observations?"
+                        class="w-full px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 resize-none"></textarea>
+            </div>
           </div>
         </div>
       </div>
@@ -1051,6 +1148,16 @@
               </div>
             </div>
             
+            <!-- Better Direction (conditional for Time) -->
+            <div id="direction-section" class="space-y-3 p-4 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl hidden">
+              <h3 class="text-gray-700 dark:text-gray-300 text-sm font-semibold">What counts as better?</h3>
+              <p class="text-xs text-gray-600 dark:text-gray-400">A 5k is better when the time is lower; a plank is better when it is higher.</p>
+              <div class="flex rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 p-1">
+                <button id="direction-higher-toggle" type="button" class="direction-toggle flex-1 py-2 px-4 text-sm font-medium rounded-md transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 shadow-sm" data-direction="higher" aria-pressed="true">Higher is better</button>
+                <button id="direction-lower-toggle" type="button" class="direction-toggle flex-1 py-2 px-4 text-sm font-medium rounded-md transition-all text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white" data-direction="lower" aria-pressed="false">Lower is better</button>
+              </div>
+            </div>
+
             <!-- Delete Button (shown only in edit mode) -->
             <button id="delete-activity-btn" class="w-full py-3 px-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors hidden">
               Delete Activity
@@ -1063,24 +1170,37 @@
       </div>
     </div>
 
-    <!-- Activity Details Modal -->
+    <!-- Record Activity Modal (sets/reps or duration for one day) -->
     <div id="activity-details-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1003] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate flex flex-col">
         <!-- Modal Header -->
         <div class="modal-header flex justify-between items-center px-6 py-1 bg-white/90 dark:bg-gray-800/90 border-b border-gray-200/50 dark:border-gray-700/50 flex-shrink-0 rounded-t-2xl backdrop-blur-xl">
           <button id="cancel-activity-details" class="px-4 py-2 text-ios-blue hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 font-medium">Cancel</button>
-          <span class="text-lg font-semibold text-gray-900 dark:text-white">Activity Details</span>
+          <span id="activity-details-title" class="text-lg font-semibold text-gray-900 dark:text-white">Record Activity</span>
           <button id="save-activity-details" class="px-4 py-2 text-ios-blue rounded-lg font-medium hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-200">Record</button>
         </div>
         <!-- Modal Content -->
         <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
           <form id="activity-details-form" class="p-6 space-y-5">
-            <!-- Activity Info Display -->
-            <div class="activity-info-display flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
-              <div id="activity-details-icon" class="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"></div>
-              <div>
-                <h3 id="activity-details-name" class="font-semibold text-gray-900 dark:text-white"></h3>
-                <p id="activity-details-category" class="text-sm text-gray-600 dark:text-gray-400"></p>
+            <!-- Activity Info Display — tapping it opens the activity's details -->
+            <button type="button" id="activity-details-info-tile" class="activity-info-display w-full text-left flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-ios-blue" aria-label="Open activity details">
+              <div id="activity-details-icon" class="w-12 h-12 flex-shrink-0 rounded-lg flex items-center justify-center text-2xl" aria-hidden="true"></div>
+              <div class="flex-grow min-w-0">
+                <h3 id="activity-details-name" class="font-semibold text-gray-900 dark:text-white truncate"></h3>
+                <p id="activity-details-category" class="text-sm text-gray-600 dark:text-gray-400 truncate"></p>
+              </div>
+              <span class="material-icons text-lg text-gray-400 flex-shrink-0" aria-hidden="true">chevron_right</span>
+            </button>
+
+            <!-- Best and most recent figures, when there is history to show -->
+            <div id="activity-details-highlights" class="grid grid-cols-2 gap-3 hidden">
+              <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-center">
+                <div id="activity-details-best" class="text-xl font-bold text-gray-900 dark:text-white"></div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">Best</div>
+              </div>
+              <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-center">
+                <div id="activity-details-last" class="text-xl font-bold text-gray-900 dark:text-white"></div>
+                <div id="activity-details-last-label" class="text-xs text-gray-500 dark:text-gray-400">Last</div>
               </div>
             </div>
             
@@ -1115,8 +1235,19 @@
             <div id="sets-reps-tracking-section" class="hidden">
               <div class="space-y-3">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Sets & Reps</label>
-                <div id="sets-container" class="space-y-3">
-                  <!-- Sets will be dynamically added here -->
+                <!-- Column headings only: the rows below line up under them, so
+                     a session reads down each column without a table frame -->
+                <div class="sets-table">
+                  <div class="sets-table-head grid items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-300" style="grid-template-columns: 3.25rem 1fr 1fr 4.25rem 1.5rem;">
+                    <span></span>
+                    <span class="text-center">Reps</span>
+                    <span class="text-center">Value</span>
+                    <span class="text-center">Unit</span>
+                    <span></span>
+                  </div>
+                  <div id="sets-container" class="space-y-2 mt-1">
+                    <!-- Sets will be dynamically added here -->
+                  </div>
                 </div>
                 <button type="button" id="add-set-btn" class="w-full py-3 px-4 bg-ios-blue/10 text-ios-blue rounded-xl font-medium hover:bg-ios-blue/20 transition-colors flex items-center justify-center gap-2">
                   <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -1130,7 +1261,7 @@
             <!-- Notes -->
             <div>
               <label for="activity-notes-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional)</label>
-              <textarea id="activity-notes-input" name="activity-notes" rows="3" maxlength="200" placeholder="How did it feel? Any observations?" class="w-full px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 resize-none"></textarea>
+              <textarea id="activity-notes-input" name="activity-notes" rows="3" maxlength="200" placeholder="Any observations?" class="w-full px-4 py-3 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-ios-blue/50 focus:border-ios-blue transition-all duration-200 resize-none"></textarea>
             </div>
           </form>
         </div>

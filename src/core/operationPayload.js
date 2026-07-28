@@ -7,7 +7,7 @@ function omitNullishFields(record, fields) {
 }
 
 export function sanitizeActivityDefinition(record) {
-  return omitNullishFields(record, ['units', 'muscleGroup']);
+  return omitNullishFields(record, ['units', 'muscleGroup', 'notes', 'betterDirection', 'archivedAt']);
 }
 
 export function sanitizeActivityRecord(record) {

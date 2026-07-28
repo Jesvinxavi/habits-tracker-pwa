@@ -21,8 +21,10 @@ jobs:
       - name: Install deps
         run: npm ci --no-audit --prefer-offline
 
-      - name: Build production bundle
-        run: npm run build
+      - name: Build bundle
+        # Served from the root by vite preview below, so it must be a local build:
+        # a Pages build would 404 every asset and Lighthouse would score a blank page.
+        run: npm run build:local
 
       - name: Start preview server
         run: npx vite preview --port 4173 &

@@ -1,7 +1,7 @@
 import { getState, dispatch, Actions } from '../../core/state.js';
 import { generateUniqueId } from '../../shared/common.js';
 import { getLocalMidnightISOString } from '../../shared/datetime.js';
-import { getActivity, recordActivitiesForDate } from './activities.js';
+import { getActivity, isArchivedActivity, recordActivitiesForDate } from './activities.js';
 
 /**
  * Creates a new routine — a named, ordered set of activities performed together.
@@ -40,8 +40,17 @@ export async function updateRoutine(routineId, updates) {
  * @param {string} routineId Routine client id.
  * @returns {Promise<boolean>} True when the durable write succeeded.
  */
-export async function deleteRoutine(routineId) {
-  return dispatch(Actions.deleteRoutine(routineId));
+export async function archiveRoutine(routineId) {
+  return dispatch(Actions.updateRoutine(routineId, { archivedAt: Date.now() }));
+}
+
+/**
+ * Reports whether a routine has been archived.
+ * @param {object} routine Routine, or undefined.
+ * @returns {boolean} True when it has been removed from the list.
+ */
+export function isArchivedRoutine(routine) {
+  return Boolean(routine?.archivedAt);
 }
 
 /**
@@ -49,7 +58,9 @@ export async function deleteRoutine(routineId) {
  * @returns {object[]} Routines sorted by sortOrder.
  */
 export function getRoutines() {
-  return [...getState().routines].sort((left, right) => left.sortOrder - right.sortOrder);
+  return getState()
+    .routines.filter((routine) => !isArchivedRoutine(routine))
+    .sort((left, right) => left.sortOrder - right.sortOrder);
 }
 
 /**
@@ -73,7 +84,7 @@ export function getRoutineActivities(routineId) {
   if (!routine) return [];
   return (routine.activityIds || [])
     .map((activityId) => getActivity(activityId))
-    .filter((activity) => activity !== undefined);
+    .filter((activity) => activity !== undefined && !isArchivedActivity(activity));
 }
 
 /**

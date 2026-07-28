@@ -34,8 +34,13 @@ export const CategoryGroup = {
               ([mg, list]) => `
             <div class="muscle-group mb-2">
               ${buildMuscleGroupHeader(mg)}
-              <div class="category-activities pl-2 mt-1">
-                ${list.map((record) => ActivityCard.build(record, category, callbacks)).join('')}
+              <div class="category-activities pl-2 mt-1" style="overflow: visible;">
+                ${list
+                  .map(
+                    (record) =>
+                      `<div style="margin-bottom: 0.25rem; overflow: visible;">${ActivityCard.build(record, category, callbacks)}</div>`
+                  )
+                  .join('')}
               </div>
             </div>
           `

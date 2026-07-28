@@ -23,22 +23,31 @@ export const ActivityCard = {
     // Get the activity to access its individual icon
     const activity = callbacks.getActivity ? callbacks.getActivity(record.activityId) : null;
     const activityIcon = activity?.icon || category.icon;
+    // The activity is the identity: renaming it renames every session of it,
+    // this one included. The record's snapshot is the fallback for a session
+    // whose activity is not in state at all.
+    const name = activity?.name || record.activityName;
+    // An archived activity keeps its sessions on the day they were done, but
+    // there is nothing left to open: the card says so and stops being a tap
+    // target. Swiping it away still works — the session is the user's to remove.
+    const archived = Boolean(activity?.archivedAt);
 
     // Generate activity pills based on tracking type
-    const pillsMarkup = generateActivityPills(record, category);
+    const pillsMarkup = generateActivityPills(record, category, { archived });
 
     // DOM structure mirrors habit cards for consistency:
     // swipe-container → restore-btn (hidden delete action) + swipe-slide → activity-card
     return `
       <div class="swipe-container relative overflow-visible" data-record-id="${record.id}">
-        <button class="restore-btn absolute top-0 right-0 h-full bg-red-600 text-white font-semibold rounded-xl w-1/5 touch-manipulation" aria-label="Delete ${record.activityName} activity">Delete</button>
+        <button class="restore-btn absolute top-0 right-0 h-full bg-red-600 text-white font-semibold rounded-xl w-1/5 touch-manipulation" aria-label="Delete ${name} activity">Delete</button>
         <div class="swipe-slide transition-transform bg-white dark:bg-gray-800 rounded-xl w-full relative z-1 touch-pan-y">
           <div class="activity-card relative flex items-start px-3 py-2 rounded-xl w-full mb-0" style="border: 3px solid ${category.color}; background-color: ${hexToRgba(category.color, 0.05)};">
             <div class="activity-icon w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center mr-3 text-xl" style="background-color: ${category.color}20;" aria-hidden="true">
               ${activityIcon}
             </div>
             <div class="activity-content flex-grow text-left">
-              <div class="activity-name font-semibold leading-tight text-gray-900 dark:text-white mb-1">${record.activityName}</div>
+              <div class="activity-name font-semibold leading-tight text-gray-900 dark:text-white mb-1">${name}</div>
+              ${archived ? '<div class="mb-1"><span class="activity-archived-pill inline-block px-1.5 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wide bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">Deleted</span></div>' : ''}
               ${record.notes ? `<div class="activity-notes text-xs text-gray-500 dark:text-gray-400 my-1 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit max-w-full">${record.notes}</div>` : ''}
               ${pillsMarkup}
             </div>
@@ -77,9 +86,14 @@ export const ActivityCard = {
           },
         });
 
-        // Add click functionality to open activity details modal with existing data
+        // Add click functionality to open activity details modal with existing
+        // data. An archived activity has no details left to show, so its card
+        // is left inert rather than opening an empty modal.
         const activityCard = slideEl.querySelector('.activity-card');
-        if (activityCard && record.activityId) {
+        const isArchived = Boolean(
+          callbacks.getActivity ? callbacks.getActivity(record.activityId)?.archivedAt : false
+        );
+        if (activityCard && record.activityId && !isArchived) {
           activityCard.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();

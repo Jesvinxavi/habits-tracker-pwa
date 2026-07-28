@@ -19,7 +19,7 @@ test.describe('fitness page shell', () => {
 
       const buttons = page.locator('#fitness-view .action-buttons button');
       await expect(buttons).toHaveCount(2);
-      await expect(buttons.nth(0)).toHaveText(/Activity/);
+      await expect(buttons.nth(0)).toHaveText(/Activities/);
       await expect(buttons.nth(1)).toHaveText(/Routines/);
 
       // Old launchers are gone, and no search input survives on the page.
@@ -37,6 +37,7 @@ test.describe('fitness page shell', () => {
         };
         return {
           label: box('#activities-label'),
+          timer: box('#fitness-timer-btn'),
           plus: box('#fitness-add-menu-btn'),
           rest: box('#rest-toggle'),
           host: box('#fitness-program-host'),
@@ -55,9 +56,12 @@ test.describe('fitness page shell', () => {
       // Equal-width pills.
       expect(Math.abs(metrics.activity.width - metrics.routines.width)).toBeLessThan(1);
 
-      // The + pill sits immediately right of the Activities pill, vertically centred.
-      expect(metrics.plus.x).toBeGreaterThan(metrics.label.right);
-      expect(metrics.plus.x - metrics.label.right).toBeLessThan(12);
+      // Schedule pill, then the timer button, then the +, all vertically centred.
+      expect(metrics.timer.x).toBeGreaterThan(metrics.label.right);
+      expect(metrics.timer.x - metrics.label.right).toBeLessThan(12);
+      expect(metrics.plus.x).toBeGreaterThan(metrics.timer.right);
+      expect(metrics.plus.x - metrics.timer.right).toBeLessThan(12);
+      expect(Math.abs(metrics.timer.centerY - metrics.label.centerY)).toBeLessThan(1);
       expect(Math.abs(metrics.plus.centerY - metrics.label.centerY)).toBeLessThan(1);
 
       // Rest toggle stays flush right and nothing overflows horizontally.

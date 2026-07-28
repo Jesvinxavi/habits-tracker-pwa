@@ -25,7 +25,7 @@ jobs:
       - name: Type-check Convex functions
         run: npm run test:convex
       - name: Build
-        run: npm run build
+        run: npm run build:local
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Run browser tests

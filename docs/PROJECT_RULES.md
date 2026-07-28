@@ -40,6 +40,9 @@
 - `fake-indexeddb` is required for deterministic IndexedDB tests.
 - Playwright covers PWA and browser persistence flows.
 - CI must run lint, unit/migration tests, Convex type-checking, build, and browser smoke tests.
+- Builds state their destination: `npm run build:pages` for GitHub Pages,
+  `npm run build:local` for anything served from the root. `vite build` fails
+  without `BUILD_TARGET` rather than guessing. See `docs/BUILD_AND_DEPLOY.md`.
 
 ## Current Focus Areas
 

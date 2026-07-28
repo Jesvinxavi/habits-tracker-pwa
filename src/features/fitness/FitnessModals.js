@@ -1,6 +1,7 @@
 // FitnessModals.js - Orchestrates all modal dialogs for the fitness feature
 import { AddEditActivityModal } from './Modals/AddEditActivityModal.js';
 import { ActivityDetailsModal } from './Modals/ActivityDetailsModal.js';
+import { ActivityInfoModal } from './Modals/ActivityInfoModal.js';
 import { StatsModal } from './Modals/StatsModal.js';
 import { ActivityLibraryModal } from './Modals/ActivityLibraryModal.js';
 import { RoutinesModal } from './Modals/RoutinesModal.js';
@@ -8,6 +9,40 @@ import { RoutineBuilderModal } from './Modals/RoutineBuilderModal.js';
 import { RoutinePickerModal } from './Modals/RoutinePickerModal.js';
 import { ActivityPickerModal } from './Modals/ActivityPickerModal.js';
 import { ProgramBuilderModal } from './Modals/ProgramBuilderModal.js';
+import { ProgramDetailsModal } from './Modals/ProgramDetailsModal.js';
+import { recordActivitiesForDate } from './activities.js';
+import { getState, dispatch, Actions } from '../../core/state.js';
+import { getLocalISODate, getLocalMidnightISOString } from '../../shared/datetime.js';
+
+/**
+ * Logs an activity onto today's schedule and steps back to it, so the user sees
+ * the tile land.
+ *
+ * Deliberately today rather than whichever day the page is showing: this is the
+ * quick "I just did this" path. Logging against a specific date is the + button's
+ * job, where the date is the thing the user has already chosen.
+ *
+ * The record is created without sets or duration on purpose: getting it onto the
+ * schedule is one tap, and the card then invites the details.
+ * @param {string} activityId - Activity client id
+ * @returns {Promise<void>}
+ */
+async function recordToToday(activityId) {
+  const today = getLocalISODate(new Date());
+  const result = await recordActivitiesForDate([activityId], today);
+  // A rest day or a failed write keeps the modals open, with its own dialog
+  // already on screen explaining why.
+  if (result.recorded === 0) return;
+
+  // Move the page to today if it was showing another date, or the new card
+  // would land somewhere the user cannot see.
+  if (getLocalISODate(getState().fitnessSelectedDate || new Date().toISOString()) !== today) {
+    await dispatch(Actions.setFitnessSelectedDate(getLocalMidnightISOString(new Date())));
+  }
+
+  ActivityInfoModal.close();
+  ActivityLibraryModal.close();
+}
 
 export const Modals = {
   /**
@@ -59,6 +94,14 @@ export const Modals = {
   },
 
   /**
+   * Opens the read-only program overview
+   * @param {string} programId - The program ID
+   */
+  openProgramDetails(programId) {
+    ProgramDetailsModal.open(programId);
+  },
+
+  /**
    * Opens the program builder for a new program
    * @param {Object} [options] - onSaved callback
    */
@@ -91,7 +134,25 @@ export const Modals = {
   },
 
   /**
-   * Opens the activity details modal
+   * Opens the read-only activity details view.
+   *
+   * The navigation handlers default to the standard set, so every surface that
+   * opens this modal — the library, the record form's tile — wires it the same
+   * way rather than each re-deriving the same three callbacks.
+   * @param {string} activityId - The activity ID
+   * @param {Object} [callbacks] - Overrides for onRecord, onEdit and onStats
+   */
+  openActivityInfo(activityId, callbacks = {}) {
+    ActivityInfoModal.open(activityId, {
+      onRecord: (id) => void recordToToday(id),
+      onEdit: (id) => this.openEditActivity(id),
+      onStats: (id) => this.openStats(id),
+      ...callbacks,
+    });
+  },
+
+  /**
+   * Opens the record modal for logging a session against the selected day
    * @param {string} activityId - The activity ID
    */
   openActivityDetails(activityId) {

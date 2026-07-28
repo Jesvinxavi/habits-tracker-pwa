@@ -33,10 +33,50 @@ async function openLibrary(page) {
   await expect(page.locator('#activity-library-content')).toBeVisible();
 }
 
+// The library opens as a list of collapsed categories, so tests that reach for a
+// tile have to open its section first.
+async function expandAll(page) {
+  const sections = page.locator('#activity-library-content .search-category-section');
+  for (let i = 0; i < (await sections.count()); i += 1) {
+    const section = sections.nth(i);
+    if (await section.evaluate((el) => el.classList.contains('collapsed'))) {
+      await section.locator('.search-expand-btn').click();
+      await expect(section).not.toHaveClass(/collapsed/);
+    }
+  }
+}
+
 test.describe('activity library modal', () => {
-  test('opens from the Activity button with grouped categories', async ({ page }) => {
+  test('opens with every category collapsed', async ({ page }) => {
     await seed(page);
     await openLibrary(page);
+
+    const sections = page.locator('#activity-library-content .search-category-section');
+    await expect(sections).toHaveCount(2);
+    await expect(sections.nth(0)).toHaveClass(/collapsed/);
+    await expect(sections.nth(1)).toHaveClass(/collapsed/);
+    await expect(page.locator('.search-activity-item').first()).toBeHidden();
+
+    // Opening one leaves the other alone.
+    await page.locator('#search-category-cardio .search-expand-btn').click();
+    await expect(page.locator('#search-category-cardio')).not.toHaveClass(/collapsed/);
+    await expect(page.locator('#search-category-strength')).toHaveClass(/collapsed/);
+  });
+
+  test('a filter expands the sections it matches', async ({ page }) => {
+    await seed(page);
+    await openLibrary(page);
+
+    await page.locator('#activity-library-filter').fill('bench');
+    const section = page.locator('#activity-library-content .search-category-section').first();
+    await expect(section).not.toHaveClass(/collapsed/);
+    await expect(page.locator('.search-activity-item').first()).toBeVisible();
+  });
+
+  test('opens from the Activities button with grouped categories', async ({ page }) => {
+    await seed(page);
+    await openLibrary(page);
+    await expandAll(page);
 
     const content = page.locator('#activity-library-content');
     await expect(content.locator('.search-category-section')).toHaveCount(2);
@@ -50,9 +90,12 @@ test.describe('activity library modal', () => {
     await expect(strength).toContainText('Chest');
     await expect(strength).toContainText('Biceps');
 
-    // Coloured edit pill and 2.5px category-coloured tile borders survived the port.
+    // Coloured category edit pill survives; the per-tile stats and edit buttons
+    // moved into the activity details modal.
     const editPill = strength.locator('.search-edit-category-btn');
     await expect(editPill).toHaveCount(1);
+    await expect(content.locator('.stats-btn')).toHaveCount(0);
+    await expect(content.locator('.edit-activity-btn')).toHaveCount(0);
     // The aesthetic contract is the authored 2.5px border; Chrome floors the
     // computed value to whole device pixels, so assert the authored style.
     const tile = content.locator('.search-activity-item').first();
@@ -128,7 +171,6 @@ test.describe('activity library modal', () => {
 
     const section = page.locator('#search-category-cardio');
     const contentDiv = section.locator('.search-category-content');
-    await expect(contentDiv).toBeVisible();
 
     // The transition comes from CSS, which must still match now the list lives in <body>.
     const transition = await contentDiv.evaluate(
@@ -137,21 +179,24 @@ test.describe('activity library modal', () => {
     expect(transition).not.toBe('0s');
 
     await section.locator('.search-expand-btn').click();
+    await expect(section).not.toHaveClass(/collapsed/);
+    await expect(contentDiv).toBeVisible();
+
+    await section.locator('.search-expand-btn').click();
     await expect(section).toHaveClass(/collapsed/);
     await page.waitForTimeout(450);
     await expect(contentDiv).toBeHidden();
-
-    await section.locator('.search-expand-btn').click();
-    await expect(section).not.toHaveClass(/collapsed/);
-    await expect(contentDiv).toBeVisible();
   });
 
-  test('tile tap opens details over the library, which stays open', async ({ page }) => {
+  test('tile tap opens the details view over the library, which stays open', async ({ page }) => {
     await seed(page);
     await openLibrary(page);
+    await expandAll(page);
 
     await page.locator('.search-activity-item').first().click();
-    await expect(page.locator('#activity-details-modal')).toBeVisible();
+    await expect(page.locator('#activity-info-modal')).toBeVisible();
+    // Details, not recording: nothing is written by opening a tile.
+    await expect(page.locator('#activity-details-modal')).toBeHidden();
     await expect(page.locator('#activity-library-modal')).toBeVisible();
     expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
 
@@ -159,23 +204,133 @@ test.describe('activity library modal', () => {
       const { topModalId, isModalOpen } = await import('/src/components/Modal.js');
       return { top: topModalId(), libraryOpen: isModalOpen('activity-library-modal') };
     });
-    expect(stack).toEqual({ top: 'activity-details-modal', libraryOpen: true });
+    expect(stack).toEqual({ top: 'activity-info-modal', libraryOpen: true });
   });
 
-  test('stats and edit buttons open their modals', async ({ page }) => {
+  test('the details view leads to stats, editing and recording', async ({ page }) => {
     await seed(page);
     await openLibrary(page);
+    await expandAll(page);
+    await page.locator('.search-activity-item').first().click();
+    await expect(page.locator('#activity-info-modal')).toBeVisible();
 
-    await page.locator('.search-activity-item').first().locator('.stats-btn').click();
-    await expect(page.locator('#activity-stats-modal')).toBeVisible();
-    await page.evaluate(async () => {
-      const { closeModal } = await import('/src/components/Modal.js');
-      closeModal('activity-stats-modal');
-    });
+    // Not enough sessions for a graph yet, so the placeholder stands in for it.
+    await expect(page.locator('#activity-info-progress')).toContainText(
+      'Progress being calculated'
+    );
 
-    await page.locator('.search-activity-item').first().locator('.edit-activity-btn').click();
+    // Statistics must land on top of the details modal, not behind it.
+    await page.locator('#activity-info-stats-btn').click();
+    const stats = page.locator('#activity-stats-modal');
+    await expect(stats).toBeVisible();
+    const zIndexes = await page.evaluate(() => ({
+      info: getComputedStyle(document.querySelector('#activity-info-modal')).zIndex,
+      stats: getComputedStyle(document.querySelector('#activity-stats-modal')).zIndex,
+    }));
+    expect(Number(zIndexes.stats)).toBeGreaterThan(Number(zIndexes.info));
+    await page.locator('#close-stats-modal').click();
+    await expect(stats).toHaveCount(0);
+
+    await page.locator('#activity-info-edit-btn').click();
     await expect(page.locator('#add-activity-modal')).toBeVisible();
     await expect(page.locator('#add-activity-modal h2')).toContainText('Edit');
+  });
+
+  // Recording from here is one tap onto the schedule; the full flow, including
+  // the prompt on the resulting card, lives in record-modal.spec.js.
+  test('the details view records onto the schedule in one tap', async ({ page }) => {
+    await seed(page);
+    await openLibrary(page);
+    await expandAll(page);
+    await page.locator('.search-activity-item').first().click();
+
+    await page.locator('#activity-info-record-btn').click();
+    await expect(page.locator('#activity-info-modal')).toBeHidden();
+    await expect(page.locator('#activity-library-modal')).toBeHidden();
+    await expect(page.locator('#activities-list')).toContainText('Treadmill Run');
+  });
+
+  test('the progress chart plots one point per session on round axes', async ({ page }) => {
+    await seed(page);
+    await page.evaluate(async () => {
+      const { recordActivity } = await import('/src/features/fitness/activities.js');
+      const { getState } = await import('/src/core/state.js');
+      const id = getState().activities.find((a) => a.name === 'Bench Press').id;
+      const sessions = [
+        ['2026-07-01', 47.5],
+        ['2026-07-08', 63.8],
+        ['2026-07-15', 71.1],
+        ['2026-07-22', 82.5],
+      ];
+      for (const [date, weight] of sessions) {
+        await recordActivity(id, date, { sets: [{ reps: 5, value: weight, unit: 'kg' }] });
+      }
+    });
+
+    await openLibrary(page);
+    await expandAll(page);
+    await page.locator('.search-activity-item').filter({ hasText: 'Bench Press' }).click();
+
+    const chart = page.locator('#activity-info-progress svg');
+    await expect(chart).toBeVisible();
+    // The metric and its unit are the y-axis title; the x axis carries only dates.
+    await expect(chart.locator('.axis-title')).toHaveText('Max weight (kg)');
+
+    const plot = await page.evaluate(() => {
+      const svg = document.querySelector('#activity-info-progress svg');
+      const texts = (selector) =>
+        [...svg.querySelectorAll(selector)].map((t) => t.textContent.trim());
+      const points = svg
+        .querySelector('polyline')
+        .getAttribute('points')
+        .trim()
+        .split(/\s+/)
+        .map((pair) => pair.split(',').map(Number));
+      const gaps = points.slice(1).map((p, i) => Number((p[0] - points[i][0]).toFixed(2)));
+      return {
+        ticks: texts('.axis-tick'),
+        dates: texts('.axis-date'),
+        values: texts('.point-value'),
+        pointCount: points.length,
+        gaps,
+      };
+    });
+
+    // One plot per recorded session.
+    expect(plot.pointCount).toBe(4);
+    // Evenly spaced on x regardless of the gaps between dates. Coordinates are
+    // rounded to one decimal in the markup, so allow a hair of drift.
+    expect(Math.max(...plot.gaps) - Math.min(...plot.gaps)).toBeLessThan(0.2);
+    // Round y-axis values rather than the raw data's decimals.
+    expect(plot.ticks.every((l) => Number.isInteger(Number(l)))).toBe(true);
+    expect(Number(plot.ticks[0])).toBeLessThanOrEqual(47.5);
+    expect(Number(plot.ticks[plot.ticks.length - 1])).toBeGreaterThanOrEqual(82.5);
+    // First and last dates are labelled.
+    expect(plot.dates).toContain('01/07');
+    expect(plot.dates).toContain('22/07');
+    // Every point carries its exact figure.
+    expect(plot.values).toEqual(['47.5', '63.8', '71.1', '82.5']);
+  });
+
+  test('the details view keeps a note against the activity', async ({ page }) => {
+    await seed(page);
+    await openLibrary(page);
+    await expandAll(page);
+    await page.locator('.search-activity-item').first().click();
+
+    await page.locator('#activity-info-notes').fill('Left knee twinges');
+    await page.locator('#activity-info-notes').blur();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => window.appData.activities.find((a) => a.name === 'Treadmill Run').notes
+        )
+      )
+      .toBe('Left knee twinges');
+
+    await page.locator('#close-activity-info').click();
+    await page.locator('.search-activity-item').first().click();
+    await expect(page.locator('#activity-info-notes')).toHaveValue('Left knee twinges');
   });
 
   test('New opens Add Activity above the library and the list refreshes on save', async ({
@@ -207,6 +362,7 @@ test.describe('activity library modal', () => {
   test('category colour change updates in place without closing', async ({ page }) => {
     await seed(page);
     await openLibrary(page);
+    await expandAll(page);
 
     await page.locator('#search-category-cardio .search-edit-category-btn').click();
     await expect(page.locator('.category-color-picker')).toBeVisible();
@@ -246,7 +402,7 @@ test.describe('activity library modal', () => {
     expect(after).toBe(before);
   });
 
-  test('rest day blocks recording from the library', async ({ page }) => {
+  test('rest day blocks recording from the details view', async ({ page }) => {
     await seed(page);
     await page.evaluate(async () => {
       const { toggleRestDay } = await import('/src/features/fitness/restDays.js');
@@ -256,8 +412,12 @@ test.describe('activity library modal', () => {
     });
 
     await openLibrary(page);
+    await expandAll(page);
+    // Opening the details is always allowed; only recording is blocked.
     await page.locator('.search-activity-item').first().click();
+    await expect(page.locator('#activity-info-modal')).toBeVisible();
 
+    await page.locator('#activity-info-record-btn').click();
     await expect(page.locator('#global-confirm-modal')).toBeVisible();
     await expect(page.locator('#global-confirm-modal')).toContainText('Rest Day');
     await expect(page.locator('#activity-details-modal')).toBeHidden();

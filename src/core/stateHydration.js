@@ -189,7 +189,6 @@ export function normalizedToCompatibilityState(cache, deviceState = {}) {
       hideCompleted: cache.preferences?.hideCompleted || false,
       hideSkipped: cache.preferences?.hideSkipped || false,
       holidayMode: cache.preferences?.holidayMode || false,
-      programPreload: cache.preferences?.programPreload || false,
     },
     homeSectionVisibility: cache.preferences?.homeSectionVisibility,
     holidayPeriods,
@@ -216,24 +215,37 @@ export function normalizedToCompatibilityState(cache, deviceState = {}) {
       })),
     programs: live(cache.programs)
       .sort((left, right) => left.sortOrder - right.sortOrder)
-      .map((program) => ({
-        ...program,
-        id: program.clientId,
-        startDate: program.startDateISO,
-        endDate: program.endDateISO,
-        // Programs written before scheduling modes existed are prescriptive.
-        scheduleMode: program.scheduleMode || 'prescriptive',
-        restDays: program.restDays || [],
-        scheduledDays: (program.scheduledDays || []).map((day) => ({
-          dayOfWeek: day.dayOfWeek,
-          routineId: day.routineClientId,
-        })),
-        anytimeRoutines: (program.anytimeRoutines || []).map((entry) => ({
-          routineId: entry.routineClientId,
-          count: entry.count,
-        })),
-        createdAt: program.createdAtISO,
-      })),
+      .map((program) => {
+        const hydrated = {
+          ...program,
+          id: program.clientId,
+          startDate: program.startDateISO,
+          endDate: program.endDateISO,
+          restDays: program.restDays || [],
+          scheduledDays: (program.scheduledDays || []).map((day) =>
+            day.activityClientId
+              ? { dayOfWeek: day.dayOfWeek, activityId: day.activityClientId }
+              : { dayOfWeek: day.dayOfWeek, routineId: day.routineClientId }
+          ),
+          schedulePhases: (program.schedulePhases || []).map((phase) => ({
+            startDate: phase.startDateISO,
+            endDate: phase.endDateISO,
+            restDays: phase.restDays || [],
+            scheduledDays: (phase.scheduledDays || []).map((day) =>
+              day.activityClientId
+                ? { dayOfWeek: day.dayOfWeek, activityId: day.activityClientId }
+                : { dayOfWeek: day.dayOfWeek, routineId: day.routineClientId }
+            ),
+          })),
+          createdAt: program.createdAtISO,
+        };
+        // Rows written under the older two-mode scheme still carry these. One
+        // scheduling model survives and a session counts anywhere in its week,
+        // so they are dropped on the way in rather than left to mislead.
+        delete hydrated.scheduleMode;
+        delete hydrated.anytimeRoutines;
+        return hydrated;
+      }),
     restDays: Object.fromEntries(
       live(cache.restDays).map((restDay) => [restDay.dateKey, true])
     ),

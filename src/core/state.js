@@ -30,7 +30,6 @@ const initialState = {
     holidayMode: false,
     // Off by default: pulling a program's routines into a day writes records, so
     // it stays an explicit choice until the user opts in.
-    programPreload: false,
   },
   foodLog: [],
   stats: {},
@@ -111,7 +110,6 @@ export const ActionTypes = {
   // Activity actions
   ADD_ACTIVITY: 'ADD_ACTIVITY',
   UPDATE_ACTIVITY: 'UPDATE_ACTIVITY',
-  DELETE_ACTIVITY: 'DELETE_ACTIVITY',
   RECORD_ACTIVITY: 'RECORD_ACTIVITY',
   DELETE_RECORDED_ACTIVITY: 'DELETE_RECORDED_ACTIVITY',
   UPDATE_RECORDED_ACTIVITY: 'UPDATE_RECORDED_ACTIVITY',
@@ -121,7 +119,6 @@ export const ActionTypes = {
   // Routine actions
   ADD_ROUTINE: 'ADD_ROUTINE',
   UPDATE_ROUTINE: 'UPDATE_ROUTINE',
-  DELETE_ROUTINE: 'DELETE_ROUTINE',
 
   // Program actions
   ADD_PROGRAM: 'ADD_PROGRAM',
@@ -245,10 +242,6 @@ export const Actions = {
     type: ActionTypes.UPDATE_ACTIVITY,
     payload: { activityId, updates },
   }),
-  deleteActivity: (activityId) => ({
-    type: ActionTypes.DELETE_ACTIVITY,
-    payload: activityId,
-  }),
   recordActivity: (activityId, date, data) => ({
     type: ActionTypes.RECORD_ACTIVITY,
     payload: { activityId, date, data },
@@ -277,10 +270,6 @@ export const Actions = {
   updateRoutine: (routineId, updates) => ({
     type: ActionTypes.UPDATE_ROUTINE,
     payload: { routineId, updates },
-  }),
-  deleteRoutine: (routineId) => ({
-    type: ActionTypes.DELETE_ROUTINE,
-    payload: routineId,
   }),
 
   addProgram: (program) => ({
@@ -624,57 +613,12 @@ function reducer(state, action) {
           : activity
       );
 
-      // If name or categoryId was not updated, no need to patch recorded activities
-      if (!updates || (!updates.name && !updates.categoryId)) {
-        return { ...state, activities: updatedActivities };
-      }
-      
-      // Efficiently patch recorded activities
-      const recordedActivitiesPatched = Object.entries(state.recordedActivities).reduce(
-        (acc, [dateKey, records]) => {
-          // Check if any record in this date needs patching
-          if (records.some(rec => rec.activityId === updId)) {
-            acc[dateKey] = records.map(rec => 
-              rec.activityId === updId 
-                ? {
-                    ...rec,
-                    activityName: updates.name !== undefined ? updates.name : rec.activityName,
-                    categoryId: updates.categoryId !== undefined ? updates.categoryId : rec.categoryId,
-                  } 
-                : rec
-            );
-          } else {
-            // No change, keep original array
-            acc[dateKey] = records;
-          }
-          return acc;
-        }, {});
-
-      return {
-        ...state,
-        activities: updatedActivities,
-        recordedActivities: recordedActivitiesPatched,
-      };
-
-    case ActionTypes.DELETE_ACTIVITY:
-      const activityId = action.payload;
-      const updatedRecordedActivities = { ...state.recordedActivities };
-      
-      // Remove recorded activities for this activity
-      Object.keys(updatedRecordedActivities).forEach((date) => {
-        updatedRecordedActivities[date] = updatedRecordedActivities[date].filter(
-          (record) => record.activityId !== activityId
-        );
-        if (updatedRecordedActivities[date].length === 0) {
-          delete updatedRecordedActivities[date];
-        }
-      });
-      
-      return {
-        ...state,
-        activities: state.activities.filter((activity) => activity.id !== activityId),
-        recordedActivities: updatedRecordedActivities,
-      };
+      // Recorded sessions are not patched: a record snapshots the name only as
+      // a fallback, and every surface resolves the live activity by id. That
+      // keeps a rename applying to past sessions without rewriting their rows —
+      // which the server never did anyway, so the two used to disagree after a
+      // reload.
+      return { ...state, activities: updatedActivities };
 
     case ActionTypes.RECORD_ACTIVITY:
       const { activityId: recordActivityId, date, data } = action.payload;
@@ -754,11 +698,6 @@ function reducer(state, action) {
         ),
       };
 
-    case ActionTypes.DELETE_ROUTINE:
-      return {
-        ...state,
-        routines: state.routines.filter((routine) => routine.id !== action.payload),
-      };
 
     case ActionTypes.ADD_PROGRAM:
       return {
@@ -914,7 +853,6 @@ function reducer(state, action) {
             hideCompleted: canonicalRecord.hideCompleted,
             hideSkipped: canonicalRecord.hideSkipped,
             holidayMode: canonicalRecord.holidayMode,
-            programPreload: Boolean(canonicalRecord.programPreload),
           },
           homeSectionVisibility: canonicalRecord.homeSectionVisibility,
         };

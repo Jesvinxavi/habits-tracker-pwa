@@ -70,10 +70,14 @@ export function buildSelectableCategorySection(
  */
 function buildSelectableTile(activity, category, selectedIds) {
   const isSelected = selectedIds.includes(activity.id);
-  const ring = isSelected ? ' ring-2 ring-ios-blue' : '';
+  // Selection thickens the border inwards rather than adding an outer ring. An
+  // outer ring is painted outside the tile, where the picker's vertically
+  // scrolling list clips it on the right and it reads as a second, thinner
+  // border. An inset shadow stays within the tile's own box on every side.
+  const selectedEdge = isSelected ? ` box-shadow: inset 0 0 0 2px ${category.color};` : '';
   return `
     <div style="margin-bottom: 0.125rem;">
-      <div class="selectable-activity-item activity-card flex items-center px-3 py-2 rounded-xl w-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-ios-blue focus:ring-offset-2 dark:focus:ring-offset-gray-800${ring}" style="border: 2.5px solid ${category.color}; background-color: ${hexToRgba(category.color, 0.05)};" data-activity-id="${activity.id}" role="checkbox" aria-checked="${isSelected}" tabindex="0">
+      <div class="selectable-activity-item activity-card flex items-center px-3 py-2 rounded-xl w-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-ios-blue" style="border: 2.5px solid ${category.color}; background-color: ${hexToRgba(category.color, 0.05)};${selectedEdge}" data-activity-id="${activity.id}" role="checkbox" aria-checked="${isSelected}" tabindex="0">
         <div class="activity-icon w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center mr-3 text-xl" style="background-color: ${category.color}20;" aria-hidden="true">
           ${activity.icon || category.icon}
         </div>

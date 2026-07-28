@@ -131,7 +131,7 @@ describe('persistent entity records', () => {
     expect(record.createdAtISO).toBe('2026-07-26');
   });
 
-  it('shapes a program, mapping dates, schedule and anytime targets', () => {
+  it('shapes a program, mapping dates and the pinned schedule', () => {
     const record = programRecord(
       {
         _id: 'convex-id',
@@ -141,10 +141,23 @@ describe('persistent entity records', () => {
         name: 'Autumn',
         startDate: '2026-10-19T00:00:00.000',
         endDate: '2026-12-13',
+        // Retired fields an older row may still carry.
         scheduleMode: 'freeform',
         restDays: ['0', 6],
-        scheduledDays: [{ dayOfWeek: '1', routineId: 'routine-1' }],
+        scheduledDays: [
+          { dayOfWeek: '1', routineId: 'routine-1' },
+          { dayOfWeek: '3', activityId: 'act-1' },
+        ],
         anytimeRoutines: [{ routineId: 'routine-2', count: 2 }],
+        schedulePhases: [
+          {
+            startDate: '2026-10-19',
+            endDate: '2026-10-27',
+            scheduledDays: [{ dayOfWeek: 2, routineId: 'routine-2' }],
+            restDays: [0],
+          },
+        ],
+        notes: 'Deload in week 5',
         active: true,
         createdAt: '2026-07-26',
         revision: 5,
@@ -157,10 +170,20 @@ describe('persistent entity records', () => {
       name: 'Autumn',
       startDateISO: '2026-10-19',
       endDateISO: '2026-12-13',
-      scheduleMode: 'freeform',
       restDays: [0, 6],
-      scheduledDays: [{ dayOfWeek: 1, routineClientId: 'routine-1' }],
-      anytimeRoutines: [{ routineClientId: 'routine-2', count: 2 }],
+      scheduledDays: [
+        { dayOfWeek: 1, routineClientId: 'routine-1' },
+        { dayOfWeek: 3, activityClientId: 'act-1' },
+      ],
+      schedulePhases: [
+        {
+          startDateISO: '2026-10-19',
+          endDateISO: '2026-10-27',
+          scheduledDays: [{ dayOfWeek: 2, routineClientId: 'routine-2' }],
+          restDays: [0],
+        },
+      ],
+      notes: 'Deload in week 5',
       active: true,
       createdAtISO: '2026-07-26',
       sortOrder: 1,
@@ -168,9 +191,32 @@ describe('persistent entity records', () => {
     });
     expect(record).not.toHaveProperty('startDate');
     expect(record).not.toHaveProperty('ownerKey');
+    // The two-mode scheme is retired: neither field is written any more.
+    expect(record).not.toHaveProperty('scheduleMode');
+    expect(record).not.toHaveProperty('anytimeRoutines');
   });
 
-  it('defaults an unknown program schedule mode to prescriptive', () => {
+  it('writes only the id key a scheduled day actually uses', () => {
+    const record = programRecord(
+      {
+        id: 'program-1',
+        name: 'Autumn',
+        startDate: '2026-10-19',
+        endDate: '2026-12-13',
+        createdAt: '2026-07-26',
+        scheduledDays: [
+          { dayOfWeek: 1, routineId: 'routine-1' },
+          { dayOfWeek: 2, activityId: 'act-1' },
+        ],
+      },
+      0
+    );
+
+    expect(record.scheduledDays[0]).not.toHaveProperty('activityClientId');
+    expect(record.scheduledDays[1]).not.toHaveProperty('routineClientId');
+  });
+
+  it('fills the collection fields a bare program leaves out', () => {
     const record = programRecord(
       {
         id: 'program-1',
@@ -181,10 +227,9 @@ describe('persistent entity records', () => {
       },
       0
     );
-    expect(record.scheduleMode).toBe('prescriptive');
     expect(record.restDays).toEqual([]);
     expect(record.scheduledDays).toEqual([]);
-    expect(record.anytimeRoutines).toEqual([]);
+    expect(record.schedulePhases).toEqual([]);
     expect(record.active).toBe(false);
     expect(record.revision).toBe(0);
   });

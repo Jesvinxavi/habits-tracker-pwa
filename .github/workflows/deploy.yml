@@ -68,7 +68,7 @@ jobs:
           VITE_DATA_BACKEND: ${{ vars.VITE_DATA_BACKEND || 'legacy' }}
           VITE_CONVEX_URL: ${{ vars.VITE_CONVEX_URL }}
           VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
-        run: npm run build
+        run: npm run build:pages
 
       - name: Configure Pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

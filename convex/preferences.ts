@@ -10,7 +10,6 @@ const ALLOWED = new Set([
   "hideSkipped",
   "holidayMode",
   "homeSectionVisibility",
-  "programPreload",
 ]);
 
 export const patch = mutation({

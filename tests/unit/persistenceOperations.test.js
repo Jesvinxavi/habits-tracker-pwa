@@ -96,7 +96,7 @@ describe('SET_ACTIVE_PROGRAM operations', () => {
     expect(committed[0].operation.payload.active).toBe(false);
   });
 
-  it('emits create, update and delete operations for routines', async () => {
+  it('emits create and update operations for routines, archiving included', async () => {
     const state = {
       routines: [
         {
@@ -116,18 +116,29 @@ describe('SET_ACTIVE_PROGRAM operations', () => {
       { type: ActionTypes.UPDATE_ROUTINE, payload: { routineId: 'r1', updates: { name: 'Push A' } } },
       state
     );
-    await persistStateAction({ type: ActionTypes.DELETE_ROUTINE, payload: 'r1' }, state);
+    // Removing a routine from the list archives it: an update carrying
+    // archivedAt, never routines:removeCascade, which would take the days it
+    // was planned on with it.
+    await persistStateAction(
+      {
+        type: ActionTypes.UPDATE_ROUTINE,
+        payload: { routineId: 'r1', updates: { archivedAt: 1767225600000 } },
+      },
+      state
+    );
 
     expect(committed.map((entry) => entry.operation.mutationName)).toEqual([
       'routines:create',
       'routines:update',
-      'routines:removeCascade',
+      'routines:update',
     ]);
+    expect(committed[2].operation.payload.archivedAt).toBe(1767225600000);
+    // A routine that has never been archived leaves the field unset.
+    expect(committed[1].operation.payload).not.toHaveProperty('archivedAt');
     expect(committed[0].operation.payload.revision).toBeUndefined();
     expect(committed[0].operation.payload.sortOrder).toBe(1);
     expect(committed[1].operation.payload.name).toBe('Push A');
     expect(committed[1].confirmedBase.revision).toBe(7);
-    expect(committed[2].operation.payload).toEqual({ clientId: 'r1' });
-    expect(committed[2].optimisticEntity.deletedAt).toBeGreaterThan(0);
+    expect(committed[2].optimisticEntity.deletedAt).toBeUndefined();
   });
 });

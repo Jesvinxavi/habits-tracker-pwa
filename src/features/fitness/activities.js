@@ -130,7 +130,7 @@ export function getActivitiesByCategory() {
   getState().activityCategories.forEach((category) => {
     grouped[category.id] = {
       category,
-      activities: getState().activities.filter((activity) => activity.categoryId === category.id),
+      activities: listActivities().filter((activity) => activity.categoryId === category.id),
     };
   });
 
@@ -142,11 +142,11 @@ export function getActivitiesByCategory() {
  */
 export function searchActivities(query) {
   if (!query || query.trim() === '') {
-    return getState().activities;
+    return listActivities();
   }
 
   const searchTerm = query.toLowerCase().trim();
-  return getState().activities.filter((activity) => activity.name.toLowerCase().includes(searchTerm));
+  return listActivities().filter((activity) => activity.name.toLowerCase().includes(searchTerm));
 }
 
 /**
@@ -211,8 +211,44 @@ export function groupActivitiesByMuscleGroup(items) {
 /**
  * Delete an activity and all its recorded instances
  */
-export async function deleteActivity(activityId) {
-  return dispatch(Actions.deleteActivity(activityId));
+export async function archiveActivity(activityId) {
+  return dispatch(Actions.updateActivity(activityId, { archivedAt: Date.now() }));
+}
+
+/**
+ * Reports whether an activity has been archived.
+ * @param {object} activity Activity, or undefined.
+ * @returns {boolean} True when it has been removed from the library.
+ */
+export function isArchivedActivity(activity) {
+  return Boolean(activity?.archivedAt);
+}
+
+/**
+ * Lists the activities still in the library, newest definition order preserved.
+ * @returns {object[]} Live activities.
+ */
+export function listActivities() {
+  return getState().activities.filter((activity) => !isArchivedActivity(activity));
+}
+
+/**
+ * Resolves how a recorded session should be labelled and grouped.
+ *
+ * A record snapshots the activity's name and category when it is written, but
+ * the **activity is the identity**: renaming it, or moving it to another
+ * category, applies to every session of it, past ones included. The snapshot is
+ * only a fallback, for a record whose activity is not in state at all.
+ * @param {{activityId?: string, activityName?: string, categoryId?: string}} record A recorded session.
+ * @returns {{name: string, categoryId: string|undefined, activity: object|undefined}} Display data.
+ */
+export function recordActivityView(record) {
+  const activity = getActivity(record?.activityId);
+  return {
+    name: activity?.name || record?.activityName || '',
+    categoryId: activity?.categoryId || record?.categoryId,
+    activity,
+  };
 }
 
 /**

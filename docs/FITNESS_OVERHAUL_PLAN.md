@@ -731,10 +731,12 @@ the modal opens the existing Add Activity modal on top.
       is present.
 - [x] Empty states: with zero activities, the "No activities available" state shows; with a
       non-matching query, "No activities found" shows.
-- [x] Tapping an activity tile opens the Activity Details modal and recording works; the library
-      remains open behind it and the page behind stays scroll-locked.
-- [x] On a rest day, tapping an activity shows the "Rest Day" confirm dialog and does not record.
-- [x] The stats button opens the Stats modal; the edit button opens Edit Activity.
+- [x] Tapping an activity tile opens the Activity Details modal; the library remains open behind
+      it and the page behind stays scroll-locked. *(Superseded: the details modal is now a
+      read-only overview, and recording sits behind its **Record activity** button.)*
+- [x] On a rest day, recording an activity shows the "Rest Day" confirm dialog and does not record.
+- [x] ~~The stats button opens the Stats modal; the edit button opens Edit Activity.~~
+      *(Superseded: both buttons moved off the tile and into the Activity Details modal.)*
 - [x] **+ New** opens the Add Activity modal above the library; saving a new activity closes it
       and the new activity is immediately visible in the library list underneath.
 - [x] Editing a category colour updates the header colour and the tile borders without closing
@@ -1358,7 +1360,7 @@ documentation that now describes a page that no longer exists, and run the full 
   npm run test:unit
   npm run test:migration
   npm run test:convex
-  npm run build
+  npm run build:local
   npm run test:e2e
   ```
 
@@ -1394,6 +1396,352 @@ documentation that now describes a page that no longer exists, and run the full 
 
 ---
 
+## PHASE 8 — Follow-up pass: details modals, one scheduling model, fixes
+
+Not in the original plan. A round of review on the built feature produced these changes;
+the reasoning behind each is in Appendix D.
+
+**Activities**
+- [x] **8.1** The fitness-page button reads **Activities**, not *Activity*.
+- [x] **8.2** The library opens with every category collapsed. A search expands the sections it
+      matches; a section the user opens stays open across the re-render a state change triggers.
+- [x] **8.3** Library tiles carry no stats or edit buttons. The whole tile opens
+      `ActivityInfoModal` (`#activity-info-modal`, "Activity Details").
+- [x] **8.4** That modal holds: the details tile with an **edit** button, a **Progress** card
+      (`buildProgressCard`) charting max weight or session duration with a
+      "Progress being calculated" placeholder under two sessions, a **View full statistics**
+      button, a **Record activity** button opening the old record modal, and an activity-level
+      **Notes** field persisted to `activities.notes`.
+- [x] **8.5** The record modal is retitled **Record Activity**, and its notes placeholder drops
+      "How did it feel?".
+- [x] **8.6** `StatsModal` renders at `z-[1004]` and joins the modal stack, so it opens *above*
+      the details modal rather than behind it.
+
+**Programs**
+- [x] **8.7** The scheduling-mode control is gone; every program saves as `freeform`.
+- [x] **8.8** "Anytime that week" sits above "Pin to days".
+- [x] **8.9** Each pinned item is its own tile with an inline `+` immediately after the last one.
+      `+` offers **Add activity** / **Add routine**, opening the pickers titled
+      "Monday Routines" / "Monday Activities".
+- [x] **8.10** `scheduledDays` entries pin a routine **or** a single activity.
+- [x] **8.11** The program tile opens `ProgramDetailsModal` (`#program-details-modal`): name,
+      dates, progress, the selected day's session — or the next scheduled day once that one is
+      logged — a program-level **Notes** field, **Add to current day** (moved out of the builder)
+      and **Edit program**.
+
+**Fixes**
+- [x] **8.12** Picker selection draws an inset edge instead of `ring-2`, which the vertically
+      scrolling list clipped on the right and which read as a thinner second border.
+- [x] **8.13** Strength cards on the fitness page get the same per-card margin the other
+      categories already had, so their borders no longer merge.
+
+### Verification — Phase 8
+
+- [x] `npm run lint`, `npm run test`, `npx tsc -p convex/tsconfig.json --noEmit` all clean.
+- [x] `npx playwright test` — 93 passing, including new coverage for the collapsed library, the
+      details modals, the notes fields, day-pinned activities and the inset selection edge.
+- [x] Walked the whole flow in a browser against the production build.
+
+---
+
+## PHASE 9 — Second review pass
+
+A further round of review. Reasoning for the shape changes is in Appendix D.
+
+**Fitness page**
+- [x] **9.1** The *Activities* pill is now **Schedule**, so it no longer reads as a second copy of
+      the Activities button above it. Empty-state copy points at the `+`.
+- [x] **9.2** Timer moved out of the `+` dropdown into its own button between the Schedule pill
+      and the `+` — it is reached mid-session, where a menu is the wrong interaction.
+
+**Record modal**
+- [x] **9.3** **Add Set** adds exactly one row. Handlers were rebinding on every open, so the
+      *n*th visit added *n* rows per click.
+- [x] **9.4** Remove-set no longer deletes two rows: it was bound both per-button and on the
+      delegated container listener, and the first call renumbers the rows the second then hits.
+- [x] **9.5** Edit state is cleared on open, so a fresh log after editing a record no longer
+      overwrites that record.
+- [x] **9.6** `openWithRecord` resets the form first, so editing a record with no sets (one added
+      from the `+` picker) still offers a set row to type into.
+- [x] **9.7** The header tile opens the activity's details — stepping back when that is where the
+      user came from, rather than stacking a second copy.
+- [x] **9.8** **Best** and **Last** figures show above the form when the activity has history.
+- [x] **9.9** The rest-day guard moved into `ActivityDetailsModal.open()`, so every route to
+      recording refuses a rest day identically.
+
+**Programs**
+- [x] **9.10** The anytime bucket takes activities as well as routines; entries carry
+      `activityId` or `routineId`, matching scheduled days.
+- [x] **9.11** The `+` sits in line with the short day label, and its dropdown measures itself and
+      flips to right-anchored rather than running off the modal.
+- [x] **9.12** **Add to current day** moved inside the *Scheduled for this day* card.
+- [x] **9.13** Saving a program whose dates overlap an existing block raises a choice dialog —
+      replace, edit the existing one, or dismiss via a corner X.
+
+**Charts**
+- [x] **9.14** Progress chart axes use round tick values (0/20/40/60 rather than 23.7/47.4), a
+      weighted baseline rule, tick marks and first/middle/last date labels.
+
+**Recording flow**
+- [x] **9.15** The details modal's button reads **Record to today's schedule** and logs onto
+      *today* directly — always today, since choosing a date is the `+` button's job — closing
+      itself and the library, and moving the page to today so the new card is visible. The record
+      form is no longer on that path.
+- [x] **9.16** A card with no sets or duration carries an **Add sets & details** prompt, so a
+      one-tap log reads as unfinished rather than as a session that had nothing to it. Tapping the
+      card opens the record form, as it already did.
+
+**Third review pass**
+- [x] **9.17** Chart axis rules, tick labels and date labels carry more weight, and every point
+      prints its exact value above it. Past eight sessions only the peak and the latest keep a
+      label, or they would overlap.
+- [x] **9.18** **Last** is now the most recent day the activity was actually trained, on or before
+      today — not whichever entry was typed last, which differs the moment a day is backfilled.
+- [x] **9.19** Sets are laid out in table orientation — a `Set 1` / `Set 2` column plus reps,
+      value and unit under their headings — with no table frame around them. The first row's
+      remove control stays as a disabled spacer so the columns hold their alignment.
+- [x] **9.20** The statistics modal drops its **Progression** section; the details modal already
+      charts it, and `generateLineChartSVG` went with it.
+- [x] **9.21** Time-tracked activities carry a `betterDirection`: a 5k improves downwards, a plank
+      upwards. Set in the activity editor, honoured by the record modal's **Best** figure and the
+      statistics modal's best session (which reads *Quickest session* when lower wins). Absent
+      means higher, so every existing activity keeps the behaviour it had.
+- [x] **9.22** The progress chart carries a rotated y-axis title with the metric and unit; the x
+      axis keeps only its dates. The caption above the chart went, since the axis now says it.
+
+### Verification — Phase 9
+
+- [x] `npm run lint`, `npm run test`, `npx tsc -p convex/tsconfig.json --noEmit` all clean.
+- [x] `npx playwright test` — 116 passing, including a new `record-modal.spec.js` and coverage
+      for anytime activities, the conflict dialog, the sets table, the record-to-today rule, the
+      lower-is-better direction and the chart's axis, label and spacing contract.
+- [x] Convex schema pushed to the dev deployment; a pinned activity and an anytime activity both
+      round-trip through the server.
+
+---
+
+## PHASE 10 — Weekly credit and the week-by-week progress view
+
+A further request: a session pinned to a day should count if it is done **anywhere
+in that week**, and the details modal should show the block week by week rather
+than as a single bar. Reasoning for the shape changes is in Appendix D.
+
+**Progress semantics — implement exactly this**
+
+The unit of progress is a **slot**: one pinned routine or activity on one date
+(`plannedSlots()`). A day pinning two things holds two slots, so planned totals
+count items, not dates. Each week is settled on its own by `allocateWeek()`,
+which sweeps every still-open slot four times, in order:
+
+1. a session on the slot's own day holding the slot's activity — or, for a
+   routine slot, one of that routine's activities,
+2. any session on that day,
+3. a matching session elsewhere in the week,
+4. any leftover session in the week.
+
+A matched claim consumes only the activities it recognises, so one day can
+satisfy two slots the user genuinely trained for. An unmatched claim spends the
+whole day. Sessions in the future are never credited, and credit never crosses a
+week boundary. A date the user marks as rest keeps its slots — the work moves to
+another day of the same week rather than vanishing from the plan.
+
+- [x] **10.1** `programProgress.js` rebuilt around slots and weekly allocation:
+      `plannedSlots`, `allocateWeek` and a `weeks[]` breakdown on
+      `computeProgramProgress` carrying each week's days, slots and tick state.
+      `plannedDates` is gone.
+- [x] **10.2** `getProgramProgress(program)` in `programs.js` is the single
+      state-aware entry point, measuring against `getProgramScheduledDays()` and
+      passing routine membership in. The tile and the details modal both use it.
+- [x] **10.3** The anytime bucket is removed — builder section, state, payload
+      and maths. A weekly target is now expressed by pinning it to a day.
+- [x] **10.4** `scheduleMode` is no longer written or read. Both fields stay
+      optional in the Convex schema, the server keeps validating
+      `anytimeRoutines` for stale clients, and `stateHydration.js` drops them.
+- [x] **10.5** The details modal's Progress card lists one pill per week: week
+      number, dates, its own bar and an *n/m* count that turns green when the
+      week is complete. The current week is outlined and opens expanded; expanded
+      weeks survive the re-render a new record triggers.
+- [x] **10.6** Inside a week, the days are laid out like the builder's schedule —
+      short weekday, then a tile per pinned item. A satisfied slot is green with
+      a tick, and carries the short weekday of the session that earned it when
+      that was a different day. Today's label is picked out in blue, and a
+      rest-marked date carries a *Rest* chip.
+- [x] **10.7** `helpers/programItems.js` resolves a pinned item's name, icon and
+      colour for both the builder and the week view.
+
+**Follow-up pass on the week view**
+
+- [x] **10.8** Weeks are calendar weeks, Monday to Sunday. A block starting
+      mid-week gets a short first week instead of shifting every later week off
+      the calendar, and the rest-day selector runs Monday-first to match.
+- [x] **10.9** The details modal leads with **today's** session, above progress.
+      It answers for today whatever day the fitness page is showing, and the
+      button reads **Add to today**. A today that is already logged, or that the
+      program schedules nothing for, shows the next session with its day named
+      and hides the button.
+- [x] **10.10** One week is expanded at a time; the current week still opens
+      expanded. Weeks after the current one wait behind a **Show N later weeks**
+      disclosure.
+- [x] **10.11** Progress bars are graded: red to 33%, amber to 66%, green above,
+      on the block bar and each week's.
+- [x] **10.12** **Edit program** is a small button inside the header tile rather
+      than a full-width button at the foot of the modal.
+
+**Build process**
+
+- [x] **10.13** `vite build` refuses to run without `BUILD_TARGET`. `pages` bakes
+      in the `/habits-tracker-pwa/` base and registers a service worker; `local`
+      uses `/` and ships no worker. The old config guessed from `NODE_ENV`, which
+      `vite build` sets to `production` itself — so every plain `npm run build`
+      silently produced a Pages build, whose assets all 404 when served from a
+      local server. `npm run preview:local` / `preview:phone` build and serve in
+      one step, and refuse to serve a Pages build from the root.
+- [x] **10.14** `docs/BUILD_AND_DEPLOY.md` documents the three destinations and
+      how to clear a stale service worker; README and the CI workflows point at
+      the explicit targets. `performance.yml` was previously building for Pages
+      and serving it from the root, so Lighthouse was scoring an unstyled page.
+
+**Third pass: what credit means**
+
+- [x] **10.15** A slot is satisfied **only by a matching session** — its own
+      activity, or one of its routine's. `allocateWeek()` drops to two passes:
+      the slot's own day, then anywhere else in its week, earliest first. The
+      "any leftover session" fallback is gone: it credited work the program never
+      asked for, and worse, it let an unrelated Tuesday session swallow the
+      Tuesday slot that a matching session elsewhere in the week should have
+      taken.
+- [x] **10.16** A session on a **program rest weekday** now counts towards its
+      week. Rest weekdays shape the plan — no slot is placed on one — but they no
+      longer veto work the user actually did. A date the user marks as rest still
+      holds no session.
+- [x] **10.17** The details modal's session card reads from the same allocation
+      as the week view, so it tracks *outstanding program work* rather than "does
+      this day hold any records". Training something else on Tuesday no longer
+      advances the card past Tuesday's session.
+- [x] **10.18** `addProgramRoutinesToDate()` records only the scheduled
+      activities missing from that date, so a day holding other training can
+      still be topped up. It reports `scheduled` so callers can tell "nothing
+      planned" from "already all recorded".
+
+**Preload removed**
+
+- [x] **10.19** The `programPreload` preference, `preloadProgramDayIfEnabled()`,
+      the Profile switch, the state default, the hydration mapping and the Convex
+      allowed-key entry are all gone. A program never writes records on its own;
+      the user adds a day through the `+` dropdown or the details modal. The
+      Convex schema keeps the field as an optional tombstone so existing
+      preference rows still validate.
+
+**Fourth pass: editing a running block, and the routines modals**
+
+- [x] **10.20** A program carries `schedulePhases`: schedules it has been
+      through, each closed off when the plan was edited mid-block.
+      `plannedSlots()` expands every date against the schedule in force on it,
+      so an edit only affects today onwards. A week that has already happened
+      keeps the plan it was measured against — work the edit deleted stays
+      ticked for stats and progress, and work the edit added never appears in a
+      finished week. `planUpdateWithHistory()` skips the split when the block
+      has not started, when the live schedule is less than a day old, or when
+      nothing about the week changed.
+- [x] **10.21** The new field round-trips: optional in the Convex schema and
+      validated in `convex/programs.ts`, mapped both ways in
+      `persistenceRouter.js` and `stateHydration.js`. `getProgramSchedulePhases()`
+      applies the same read-time integrity filter as the live schedule.
+- [x] **10.22** The routines modals match the activity ones: **New** moved into
+      the `RoutinesModal` header in the library's style, with a library-style
+      search below it, and `RoutinePickerModal` gained the picker's filter
+      input. Filtering the picker never touches the selection.
+
+**Fifth pass: history survives edits and deletes**
+
+- [x] **10.23** Renaming an activity renames every session of it, past ones
+      included, and moving it between categories moves its history with it.
+      Cards and grouping resolve the live activity by id
+      (`recordActivityView()`); the record's `activityName` is only a fallback.
+      The reducer no longer patches record rows on rename — it did, while the
+      server did not, so a reload used to bring the old name back.
+- [x] **10.24** A closed schedule phase snapshots each routine's activity ids,
+      so editing a routine's contents cannot retroactively untick a week that
+      has already happened. Past slots match the routine as it was.
+- [x] **10.25** Activities and routines are **archived, not deleted**:
+      `archivedAt` on the row, written as an ordinary update. Their recorded
+      sessions survive, past program days keep them, and they leave the library,
+      the pickers and the plan going forward — `plannedSlots()` stops planning an
+      archived item from the day it was archived. `activities:removeCascade`
+      still exists for older clients but nothing calls it. There is no restore
+      path in the UI yet.
+
+**Startup fix found while verifying**
+
+- [x] **10.26** Startup no longer stalls in a hidden tab. `navigation.js` awaited
+      a pair of raw `requestAnimationFrame` callbacks and the loader awaited
+      three more; neither fires while the page is hidden, so a background tab
+      finished loading its data and then sat behind the loading screen —
+      `initializeNavigation()` never returned, so `removeLoadingState()` was
+      never even reached. Both now await `nextPaint()`
+      (`src/shared/nextPaint.js`), which resolves immediately on a hidden page
+      and races a 150ms backstop on a visible one. Measured on the tab that
+      wedged repeatedly during this work: stuck indefinitely before, fully
+      booted 267ms after load with `document.hidden === true` after.
+
+**Fixes found in testing the archive**
+
+- [x] **10.27** Deleting an activity no longer wipes it from the weeks it was
+      already planned in. `getProgramProgress()` was measuring against
+      `getProgramScheduledDays()`, which drops archived targets outright, so the
+      date cutoff in `plannedSlots()` never got a chance. Progress now asks for
+      the schedule *including* archived entries.
+- [x] **10.28** The second delete in a session works. The editor's delete button
+      binds once for the page's lifetime and closed over the first activity
+      opened, so every later delete re-archived that one and left the activity on
+      screen untouched until a reload. It reads `dataset.editActivityId` at click
+      time, as the save path already did.
+- [x] **10.29** A deleted activity's recorded cards carry a **Deleted** pill and
+      are inert apart from swipe-to-delete — no details modal, no "Add sets &
+      details" prompt. `ActivityInfoModal` closes if its activity is archived.
+- [x] **10.30** Both delete dialogs say one thing: *"Sessions you have already
+      recorded will be kept."*
+
+**Polish and the backdating rule**
+
+- [x] **10.31** A backdated program credits nothing from weeks before the one it
+      was created in. It still *plans* them — the user chose that start date —
+      but a session recorded then was not done for this plan. A session earlier
+      in the creation week still counts, so a program made on Wednesday credits
+      that Monday.
+- [x] **10.32** The **Deleted** pill moved to the row below the activity name.
+- [x] **10.33** The week view's **Rest** chip is ios-orange, matching the
+      fitness page's rest toggle, in an orange-800 tint that clears AA at 11px.
+- [x] **10.34** Day rows in both the builder and the week view are two columns:
+      the weekday on the left, its tiles and `+` on the right, so a row that
+      wraps never tucks anything under the day label.
+
+### Verification — Phase 10
+
+- [x] `npm run lint`, `npm run test` (154 unit and migration tests),
+      `npx tsc -p convex/tsconfig.json --noEmit` all clean.
+- [x] `npx playwright test` — 127 passing, including week-pill coverage: the
+      current week opening expanded, later weeks behind the disclosure, one week
+      open at a time, a recorded day ticking without reopening the modal, a
+      session on another day ticking the day it was pinned to, the bars' red and
+      green, the modal leading with today while the page shows another day, and
+      an empty today falling through to the next session, an edited running
+      program keeping its past weeks, the routines search and filter, a rename
+      reaching sessions already recorded, a deleted activity keeping them, a
+      second delete acting on the activity actually on screen, and the day rows'
+      two-column layout.
+- [x] Walked it in the browser at 375px in both themes; the ticked tile's label,
+      icon and border all clear AA against their own background in each theme.
+- [x] Both build targets checked: `build:pages` writes `/habits-tracker-pwa/`
+      asset URLs and a service worker, `build:local` writes `/` and none, and a
+      bare `vite build` fails with the instructions.
+- [x] Startup verified on a hidden tab: `data-startup-timings` reaches
+      `visible` at 267 ms where it previously never got past `persistenceReady`.
+- [x] The Rest chip's orange measures 6.4:1 light and 7.3:1 dark against its
+      own tint.
+
+---
+
 ## Appendix A — Files created, modified and deleted
 
 **Created** — as built, including files added beyond the original plan.
@@ -1408,8 +1756,15 @@ src/features/fitness/Modals/RoutinesModal.js
 src/features/fitness/Modals/RoutineBuilderModal.js
 src/features/fitness/Modals/RoutinePickerModal.js
 src/features/fitness/Modals/ActivityPickerModal.js     (not in the plan)
+src/features/fitness/Modals/ActivityInfoModal.js       (not in the plan)
 src/features/fitness/Modals/ProgramBuilderModal.js
+src/features/fitness/Modals/ProgramDetailsModal.js     (not in the plan)
 src/features/fitness/helpers/programProgress.js
+src/features/fitness/helpers/programLabels.js          (not in the plan)
+src/features/fitness/helpers/programItems.js           (not in the plan)
+src/shared/nextPaint.js                                (not in the plan)
+scripts/preview.mjs                                    (not in the plan)
+docs/BUILD_AND_DEPLOY.md                               (not in the plan)
 convex/routines.ts
 convex/programs.ts
 tests/unit/routines.test.js
@@ -1473,11 +1828,12 @@ src/features/fitness/activities.js      (recordActivitiesForDate batch path)
 src/features/fitness/Timer/TimerModal.js, Timer/TimerControls.js  (dead button code)
 src/features/fitness/TimerModule.js     (TimerButton export removed)
 src/core/syncEngine.js                  (replay coalescing fix — not in the plan)
-src/features/profile/ProfileModule.js   (preload preference — not in the plan)
-convex/preferences.ts                   (programPreload allowed key)
+src/features/profile/ProfileModule.js   (preload preference — added, then removed in 10.19)
+convex/preferences.ts                   (programPreload allowed key — removed in 10.19)
 src/styles/style.css                    (search-panel rules removed, collapse and
                                          hover rules de-scoped from #fitness-view)
 convex/schema.ts                        (2 tables, program scheduling fields,
+                                         programs.schedulePhases,
                                          userPreferences.programPreload)
 convex/sync.ts, bootstrap.ts, migration.ts, dataTransfer.ts   (table lists)
 tests/convex/domain.test.js, tests/unit/persistenceRecords.test.js,
@@ -1499,8 +1855,28 @@ Recorded so the reasoning is not lost.
 | Task 5.3: *Add activity* opens the Activity Library | Opens a dedicated multi-select picker | Later request: selection surface with no stats/edit buttons, several activities added at once. |
 | Task 5.5: routine picker records on card tap | Multi-select with an explicit Add | Later request. |
 | Task 4.4: builder embeds the grouped selectable list | Builder lists only chosen activities; picking is delegated | Later request. |
-| Task 6.2: one `<select>` per weekday | A button per weekday opening the routine picker | A weekday may hold several routines, which a single-value `select` cannot express. |
-| Program shape: `scheduledDays` only | Plus `scheduleMode`, `restDays`, `anytimeRoutines` | Later request added two scheduling modes and program-level rest weekdays. All three are **optional** in the Convex schema so existing rows stayed valid. |
+| Task 6.2: one `<select>` per weekday | A row of tiles per weekday, one per pinned item, with an inline `+` | A weekday may hold several routines, which a single-value `select` cannot express. A later request replaced the summary button with per-item tiles. |
+| Program shape: `scheduledDays` only | Plus `scheduleMode`, `restDays`, `anytimeRoutines`, `notes` | Later requests added scheduling modes, program-level rest weekdays and a program note. All are **optional** in the Convex schema so existing rows stayed valid. |
+| Task 6.1: two scheduling modes (`prescriptive` / `freeform`) | One model; the mode control is gone and every program saves as `freeform` | Later request: the flexible model already expresses the prescriptive one — pinned days with an empty weekly quota — so the choice was asking the user to make a distinction the data does not need. `scheduleMode` stays in the schema, and old rows of either mode still load. |
+| `scheduledDays` entries pin routines | An entry pins a routine **or** a single activity | Later request. Both id fields are optional in Convex, and exactly one is written per entry, so a routine entry never round-trips as a deleted-activity reference. |
+| Task 3.4: library tile carries stats and edit buttons | The whole tile opens an Activity Details modal, which holds stats, edit and record | Later request. The tile was three tap targets in a 375px row, and the stats modal opened *behind* the library because it rendered at `z-50`, under the modal ladder. |
+| Task 6.4: tapping the program tile opens the builder | It opens a Program Details modal, with the builder one button further in | Later request. "Add to current day" moved to the details modal with it, and sits inside the scheduled-session card. |
+| `anytimeRoutines` entries pin routines | An entry pins a routine **or** a single activity | Later request, mirroring the same change to `scheduledDays`. The field keeps its name so existing rows and the progress maths are untouched. |
+| Task 6.1: completed counts planned **dates** holding a record | Counts pinned **items**, credited by weekly allocation | Later request: a session should count if it is done sometime that week, even when it is pinned to a day. Per-date counting cannot express that, and cannot say which of a two-item day was actually done. |
+| Program shape keeps `scheduleMode` and `anytimeRoutines` | Neither is written or read; both stay in the Convex schema | Later request. Once a pinned day counts anywhere in its week, an anytime bucket says nothing a pinned day does not. Removing the fields from the schema would invalidate rows that still hold them, so they are left declared and ignored. |
+| Details modal shows one progress bar | A pill per week, each with its own bar and day list | Later request. One figure for an eight-week block hides which week the user is behind in. |
+| Weeks counted in sevens from the start date | Calendar weeks, Monday to Sunday | Later request. A block starting on a Thursday reported weeks a few days out from the ones on the user's calendar, so "Week 3" meant two different spans. |
+| Session card follows the fitness page's selected day | Always today | Later request. The card answers "what am I doing now"; scrolling the page back to last week should not change that answer. |
+| A backdated program credits any session inside its dates | Credit starts with the week it was created in | Later request. Backdating a start date auto-completed weeks from sessions logged before the program existed, so a new block could read as part-finished the moment it was saved. |
+| Deleting an activity cascades to its recorded history | Activities and routines are archived; the history stays | Later request. The cascade was the only real data-loss path in the app: it erased months of sessions from stats as well as from programs, behind a dialog that only said the activity would be removed. |
+| Editing a program rewrites the whole block | The edit applies from today; earlier dates keep the schedule they were planned with | Later request. Rewriting the past moves history: removing a routine erased the days it was completed on, and adding one invented sessions the user never had a chance to do. |
+| Progress credits any session on a planned day | Only a session matching the pinned activity or routine | Later request, reversing the fallback chosen earlier. Crediting unrelated training both overstated progress and hid the day's real session from the "next session" card, which reads the same allocation. |
+| Sessions on a program rest weekday are ignored | They count towards their week | Later request. Rest weekdays are a planning statement — no slot is placed there — not a rule about what the user is allowed to have done. |
+| `programPreload` fills scheduled days automatically | Removed entirely | Later request. A program that writes records on its own competes with the user's own logging, and the manual add now tops a day up rather than refusing it, which covers the same ground without surprises. |
+| Build target guessed from `NODE_ENV` | Stated explicitly via `BUILD_TARGET`, or the build fails | `vite build` sets `NODE_ENV=production` itself, so the guess was always "Pages" — and a Pages build served locally 404s every asset, which reads as a broken app rather than a wrong build. |
+| Task 5.1: Timer is a `+` dropdown item | Its own button between the Schedule pill and the `+` | Later request. It is reached mid-session, where opening a menu is the wrong interaction. |
+| Task 2.x: the day's pill reads *Activities* | Reads **Schedule** | Later request: it sat directly under an *Activities* button and read as a duplicate of it. |
+| No overlap rule between programs | Saving an overlapping block raises a replace / edit / dismiss dialog | Later request. Two blocks covering the same dates would both claim those days; making it a decision beats letting the user find out later. |
 | Task 7.1 greps | Scoped to fitness for `mountSearchPanel`; `new-activity-btn` matched as a substring | Habits legitimately owns its own `mountSearchPanel`, and `library-new-activity-btn` is a new id. |
 | Task 7.9: open a PR against `main` | PR #2 targets `develop` and is intentionally left unmerged | §8.1 forbids feature PRs against `main`; the branch is being kept open for further fitness work. |
 

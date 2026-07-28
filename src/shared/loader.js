@@ -1,11 +1,12 @@
+import { nextPaint } from './nextPaint.js';
+
 // Initialize loading state
 document.documentElement.classList.add('js-loading');
 
 let revealPromise;
 
-function nextPaint() {
-  return new Promise((resolve) => requestAnimationFrame(resolve));
-}
+// How long the loader's fade-out runs for.
+const FADE_MS = 140;
 
 // A slow connection should keep showing the branded loader instead of
 // exposing the unhydrated HTML shell.
@@ -35,7 +36,10 @@ export function removeLoadingState() {
 
       if (loadingScreen) {
         loadingScreen.classList.add('is-leaving');
-        await new Promise((resolve) => setTimeout(resolve, 140));
+        // There is no fade to sit through on a page that is not painting.
+        if (!document.hidden) {
+          await new Promise((resolve) => setTimeout(resolve, FADE_MS));
+        }
         loadingScreen.remove();
       }
     })();

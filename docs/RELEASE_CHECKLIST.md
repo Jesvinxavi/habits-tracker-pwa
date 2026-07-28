@@ -52,7 +52,7 @@ npm run lint
 npm run test:unit
 npm run test:migration
 npm run test:convex
-npm run build
+npm run build:local
 npm run test:e2e
 ```
 

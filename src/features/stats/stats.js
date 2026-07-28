@@ -570,7 +570,9 @@ function calculateLongestGroupStreak(dailyHabits) {
  * Calculate fitness statistics
  */
 function calculateFitnessStatistics() {
-  const activities = getState().activities || [];
+  // Archived activities keep their history but are no longer part of the
+  // library, so they are not counted as activities the user has.
+  const activities = (getState().activities || []).filter((activity) => !activity.archivedAt);
   const recordedActivities = getState().recordedActivities || {};
 
   const stats = {
