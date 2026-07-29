@@ -3,6 +3,7 @@ import { SyncEngine } from '../../src/core/syncEngine.js';
 
 const outbox = [];
 const confirmed = [];
+const dispatched = [];
 // Lets a test inject an operation at a chosen point inside a running replay pass.
 const hooks = { onPendingRead: null };
 let pendingReads = 0;
@@ -17,7 +18,17 @@ vi.mock('../../src/core/offlineDb.js', () => ({
   confirmOperation: vi.fn(async (operationId) => {
     confirmed.push(operationId);
     const index = outbox.findIndex((item) => item.operationId === operationId);
-    if (index !== -1) outbox.splice(index, 1);
+    if (index === -1) return { confirmed: false, hasPendingSuccessor: false };
+    const operation = outbox[index];
+    const hasPendingSuccessor = outbox.some(
+      (item) =>
+        item.operationId !== operationId &&
+        item.entityType === operation.entityType &&
+        item.clientId === operation.clientId &&
+        ['pending', 'retry', 'syncing', 'conflict'].includes(item.status)
+    );
+    outbox.splice(index, 1);
+    return { confirmed: true, hasPendingSuccessor };
   }),
   listOutbox: vi.fn(async (ownerKey, statuses) => {
     if (!statuses) return [...outbox];
@@ -37,8 +48,11 @@ vi.mock('../../src/core/offlineDb.js', () => ({
 
 vi.mock('../../src/core/cloudRuntime.js', () => ({ getCloudRuntime: () => null }));
 vi.mock('../../src/core/state.js', () => ({
-  dispatch: vi.fn(),
-  Actions: { setSyncStatus: (status) => ({ type: 'SET_SYNC_STATUS', payload: status }) },
+  dispatch: vi.fn((action) => dispatched.push(action)),
+  Actions: {
+    setSyncStatus: (status) => ({ type: 'SET_SYNC_STATUS', payload: status }),
+    confirmOperation: (payload) => ({ type: 'CONFIRM_OPERATION', payload }),
+  },
 }));
 
 /**
@@ -67,7 +81,7 @@ function createLockManager() {
   };
 }
 
-function queue(operationId) {
+function queue(operationId, overrides = {}) {
   outbox.push({
     operationId,
     ownerKey: 'owner',
@@ -78,15 +92,16 @@ function queue(operationId) {
     payload: { clientId: operationId },
     status: 'pending',
     retryCount: 0,
+    ...overrides,
   });
 }
 
-function createEngine() {
+function createEngine(client = { mutation: async () => ({ status: 'applied', revision: 1 }) }) {
   return new SyncEngine({
     ownerKey: 'owner',
     generation: 1,
     deviceId: 'device',
-    client: { mutation: async () => ({ status: 'applied', revision: 1 }) },
+    client,
   });
 }
 
@@ -101,6 +116,7 @@ describe('SyncEngine replay coalescing', () => {
   beforeEach(() => {
     outbox.length = 0;
     confirmed.length = 0;
+    dispatched.length = 0;
     pendingReads = 0;
     hooks.onPendingRead = null;
   });
@@ -157,5 +173,39 @@ describe('SyncEngine replay coalescing', () => {
 
     expect(confirmed).toEqual(['only']);
     expect(engine.replayRequestedWhileRunning).toBe(false);
+  });
+
+  it('does not repaint a newer optimistic habit entry with a stale confirmation', async () => {
+    vi.stubGlobal('navigator', { onLine: true });
+    queue('skip', {
+      entityType: 'habitEntries',
+      clientId: 'habit-entry:walk:2026-07-30',
+      mutationName: 'habitEntries:setDesiredState',
+      payload: { skipped: true },
+    });
+    queue('restore', {
+      entityType: 'habitEntries',
+      clientId: 'habit-entry:walk:2026-07-30',
+      mutationName: 'habitEntries:setDesiredState',
+      payload: { skipped: false },
+      dependsOnOperationId: 'skip',
+    });
+    const mutation = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: 'applied',
+        canonicalRecord: { clientId: 'habit-entry:walk:2026-07-30', skipped: true },
+      })
+      .mockResolvedValueOnce({
+        status: 'applied',
+        canonicalRecord: { clientId: 'habit-entry:walk:2026-07-30', skipped: false },
+      });
+    const engine = createEngine({ mutation });
+
+    await engine.replay();
+
+    const confirmations = dispatched.filter((action) => action.type === 'CONFIRM_OPERATION');
+    expect(confirmations).toHaveLength(1);
+    expect(confirmations[0].payload.canonicalRecord.skipped).toBe(false);
   });
 });

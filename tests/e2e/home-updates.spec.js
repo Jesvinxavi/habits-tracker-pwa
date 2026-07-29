@@ -51,6 +51,14 @@ async function revealAction(page, habitId) {
   await page.mouse.up();
 }
 
+function actionButton(page, habitId, selector) {
+  return page
+    .locator(`[data-habit-id="${habitId}"]`)
+    .locator('..')
+    .locator('..')
+    .locator(selector);
+}
+
 test.describe('Home updates', () => {
   test('complete, restore, skip, and restore move a habit between the correct sections', async ({
     page,
@@ -108,10 +116,17 @@ test.describe('Home updates', () => {
     expect(metrics.add.x - metrics.pill.right).toBeLessThan(12);
     expect(Math.abs(metrics.add.centerY - metrics.pill.centerY)).toBeLessThan(2);
     await expect(page.locator('#theme-toggle')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Healthy Habits Tracker' })).toHaveCSS(
-      'font-size',
-      '36px'
-    );
+    const titleLayout = await page
+      .getByRole('heading', { name: 'Healthy Habits Tracker' })
+      .evaluate((node) => ({
+        clientWidth: node.clientWidth,
+        scrollWidth: node.scrollWidth,
+        whiteSpace: getComputedStyle(node).whiteSpace,
+        fontSize: Number.parseFloat(getComputedStyle(node).fontSize),
+      }));
+    expect(titleLayout.whiteSpace).toBe('nowrap');
+    expect(titleLayout.scrollWidth).toBeLessThanOrEqual(titleLayout.clientWidth);
+    expect(titleLayout.fontSize).toBeGreaterThanOrEqual(24);
 
     await page.getByRole('tab', { name: 'Profile view' }).click();
     const darkMode = page.locator('[data-setting="darkMode"]');
@@ -119,6 +134,55 @@ test.describe('Home updates', () => {
     const themeBefore = await page.locator('html').getAttribute('data-theme');
     await darkMode.click();
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', themeBefore);
+  });
+
+  test('restores two skipped habits without duplicate or phantom cards on mobile', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openHome(page);
+    const first = await seedHabit(page);
+    const second = await seedHabit(page);
+
+    await revealAction(page, first.habitId);
+    await actionButton(page, first.habitId, '.skip-btn').click();
+    await expect(page.locator(`[data-habit-id="${first.habitId}"]`)).toHaveCount(0);
+    await expect(page.locator(`[data-habit-id="${second.habitId}"]`)).toBeVisible();
+
+    await revealAction(page, second.habitId);
+    await actionButton(page, second.habitId, '.skip-btn').click();
+    await expect(page.locator('.section-pill-btn.selected')).toContainText('Skipped');
+    await expect(page.locator('[data-habit-id]')).toHaveCount(2);
+
+    await revealAction(page, first.habitId);
+    await actionButton(page, first.habitId, '.restore-btn').click();
+    await expect(page.locator(`[data-habit-id="${first.habitId}"]`)).toHaveCount(0);
+    await expect(page.locator(`[data-habit-id="${second.habitId}"]`)).toBeVisible();
+    await expect(page.locator('.section-pill-btn.selected')).toContainText('Skipped');
+
+    await revealAction(page, second.habitId);
+    await actionButton(page, second.habitId, '.restore-btn').click();
+    await expect(page.locator('.section-pill-btn.selected')).toContainText('Anytime');
+    await expect(page.locator(`[data-habit-id="${first.habitId}"]`)).toHaveCount(1);
+    await expect(page.locator(`[data-habit-id="${second.habitId}"]`)).toHaveCount(1);
+
+    const finalEntries = await page.evaluate(
+      (ids) =>
+        window.__APP_TEST__.getState().habits
+          .filter((habit) => ids.includes(habit.id))
+          .map((habit) => ({
+            id: habit.id,
+            completed: Object.values(habit.completed).filter(Boolean).length,
+            skipped: habit.skippedDates.length,
+          })),
+      [first.habitId, second.habitId]
+    );
+    expect(finalEntries).toEqual(
+      expect.arrayContaining([
+        { id: first.habitId, completed: 0, skipped: 0 },
+        { id: second.habitId, completed: 0, skipped: 0 },
+      ])
+    );
   });
 
   test('renders a larger target counter and preserves an archived habit on earlier dates', async ({

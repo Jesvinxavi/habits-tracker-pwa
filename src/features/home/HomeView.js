@@ -110,6 +110,7 @@ export const HomeView = {
     HomeCalendar.render();
     HomeProgress.render();
     HomeSectionPills.render?.();
+    HomeHabitsList.setSelectedSection?.(HomeSectionPills.getSelectedSection());
     HomeHabitsList.render();
     HomeControls.render();
   },

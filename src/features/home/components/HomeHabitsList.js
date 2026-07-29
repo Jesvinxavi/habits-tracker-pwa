@@ -6,7 +6,6 @@ import { hexToRgba, tintedLinearGradient } from '../../../shared/color.js';
 import { sectionVisibility } from '../helpers/coreHelpers.js';
 import { getPeriodKey } from '../schedule.js';
 import { getCategorizedHabitsForSelectedContext } from '../helpers/habitCategorization.js';
-import { HomeSectionPills } from './HomeSectionPills.js';
 
 // Local aliases for schedule helpers
 const {
@@ -98,8 +97,6 @@ export const HomeHabitsList = {
     // Adjust container height after rendering
     this._adjustContainerHeight();
 
-    // Sync pills selection with the list-selected section
-    HomeSectionPills.setSelectedSection?.(this.selectedSection, { silent: true });
   },
 
   /**

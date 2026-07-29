@@ -47,16 +47,14 @@ export const HomeSectionPills = {
   },
 
   setSelectedSection(section, opts = {}) {
-    const { silent = false } = opts;
+    const { silent = false, scrollSelected = !silent } = opts;
     const valid = ['Anytime', 'Scheduled', 'Completed', 'Skipped'];
     if (!valid.includes(section)) return;
     if (this.selectedSection === section) {
-      // Still re-render to refresh counts/states if needed
-      this.render();
       return;
     }
     this.selectedSection = section;
-    this.render();
+    this.render({ scrollSelected });
     if (!silent) this.callbacks.onSectionChange?.(section);
   },
 
@@ -87,7 +85,7 @@ export const HomeSectionPills = {
     this.selectedSection = 'Anytime';
   },
 
-  render() {
+  render({ scrollSelected = false } = {}) {
     if (!this.wrapper) return;
 
     const { counts } = getCategorizedHabitsForSelectedContext();
@@ -145,15 +143,13 @@ export const HomeSectionPills = {
       this.wrapper.appendChild(btn);
     });
 
-    // If selection changed due to counts/visibility, notify list to update immediately
-    if (selectionChanged) {
-      this.callbacks.onSectionChange?.(this.getSelectedSection());
-    }
-
-    // Ensure the selected pill is fully visible
-    const selectedEl = this.wrapper.querySelector('.section-pill-btn.selected');
-    if (selectedEl && typeof selectedEl.scrollIntoView === 'function') {
-      selectedEl.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    // Keep intentional tab changes visible without animating every state render.
+    // HomeView synchronizes automatic fallback selections with the list.
+    if (scrollSelected || selectionChanged) {
+      const selectedEl = this.wrapper.querySelector('.section-pill-btn.selected');
+      if (selectedEl && typeof selectedEl.scrollIntoView === 'function') {
+        selectedEl.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' });
+      }
     }
   },
-}; 
+};

@@ -139,7 +139,10 @@ export class SyncEngine {
         payload,
       });
       if (result.status === 'applied' || result.status === 'duplicate') {
-        await confirmOperation(operation.operationId, result.canonicalRecord);
+        const confirmation = await confirmOperation(
+          operation.operationId,
+          result.canonicalRecord
+        );
         const runtime = getCloudRuntime();
         if (runtime && operation.entityType === 'userPreferences' && result.canonicalRecord) {
           runtime.preferences = result.canonicalRecord;
@@ -154,13 +157,17 @@ export class SyncEngine {
             collectionRevisions: runtime.collectionRevisions,
           });
         }
-        dispatch(
-          Actions.confirmOperation({
-            operationId: operation.operationId,
-            entityType: operation.entityType,
-            canonicalRecord: result.canonicalRecord,
-          })
-        );
+        // A newer optimistic write for this entity is already what the user sees.
+        // Do not repaint it with this older confirmation while its successor waits.
+        if (!confirmation?.hasPendingSuccessor) {
+          dispatch(
+            Actions.confirmOperation({
+              operationId: operation.operationId,
+              entityType: operation.entityType,
+              canonicalRecord: result.canonicalRecord,
+            })
+          );
+        }
         return;
       }
       if (result.status === 'conflict') {
