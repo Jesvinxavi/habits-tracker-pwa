@@ -207,7 +207,7 @@ export function renderHabitsList(onHabitClick) {
   const map = new Map();
   getState().categories.forEach((cat) => map.set(cat.id, []));
   getState().habits.forEach((h) => {
-    if (map.has(h.categoryId)) map.get(h.categoryId).push(h);
+    if (!h.archivedAt && map.has(h.categoryId)) map.get(h.categoryId).push(h);
   });
 
   getState().categories.forEach((cat) => {

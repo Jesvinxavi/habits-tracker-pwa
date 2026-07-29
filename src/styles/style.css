@@ -109,6 +109,11 @@ body {
     background-color: var(--background-color);
 }
 
+.home-app-header {
+    height: 72px;
+    min-height: 72px;
+}
+
 .app-title {
     color: var(--text-color-primary);
     text-align: center;
@@ -452,6 +457,48 @@ body {
     text-align: center;
     font-weight: 600;
     color: white;
+}
+
+.home-swipe-container {
+    margin-bottom: 4px;
+    border-radius: var(--border-radius);
+    box-shadow: inset 0 2px 7px rgba(15, 23, 42, 0.18);
+}
+
+.home-swipe-container--skip {
+    background: linear-gradient(90deg, #ffedd5 0%, #fed7aa 100%);
+    border: 1px solid #fb923c;
+}
+
+.home-swipe-container--restore {
+    background: linear-gradient(90deg, #dcfce7 0%, #bbf7d0 100%);
+    border: 1px solid #22c55e;
+}
+
+.home-swipe-action {
+    top: 4px;
+    right: 4px;
+    bottom: 4px;
+    height: auto;
+    color: #fff;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    border-radius: 10px;
+    box-shadow:
+        0 2px 5px rgba(15, 23, 42, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    font-weight: 750;
+}
+
+.home-swipe-container--skip .home-swipe-action {
+    background: #f97316;
+}
+
+.home-swipe-container--restore .home-swipe-action {
+    background: #16a34a;
+}
+
+.home-swipe-action:disabled {
+    opacity: 0.65;
 }
 
 /* Collapsible sections */

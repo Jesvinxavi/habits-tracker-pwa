@@ -495,7 +495,8 @@ function deleteHabit() {
 
   showConfirm({
     title: 'Delete Habit?',
-    message: 'This habit will be permanently removed. This action cannot be undone.',
+    message:
+      'This habit will be removed from active tracking. Its previous completions and skips will stay in earlier dates and statistics.',
     okText: 'Delete',
     onOK: async () => {
       const saved = await dispatch(Actions.deleteHabit(editingHabitId));

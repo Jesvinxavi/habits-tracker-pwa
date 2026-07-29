@@ -97,9 +97,12 @@ export function makeCardSwipable(swipeContainer, slideEl, habit, { onRestore = (
   );
 
   // Restore button handler
-  swipeContainer.querySelector('.restore-btn')?.addEventListener('click', () => {
-    onRestore();
-    // auto-close swipe position
-    setTranslate(0);
+  swipeContainer.querySelector('.restore-btn')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    if (button.disabled) return;
+    button.disabled = true;
+    const restored = await onRestore();
+    if (restored !== false) setTranslate(0);
+    if (button.isConnected) button.disabled = false;
   });
 }

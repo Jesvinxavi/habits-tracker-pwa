@@ -172,4 +172,70 @@ describe('SET_ACTIVE_PROGRAM operations', () => {
       true
     );
   });
+
+  it('archives a deleted habit without cascading its entry history', async () => {
+    const archivedAt = 1785412800000;
+    const state = {
+      habits: [
+        {
+          id: 'habit-1',
+          categoryId: 'health',
+          name: 'Walk',
+          frequency: 'daily',
+          createdAt: '2026-01-01',
+          paused: false,
+          activeOnHolidays: false,
+          icon: '🚶',
+          completed: { '2026-07-29': true },
+          progress: {},
+          skippedDates: [],
+          revision: 3,
+        },
+      ],
+    };
+
+    await persistStateAction(
+      {
+        type: ActionTypes.DELETE_HABIT,
+        payload: { habitId: 'habit-1', archivedAt },
+      },
+      state
+    );
+
+    expect(committed).toHaveLength(1);
+    expect(committed[0].operation.mutationName).toBe('habits:update');
+    expect(committed[0].operation.payload.archivedAt).toBe(archivedAt);
+    expect(committed[0].operation.entityType).toBe('habits');
+    expect(committed[0].optimisticEntity.deletedAt).toBeUndefined();
+  });
+
+  it('persists skip as the exclusive state for a habit entry', async () => {
+    const state = {
+      habits: [
+        {
+          id: 'habit-1',
+          target: 8,
+          completed: { '2026-W31': true },
+          progress: { '2026-W31': 8 },
+          skippedDates: [],
+          createdAt: '2026-01-01',
+          entryRevisions: { '2026-W31': 2 },
+        },
+      ],
+    };
+
+    await persistStateAction(
+      {
+        type: ActionTypes.SKIP_HABIT,
+        payload: { habitId: 'habit-1', date: '2026-W31' },
+      },
+      state
+    );
+
+    expect(committed[0].operation.payload).toMatchObject({
+      completed: false,
+      progress: 0,
+      skipped: true,
+    });
+  });
 });

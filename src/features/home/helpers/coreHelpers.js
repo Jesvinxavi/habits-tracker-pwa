@@ -49,7 +49,9 @@ export function findNextGroupWithHabits(current, dir) {
     const nextGroup = groups[nextIndex];
 
     // Check if this group has any habits
-    const hasHabits = getState().habits.some((h) => belongsToSelectedGroup(h, nextGroup));
+    const hasHabits = getState().habits.some(
+      (h) => belongsToSelectedGroup(h, nextGroup) && !h.archivedAt
+    );
     if (hasHabits) {
       return nextGroup;
     }

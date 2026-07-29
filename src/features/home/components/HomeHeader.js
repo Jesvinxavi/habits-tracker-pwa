@@ -55,11 +55,9 @@ export const HomeHeader = {
     const pill = document.createElement('div');
     pill.id = 'group-pill';
     pill.className =
-      'flex items-center gap-2 px-4 py-1.5 bg-blue-50 dark:bg-gray-800 rounded-full cursor-pointer select-none w-full justify-center text-lg font-bold home-inset';
+      'flex items-center gap-2 px-5 py-1.5 bg-blue-50 dark:bg-gray-800 rounded-full cursor-pointer select-none justify-center text-lg font-bold';
 
-    // Ensure pill stretches to container width if desired
     this.titleContainer.style.display = 'flex';
-    this.titleContainer.style.justifyContent = 'center';
 
     pill.innerHTML = `
       <span id="group-icon" class="material-icons text-xl">${GROUP_ICONS[getState().selectedGroup]}</span>
@@ -68,7 +66,6 @@ export const HomeHeader = {
 
     this.titleContainer.appendChild(pill);
 
-    // Reduce bottom padding of header to tighten space below pill
     if (this.headerEl) this.headerEl.style.paddingBottom = '8px';
   },
 
@@ -305,7 +302,9 @@ export const HomeHeader = {
       const hasAny =
         g === 'daily'
           ? true
-          : getState().habits.some((h) => scheduleUtils.belongsToSelectedGroup(h, g) && !h.paused);
+          : getState().habits.some(
+              (h) => scheduleUtils.belongsToSelectedGroup(h, g) && !h.paused && !h.archivedAt
+            );
 
       if (hasAny) return g;
     }

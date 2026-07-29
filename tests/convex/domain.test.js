@@ -199,6 +199,75 @@ describe('Convex authenticated domain API', () => {
     expect(second.revision).toBe(2);
   });
 
+  it('archives a habit without tombstoning its historical entries', async () => {
+    const testBackend = convexTest(schema, modules);
+    const client = authenticated(testBackend, 'habit-archive-user');
+    await provision(client);
+
+    await client.mutation(
+      anyApi.habitCategories.create,
+      operation('archive-category-create', {
+        clientId: 'health',
+        name: 'Health',
+        color: '#123456',
+        sortOrder: 0,
+      }),
+    );
+    const habitPayload = {
+      clientId: 'walk',
+      categoryClientId: 'health',
+      name: 'Walk',
+      frequency: 'daily',
+      createdAtISO: '2026-01-01',
+      paused: false,
+      activeOnHolidays: false,
+      icon: '🚶',
+      sortOrder: 0,
+    };
+    const created = await client.mutation(
+      anyApi.habits.create,
+      operation('archive-habit-create', habitPayload),
+    );
+    await client.mutation(
+      anyApi.habitEntries.setDesiredState,
+      operation('archive-entry-create', {
+        habitClientId: 'walk',
+        periodKey: '2026-07-29',
+        periodSortDate: '2026-07-29',
+        completed: true,
+        progress: 0,
+        skipped: false,
+      }),
+    );
+
+    const archivedAt = 1785412800000;
+    const archived = await client.mutation(
+      anyApi.habits.update,
+      operation(
+        'archive-habit-update',
+        { ...habitPayload, archivedAt, revision: 1 },
+        { baseRevision: 1, baseRecord: created.canonicalRecord },
+      ),
+    );
+    expect(archived.status).toBe('applied');
+    expect(archived.canonicalRecord.archivedAt).toBe(archivedAt);
+    expect(archived.canonicalRecord.deletedAt).toBeUndefined();
+
+    const entry = await testBackend.run(async (ctx) =>
+      ctx.db
+        .query('habitEntries')
+        .withIndex('by_owner_generation_habit', (query) =>
+          query
+            .eq('ownerKey', 'https://clerk.test|habit-archive-user')
+            .eq('generation', 1)
+            .eq('habitClientId', 'walk'),
+        )
+        .unique(),
+    );
+    expect(entry.completed).toBe(true);
+    expect(entry.deletedAt).toBeUndefined();
+  });
+
   it('keeps a staged generation invisible until checksum-verified activation', async () => {
     const testBackend = convexTest(schema, modules);
     const client = authenticated(testBackend, 'migration-user');

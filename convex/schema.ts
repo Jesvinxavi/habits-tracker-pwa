@@ -114,6 +114,9 @@ export default defineSchema({
       ),
       targetUnit: v.optional(v.string()),
       defaultIncrement: v.optional(v.number()),
+      // Removing a habit hides it from active dates without deleting the
+      // definition or its habitEntries, which remain historical records.
+      archivedAt: v.optional(v.number()),
       sortOrder: v.number(),
     }),
   )

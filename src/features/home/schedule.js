@@ -7,7 +7,6 @@
 import {
   weeksBetween,
   getISOWeekNumber,
-  dateToKey,
 } from '../../shared/datetime.js';
 import { ScheduleEngine } from '../../shared/ScheduleEngine.js';
 
@@ -96,6 +95,18 @@ export function isHabitScheduledOnDate(habit, date) {
   // First check if the date is before the habit was created
   const checkDate = new Date(date);
   if (isNaN(checkDate)) return false;
+
+  // Archived habits remain available for historical dates but stop appearing
+  // from the local calendar day on which they were removed.
+  if (habit?.archivedAt) {
+    const archivedDate = new Date(habit.archivedAt);
+    if (!Number.isNaN(archivedDate.valueOf())) {
+      archivedDate.setHours(0, 0, 0, 0);
+      const selectedDate = new Date(checkDate);
+      selectedDate.setHours(0, 0, 0, 0);
+      if (selectedDate >= archivedDate) return false;
+    }
+  }
 
   // Compute effective creation/start date as the earliest available evidence
   const creationDate = _getEarliestStartDate(habit);
@@ -263,10 +274,8 @@ export function toggleHabitCompleted(habit, dateObj) {
  */
 export function isHabitSkippedToday(habit, date = new Date()) {
   const d = date instanceof Date ? date : new Date(date);
-  const key = dateToKey(d);
+  const key = getPeriodKey(habit, d);
   return Array.isArray(habit.skippedDates) && habit.skippedDates.includes(key);
 }
-
-
 
 

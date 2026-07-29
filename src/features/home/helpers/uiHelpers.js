@@ -101,11 +101,13 @@ export function setupMenuToggle() {
       // Update menu item state before showing dropdown
       updateAddHabitMenuItem();
       menuDropdown.classList.toggle('hidden');
+      menuBtn.setAttribute('aria-expanded', String(!menuDropdown.classList.contains('hidden')));
     });
 
     document.addEventListener('click', (ev) => {
       if (!menuDropdown.contains(ev.target) && !menuBtn.contains(ev.target)) {
         menuDropdown.classList.add('hidden');
+        menuBtn.setAttribute('aria-expanded', 'false');
       }
     });
 
@@ -124,6 +126,7 @@ export function setupMenuToggle() {
 
       // Hide the dropdown after clicking
       menuDropdown.classList.add('hidden');
+      menuBtn.setAttribute('aria-expanded', 'false');
 
       // Handle different actions
       switch (action) {

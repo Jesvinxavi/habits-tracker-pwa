@@ -239,7 +239,10 @@ export const Actions = {
     type: ActionTypes.UPDATE_HABIT,
     payload: { habitId, updates },
   }),
-  deleteHabit: (habitId) => ({ type: ActionTypes.DELETE_HABIT, payload: habitId }),
+  deleteHabit: (habitId, archivedAt = Date.now()) => ({
+    type: ActionTypes.DELETE_HABIT,
+    payload: { habitId, archivedAt },
+  }),
   toggleHabitCompleted: (habitId, date) => ({
     type: ActionTypes.TOGGLE_HABIT_COMPLETED,
     payload: { habitId, date },
@@ -503,26 +506,48 @@ function reducer(state, action) {
         ),
       };
 
-    case ActionTypes.DELETE_HABIT:
+    case ActionTypes.DELETE_HABIT: {
+      const habitId = action.payload?.habitId || action.payload;
+      const archivedAt =
+        action.payload?.archivedAt ||
+        Date.parse(state.currentDate || state.selectedDate || '') ||
+        1;
       return {
         ...state,
-        habits: state.habits.filter((habit) => habit.id !== action.payload),
+        // Removing a habit archives its definition instead of destroying the
+        // embedded completion history. Historical Home dates and Stats can
+        // still resolve the habit while active surfaces hide it.
+        habits: state.habits.map((habit) =>
+          habit.id === habitId ? { ...habit, archivedAt } : habit
+        ),
       };
+    }
 
     case ActionTypes.SET_HABIT_PROGRESS:
       return {
         ...state,
-        habits: state.habits.map((habit) =>
-          habit.id === action.payload.habitId
-            ? {
-                ...habit,
-                progress: {
-                  ...habit.progress,
-                  [action.payload.date]: action.payload.progress,
-                },
-              }
-            : habit
-        ),
+        habits: state.habits.map((habit) => {
+          if (habit.id !== action.payload.habitId) return habit;
+          const periodKey = action.payload.date;
+          const progress = Number(action.payload.progress);
+          const reachedTarget =
+            typeof habit.target === 'number' && habit.target > 0 && progress >= habit.target;
+          const completed = { ...(habit.completed || {}) };
+          let skippedDates = [...(habit.skippedDates || [])];
+          if (reachedTarget) {
+            completed[periodKey] = true;
+            skippedDates = skippedDates.filter((key) => key !== periodKey);
+          }
+          return {
+            ...habit,
+            completed,
+            skippedDates,
+            progress: {
+              ...habit.progress,
+              [periodKey]: progress,
+            },
+          };
+        }),
       };
 
     case ActionTypes.TOGGLE_HABIT_COMPLETED:
@@ -540,11 +565,18 @@ function reducer(state, action) {
               : {};
 
           const isCompleted = completedObj[dateKey] === true;
-          completedObj[dateKey] = !isCompleted;
+          const nextCompleted = !isCompleted;
+          completedObj[dateKey] = nextCompleted;
+          const progress = { ...(habit.progress || {}) };
+          if (!nextCompleted && habit.target > 0) progress[dateKey] = 0;
 
           return {
             ...habit,
             completed: completedObj,
+            progress,
+            skippedDates: nextCompleted
+              ? (habit.skippedDates || []).filter((key) => key !== dateKey)
+              : habit.skippedDates || [],
           };
         }),
       };
@@ -558,9 +590,18 @@ function reducer(state, action) {
           const dateKey = action.payload.date;
           const skippedDates = habit.skippedDates || [];
           const isSkipped = skippedDates.includes(dateKey);
+          const nextSkipped = !isSkipped;
+          const completed = { ...(habit.completed || {}) };
+          const progress = { ...(habit.progress || {}) };
+          if (nextSkipped) {
+            delete completed[dateKey];
+            progress[dateKey] = 0;
+          }
           
           return {
             ...habit,
+            completed,
+            progress,
             skippedDates: isSkipped
               ? skippedDates.filter(d => d !== dateKey)
               : [...skippedDates, dateKey]
@@ -569,12 +610,18 @@ function reducer(state, action) {
       };
 
     case ActionTypes.REORDER_HABITS:
-      return {
-        ...state,
-        habits: action.payload.map(habitId => 
-          state.habits.find(h => h.id === habitId)
-        ).filter(Boolean),
-      };
+      {
+        const reordered = action.payload
+          .map((habitId) => state.habits.find((habit) => habit.id === habitId))
+          .filter(Boolean);
+        const archived = state.habits.filter(
+          (habit) => habit.archivedAt && !action.payload.includes(habit.id)
+        );
+        return {
+          ...state,
+          habits: [...reordered, ...archived],
+        };
+      }
 
     case ActionTypes.REORDER_CATEGORIES:
       return {
@@ -959,6 +1006,32 @@ function reducer(state, action) {
               },
             };
           }),
+        };
+      }
+      if (entityType === 'habits') {
+        const habitId = canonicalRecord.clientId;
+        if (canonicalRecord.deletedAt) {
+          return {
+            ...state,
+            habits: state.habits.filter((habit) => habit.id !== habitId),
+          };
+        }
+        return {
+          ...state,
+          habits: state.habits.map((habit) =>
+            habit.id === habitId
+              ? {
+                  ...habit,
+                  ...canonicalRecord,
+                  id: habitId,
+                  categoryId: canonicalRecord.categoryClientId,
+                  createdAt: canonicalRecord.createdAtISO,
+                  // Explicit assignment also clears a rejected optimistic
+                  // archive when conflict resolution keeps the server record.
+                  archivedAt: canonicalRecord.archivedAt,
+                }
+              : habit
+          ),
         };
       }
       if (entityType === 'holidaySingles') {

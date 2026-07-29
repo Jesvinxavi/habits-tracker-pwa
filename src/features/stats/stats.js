@@ -132,7 +132,7 @@ function renderStatsContent() {
     renderDetailedStatsSection(container, habitStats, fitnessStats);
 
     // Add empty state if no data
-    if (habitStats.totalHabits === 0 && fitnessStats.totalActivities === 0) {
+    if (habitStats.historicalHabits === 0 && fitnessStats.totalActivities === 0) {
       renderEmptyState(container);
     }
   } catch (error) {
@@ -156,13 +156,15 @@ function renderStatsContent() {
  */
 function calculateHabitStatistics() {
   const habits = (getState().habits || []).filter(validateHabitData);
+  const currentHabits = habits.filter((habit) => !habit.archivedAt);
   const today = new Date();
 
   // Basic counts
   const stats = {
-    totalHabits: habits.length,
-    activeHabits: habits.filter((h) => !h.paused).length,
-    pausedHabits: habits.filter((h) => h.paused).length,
+    totalHabits: currentHabits.length,
+    historicalHabits: habits.length,
+    activeHabits: currentHabits.filter((h) => !h.paused).length,
+    pausedHabits: currentHabits.filter((h) => h.paused).length,
     completedToday: 0,
     streaks: [],
     categoryBreakdown: new Map(),
@@ -224,7 +226,7 @@ function calculateHabitStatistics() {
       }
 
       // Check if completed today
-      if (isHabitCompleted(habit, today)) {
+      if (isHabitScheduledOnDate(habit, today) && isHabitCompleted(habit, today)) {
         stats.completedToday++;
       }
 
