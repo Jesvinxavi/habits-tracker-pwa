@@ -1,6 +1,7 @@
 // ActivityLibraryModal.js - The categorised activity list, as a modal
 import { closeModal, isModalOpen, openModal, topModalId } from '../../../components/Modal.js';
 import { dispatch, Actions, subscribe } from '../../../core/state.js';
+import { shallowArrayEqual } from '../../../shared/equality.js';
 import {
   buildCategorySection,
   bindCategorySectionEvents,
@@ -19,6 +20,7 @@ import {
   getActivityCategory,
   groupActivitiesByMuscleGroup,
 } from '../activities.js';
+import { ensureFitnessModalMarkup } from '../FitnessModalMarkup.js';
 
 const MODAL_ID = 'activity-library-modal';
 
@@ -41,6 +43,7 @@ export const ActivityLibraryModal = {
    * @returns {void}
    */
   open(callbacks = {}) {
+    ensureFitnessModalMarkup(MODAL_ID);
     this._callbacks = callbacks;
     this._bindStaticHandlers();
     // Every visit starts on the collapsed category list.
@@ -54,9 +57,13 @@ export const ActivityLibraryModal = {
     // Keep the list live while open, and drop the listener on close so opening
     // the library repeatedly does not leak subscriptions.
     if (!this._unsubscribe) {
-      this._unsubscribe = subscribe(() => {
-        if (isModalOpen(MODAL_ID)) this.refresh();
-      });
+      this._unsubscribe = subscribe(
+        (state) => [state.activities, state.activityCategories],
+        () => {
+          if (isModalOpen(MODAL_ID)) this.refresh();
+        },
+        { equalityFn: shallowArrayEqual }
+      );
     }
 
     openModal(MODAL_ID);
@@ -272,15 +279,6 @@ export const ActivityLibraryModal = {
     // Click on the overlay itself closes the library.
     modal.addEventListener('click', (event) => {
       if (event.target === modal) this.close();
-    });
-
-    // A newly created or deleted activity should show up immediately underneath.
-    document.addEventListener('modalClosed', (event) => {
-      if (event.detail?.modalId !== 'add-activity-modal') return;
-      if (isModalOpen(MODAL_ID)) this.refresh();
-    });
-    document.addEventListener('ActivityDeleted', () => {
-      if (isModalOpen(MODAL_ID)) this.refresh();
     });
 
     // Escape closes only the topmost modal.

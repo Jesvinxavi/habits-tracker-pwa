@@ -1,7 +1,9 @@
 // AddEditActivityModal.js - Add/Edit Activity Modal component
 import { openModal, closeModal } from '../../../components/Modal.js';
 import { getState } from '../../../core/state.js';
+import { escapeAttribute, escapeHtml } from '../../../shared/sanitize.js';
 import { addActivity, updateActivity, archiveActivity, getActivity } from '../activities.js';
+import { ensureFitnessModalMarkup } from '../FitnessModalMarkup.js';
 
 /**
  * AddEditActivityModal component for managing activity creation and editing
@@ -14,6 +16,7 @@ export const AddEditActivityModal = {
    * Opens the modal in add mode
    */
   openAddMode() {
+    ensureFitnessModalMarkup('add-activity-modal');
     // Set up event handlers BEFORE opening the modal
     this._setupEventHandlers();
 
@@ -66,7 +69,10 @@ export const AddEditActivityModal = {
       categorySelect.innerHTML =
         '<option value="" disabled selected>Select a category</option>' +
         getState().activityCategories
-          .map((cat) => `<option value="${cat.id}">${cat.icon} ${cat.name}</option>`)
+          .map(
+            (cat) =>
+              `<option value="${escapeAttribute(cat.id)}">${escapeHtml(cat.icon)} ${escapeHtml(cat.name)}</option>`
+          )
           .join('');
     }
 
@@ -89,6 +95,7 @@ export const AddEditActivityModal = {
    * @param {string} activityId - The activity ID to edit
    */
   openEditMode(activityId) {
+    ensureFitnessModalMarkup('add-activity-modal');
     const activity = getActivity(activityId);
     if (!activity) {
       console.error('Activity not found:', activityId);
@@ -114,7 +121,7 @@ export const AddEditActivityModal = {
         getState().activityCategories
           .map(
             (cat) =>
-              `<option value="${cat.id}" ${cat.id === activity.categoryId ? 'selected' : ''}>${cat.icon} ${cat.name}</option>`
+              `<option value="${escapeAttribute(cat.id)}" ${cat.id === activity.categoryId ? 'selected' : ''}>${escapeHtml(cat.icon)} ${escapeHtml(cat.name)}</option>`
           )
           .join('');
     }
@@ -693,12 +700,6 @@ export const AddEditActivityModal = {
           const saved = await archiveActivity(activityId);
           if (!saved) return;
           closeModal('add-activity-modal');
-
-          // Trigger refresh of search panel to reflect the deletion
-          const event = new CustomEvent('ActivityDeleted', {
-            detail: { activityId },
-          });
-          document.dispatchEvent(event);
         },
       });
     });

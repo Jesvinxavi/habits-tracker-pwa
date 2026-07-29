@@ -10,9 +10,10 @@
 
 import { getRoutine } from '../routines.js';
 import { getActivity, getActivityCategory } from '../activities.js';
+import { escapeHtml, normalizeHexColor } from '../../../shared/sanitize.js';
 
 /** Routines carry one colour rather than a category's, since a routine spans categories. */
-export const ROUTINE_COLOR = '#0060C7';
+const ROUTINE_COLOR = '#0060C7';
 
 /**
  * Resolves what a pinned item looks like.
@@ -30,8 +31,8 @@ export function programItemPresentation(item) {
     const glyph = activity.icon || category?.icon || '🎯';
     return {
       name: activity.name,
-      color: category?.color || ROUTINE_COLOR,
-      iconHTML: `<span class="text-base leading-none flex-shrink-0" aria-hidden="true">${glyph}</span>`,
+      color: normalizeHexColor(category?.color, ROUTINE_COLOR),
+      iconHTML: `<span class="text-base leading-none flex-shrink-0" aria-hidden="true">${escapeHtml(glyph)}</span>`,
     };
   }
 

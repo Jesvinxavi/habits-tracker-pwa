@@ -1,10 +1,25 @@
 import { getState, dispatch, Actions } from '../../core/state.js';
 import { generateUniqueId } from '../../shared/common.js';
 import { getLocalISODate, getLocalMidnightISOString } from '../../shared/datetime.js';
-import { getRoutine, getRoutineActivities } from './routines.js';
-import { getActivitiesForDate, getActivity, recordActivitiesForDate } from './activities.js';
+import { getRoutineActivities } from './routines.js';
+import { getActivitiesForDate, recordActivitiesForDate } from './activities.js';
 import { isRestDay } from './restDays.js';
 import { computeProgramProgress } from './helpers/programProgress.js';
+
+let indexedPrograms = null;
+let programsById = new Map();
+let indexedActiveProgram = null;
+const programProgressCache = new WeakMap();
+
+function ensureProgramIndex() {
+  const programs = getState().programs;
+  if (programs !== indexedPrograms) {
+    indexedPrograms = programs;
+    programsById = new Map(programs.map((program) => [program.id, program]));
+    indexedActiveProgram = programs.find((program) => program.active === true) || null;
+  }
+  return programsById;
+}
 
 /**
  * Normalises one scheduled-day entry. An entry pins either a routine or a single
@@ -88,9 +103,9 @@ export async function updateProgram(programId, updates) {
  * Reads every routine's current activity ids.
  * @returns {Object<string, string[]>} Activity ids by routine id.
  */
-function routineActivityMap() {
+function routineActivityMap(state = getState()) {
   return Object.fromEntries(
-    (getState().routines || []).map((routine) => [routine.id, routine.activityIds || []])
+    (state.routines || []).map((routine) => [routine.id, routine.activityIds || []])
   );
 }
 
@@ -102,13 +117,40 @@ function routineActivityMap() {
  * — and any session recorded against them — stay exactly as they were.
  * @returns {Object<string, string>} Date key by routine or activity id.
  */
-function archivedFromMap() {
-  const state = getState();
+function archivedFromMap(state = getState()) {
   const archived = {};
   [...(state.routines || []), ...(state.activities || [])].forEach((entity) => {
     if (entity.archivedAt) archived[entity.id] = getLocalISODate(new Date(entity.archivedAt));
   });
   return archived;
+}
+
+function programTargets(state) {
+  return new Map(
+    [...(state.routines || []), ...(state.activities || [])].map((target) => [target.id, target])
+  );
+}
+
+function resolvedScheduledDays(program, state, { includeArchived = false } = {}) {
+  if (!program) return [];
+  const rest = new Set(program.restDays || []);
+  const targets = programTargets(state);
+  return (program.scheduledDays || []).filter((day) => {
+    if (rest.has(Number(day.dayOfWeek))) return false;
+    const target = targets.get(day.activityId || day.routineId);
+    return Boolean(target) && (includeArchived || !target.archivedAt);
+  });
+}
+
+function resolvedSchedulePhases(program, state) {
+  if (!program) return [];
+  const targets = programTargets(state);
+  return (program.schedulePhases || []).map((phase) => ({
+    ...phase,
+    scheduledDays: (phase.scheduledDays || []).filter((day) =>
+      targets.has(day.activityId || day.routineId)
+    ),
+  }));
 }
 
 /**
@@ -240,7 +282,7 @@ export function getPrograms() {
  * @returns {object|undefined} The program, or undefined when it does not exist.
  */
 export function getProgram(programId) {
-  return getState().programs.find((program) => program.id === programId);
+  return ensureProgramIndex().get(programId);
 }
 
 /**
@@ -248,7 +290,8 @@ export function getProgram(programId) {
  * @returns {object|null} The active program, or null when none is active.
  */
 export function getActiveProgram() {
-  return getState().programs.find((program) => program.active === true) || null;
+  ensureProgramIndex();
+  return indexedActiveProgram;
 }
 
 /**
@@ -261,37 +304,7 @@ export function getActiveProgram() {
  */
 export function getProgramScheduledDays(programId, { includeArchived = false } = {}) {
   const program = getProgram(programId);
-  if (!program) return [];
-  const rest = new Set(program.restDays || []);
-  return (program.scheduledDays || []).filter((day) => {
-    if (rest.has(Number(day.dayOfWeek))) return false;
-    const target = day.activityId ? getActivity(day.activityId) : getRoutine(day.routineId);
-    if (!target) return false;
-    // Archived targets are gone from the plan the builder edits and from what
-    // today asks for, but progress keeps them: dropping them outright erased
-    // the days they were pinned to *before* they were archived, which is the
-    // history the archive was meant to protect. plannedSlots() applies the
-    // date cutoff instead.
-    return includeArchived || !target.archivedAt;
-  });
-}
-
-/**
- * Resolves a program's superseded schedules, applying the same read-time
- * integrity filter as the live one.
- * @param {string} programId Program client id.
- * @returns {Array<{startDate: string, endDate: string, scheduledDays: Array, restDays: number[]}>}
- *   Past phases whose entries still resolve.
- */
-export function getProgramSchedulePhases(programId) {
-  const program = getProgram(programId);
-  if (!program) return [];
-  return (program.schedulePhases || []).map((phase) => ({
-    ...phase,
-    scheduledDays: (phase.scheduledDays || []).filter((day) =>
-      day.activityId ? Boolean(getActivity(day.activityId)) : Boolean(getRoutine(day.routineId))
-    ),
-  }));
+  return resolvedScheduledDays(program, getState(), { includeArchived });
 }
 
 /**
@@ -305,24 +318,47 @@ export function getProgramSchedulePhases(programId) {
  */
 export function getProgramProgress(program) {
   const state = getState();
-  return computeProgramProgress({
+  const todayISO = getLocalISODate(new Date());
+  const cached = program && programProgressCache.get(program);
+  if (
+    cached?.todayISO === todayISO &&
+    cached.recordedActivities === state.recordedActivities &&
+    cached.restDays === state.restDays &&
+    cached.routines === state.routines &&
+    cached.activities === state.activities
+  ) {
+    return cached.result;
+  }
+
+  const result = computeProgramProgress({
     // Measured against the live schedule, so a routine deleted mid-block stops
     // counting against the user instead of leaving an unfillable slot. Past
     // phases get the same filter: what they planned still stands, but only the
     // parts of it that still exist can be drawn or ticked.
     program: program && {
       ...program,
-      scheduledDays: getProgramScheduledDays(program.id, { includeArchived: true }),
-      schedulePhases: getProgramSchedulePhases(program.id),
+      scheduledDays: resolvedScheduledDays(program, state, { includeArchived: true }),
+      schedulePhases: resolvedSchedulePhases(program, state),
     },
-    todayISO: getLocalISODate(new Date()),
+    todayISO,
     recordedActivities: state.recordedActivities,
     restDays: state.restDays,
     // A routine slot is satisfied by any of the routine's activities, so the
     // maths needs the membership its pure signature cannot look up itself.
-    routineActivities: routineActivityMap(),
-    archivedFrom: archivedFromMap(),
+    routineActivities: routineActivityMap(state),
+    archivedFrom: archivedFromMap(state),
   });
+  if (program && typeof program === 'object') {
+    programProgressCache.set(program, {
+      todayISO,
+      recordedActivities: state.recordedActivities,
+      restDays: state.restDays,
+      routines: state.routines,
+      activities: state.activities,
+      result,
+    });
+  }
+  return result;
 }
 
 /**

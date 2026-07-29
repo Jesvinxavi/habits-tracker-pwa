@@ -1,18 +1,64 @@
-// FitnessModals.js - Orchestrates all modal dialogs for the fitness feature
-import { AddEditActivityModal } from './Modals/AddEditActivityModal.js';
-import { ActivityDetailsModal } from './Modals/ActivityDetailsModal.js';
-import { ActivityInfoModal } from './Modals/ActivityInfoModal.js';
-import { StatsModal } from './Modals/StatsModal.js';
-import { ActivityLibraryModal } from './Modals/ActivityLibraryModal.js';
-import { RoutinesModal } from './Modals/RoutinesModal.js';
-import { RoutineBuilderModal } from './Modals/RoutineBuilderModal.js';
-import { RoutinePickerModal } from './Modals/RoutinePickerModal.js';
-import { ActivityPickerModal } from './Modals/ActivityPickerModal.js';
-import { ProgramBuilderModal } from './Modals/ProgramBuilderModal.js';
-import { ProgramDetailsModal } from './Modals/ProgramDetailsModal.js';
+// FitnessModals.js - Orchestrates lazily loaded dialogs for the fitness feature
 import { recordActivitiesForDate } from './activities.js';
 import { getState, dispatch, Actions } from '../../core/state.js';
 import { getLocalISODate, getLocalMidnightISOString } from '../../shared/datetime.js';
+import { showConfirm } from '../../components/ConfirmDialog.js';
+
+const loaders = {
+  addEditActivity: () => import('./Modals/AddEditActivityModal.js').then((m) => m.AddEditActivityModal),
+  activityDetails: () => import('./Modals/ActivityDetailsModal.js').then((m) => m.ActivityDetailsModal),
+  activityInfo: () => import('./Modals/ActivityInfoModal.js').then((m) => m.ActivityInfoModal),
+  stats: () => import('./Modals/StatsModal.js').then((m) => m.StatsModal),
+  activityLibrary: () => import('./Modals/ActivityLibraryModal.js').then((m) => m.ActivityLibraryModal),
+  routines: () => import('./Modals/RoutinesModal.js').then((m) => m.RoutinesModal),
+  routineBuilder: () => import('./Modals/RoutineBuilderModal.js').then((m) => m.RoutineBuilderModal),
+  routinePicker: () => import('./Modals/RoutinePickerModal.js').then((m) => m.RoutinePickerModal),
+  activityPicker: () => import('./Modals/ActivityPickerModal.js').then((m) => m.ActivityPickerModal),
+  programBuilder: () => import('./Modals/ProgramBuilderModal.js').then((m) => m.ProgramBuilderModal),
+  programDetails: () => import('./Modals/ProgramDetailsModal.js').then((m) => m.ProgramDetailsModal),
+};
+const loaded = new Map();
+const pendingOpens = new Map();
+
+function loadModal(name) {
+  if (!loaded.has(name)) loaded.set(name, loaders[name]());
+  return loaded.get(name);
+}
+
+function openLazyModal(name, open) {
+  if (pendingOpens.has(name)) return pendingOpens.get(name);
+  const opener = document.activeElement;
+  const isButton = opener instanceof HTMLButtonElement;
+  opener?.setAttribute?.('aria-busy', 'true');
+  if (isButton) opener.disabled = true;
+
+  const pending = loadModal(name)
+    .then(open)
+    .catch((error) => {
+      loaded.delete(name);
+      console.error(`Unable to open ${name}:`, error);
+      showConfirm({
+        title: 'Unable to Open',
+        message: 'This screen could not be loaded. Check your connection and try again.',
+        okText: 'OK',
+        cancelText: '',
+      });
+      return null;
+    })
+    .finally(() => {
+      opener?.removeAttribute?.('aria-busy');
+      if (isButton) opener.disabled = false;
+      pendingOpens.delete(name);
+    });
+  pendingOpens.set(name, pending);
+  return pending;
+}
+
+export function prefetchFitnessModal(name) {
+  const connection = navigator.connection;
+  if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || '')) return;
+  if (loaders[name]) void loadModal(name).catch(() => loaded.delete(name));
+}
 
 /**
  * Logs an activity onto today's schedule and steps back to it, so the user sees
@@ -40,8 +86,12 @@ async function recordToToday(activityId) {
     await dispatch(Actions.setFitnessSelectedDate(getLocalMidnightISOString(new Date())));
   }
 
-  ActivityInfoModal.close();
-  ActivityLibraryModal.close();
+  const [activityInfo, activityLibrary] = await Promise.all([
+    loadModal('activityInfo'),
+    loadModal('activityLibrary'),
+  ]);
+  activityInfo.close();
+  activityLibrary.close();
 }
 
 export const Modals = {
@@ -50,14 +100,14 @@ export const Modals = {
    * @param {Object} callbacks - Handlers for activity, stats and edit taps
    */
   openActivityLibrary(callbacks) {
-    ActivityLibraryModal.open(callbacks);
+    return openLazyModal('activityLibrary', (modal) => modal.open(callbacks));
   },
 
   /**
    * Opens the saved-routines list
    */
   openRoutines() {
-    RoutinesModal.open();
+    return openLazyModal('routines', (modal) => modal.open());
   },
 
   /**
@@ -65,7 +115,7 @@ export const Modals = {
    * @param {Object} [options] - presetActivityIds, presetName, title, onSaved
    */
   openRoutineBuilder(options) {
-    RoutineBuilderModal.openCreateMode(options);
+    return openLazyModal('routineBuilder', (modal) => modal.openCreateMode(options));
   },
 
   /**
@@ -74,7 +124,7 @@ export const Modals = {
    * @param {Object} [options] - onSaved callback
    */
   openEditRoutine(routineId, options) {
-    RoutineBuilderModal.openEditMode(routineId, options);
+    return openLazyModal('routineBuilder', (modal) => modal.openEditMode(routineId, options));
   },
 
   /**
@@ -82,7 +132,7 @@ export const Modals = {
    * @param {Object} [options] - onConfirm callback receiving the selected activity IDs
    */
   openActivityPicker(options) {
-    ActivityPickerModal.open(options);
+    return openLazyModal('activityPicker', (modal) => modal.open(options));
   },
 
   /**
@@ -90,7 +140,7 @@ export const Modals = {
    * @param {Object} [options] - onConfirm callback receiving the selected routine IDs
    */
   openRoutinePicker(options) {
-    RoutinePickerModal.open(options);
+    return openLazyModal('routinePicker', (modal) => modal.open(options));
   },
 
   /**
@@ -98,7 +148,7 @@ export const Modals = {
    * @param {string} programId - The program ID
    */
   openProgramDetails(programId) {
-    ProgramDetailsModal.open(programId);
+    return openLazyModal('programDetails', (modal) => modal.open(programId));
   },
 
   /**
@@ -106,7 +156,7 @@ export const Modals = {
    * @param {Object} [options] - onSaved callback
    */
   openProgramBuilder(options) {
-    ProgramBuilderModal.openCreateMode(options);
+    return openLazyModal('programBuilder', (modal) => modal.openCreateMode(options));
   },
 
   /**
@@ -115,14 +165,14 @@ export const Modals = {
    * @param {Object} [options] - onSaved callback
    */
   openEditProgram(programId, options) {
-    ProgramBuilderModal.openEditMode(programId, options);
+    return openLazyModal('programBuilder', (modal) => modal.openEditMode(programId, options));
   },
 
   /**
    * Opens the add activity modal
    */
   openAddActivity() {
-    AddEditActivityModal.openAddMode();
+    return openLazyModal('addEditActivity', (modal) => modal.openAddMode());
   },
 
   /**
@@ -130,7 +180,7 @@ export const Modals = {
    * @param {string} activityId - The activity ID to edit
    */
   openEditActivity(activityId) {
-    AddEditActivityModal.openEditMode(activityId);
+    return openLazyModal('addEditActivity', (modal) => modal.openEditMode(activityId));
   },
 
   /**
@@ -143,12 +193,14 @@ export const Modals = {
    * @param {Object} [callbacks] - Overrides for onRecord, onEdit and onStats
    */
   openActivityInfo(activityId, callbacks = {}) {
-    ActivityInfoModal.open(activityId, {
-      onRecord: (id) => void recordToToday(id),
-      onEdit: (id) => this.openEditActivity(id),
-      onStats: (id) => this.openStats(id),
-      ...callbacks,
-    });
+    return openLazyModal('activityInfo', (modal) =>
+      modal.open(activityId, {
+        onRecord: (id) => void recordToToday(id),
+        onEdit: (id) => this.openEditActivity(id),
+        onStats: (id) => this.openStats(id),
+        ...callbacks,
+      })
+    );
   },
 
   /**
@@ -156,7 +208,7 @@ export const Modals = {
    * @param {string} activityId - The activity ID
    */
   openActivityDetails(activityId) {
-    ActivityDetailsModal.open(activityId);
+    return openLazyModal('activityDetails', (modal) => modal.open(activityId));
   },
 
   /**
@@ -165,7 +217,7 @@ export const Modals = {
    * @param {Object} record - The existing activity record
    */
   openActivityDetailsWithRecord(activityId, record) {
-    ActivityDetailsModal.openWithRecord(activityId, record);
+    return openLazyModal('activityDetails', (modal) => modal.openWithRecord(activityId, record));
   },
 
   /**
@@ -173,6 +225,6 @@ export const Modals = {
    * @param {string} activityId - The activity ID
    */
   openStats(activityId) {
-    StatsModal.open(activityId);
+    return openLazyModal('stats', (modal) => modal.open(activityId));
   },
 };

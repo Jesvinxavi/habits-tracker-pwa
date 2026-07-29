@@ -9,7 +9,6 @@ import {
 } from '../activities.js';
 import { isRestDay } from '../restDays.js';
 import { getState } from '../../../core/state.js';
-import { adjustActivitiesContainerHeight } from '../helpers/fitnessLayout.js';
 import { CategoryGroup } from './CategoryGroup.js';
 
 /**
@@ -19,7 +18,7 @@ import { CategoryGroup } from './CategoryGroup.js';
  */
 export function mountActivitiesList(onActivityClick) {
   const activitiesContainer = document.createElement('div');
-  activitiesContainer.className = 'activities-container flex-grow overflow-y-auto px-4 pb-8';
+  activitiesContainer.className = 'activities-container flex-grow min-h-0 overflow-y-auto px-4 pb-8';
   activitiesContainer.style.overflowX = 'visible';
   activitiesContainer.id = 'activities-list';
 
@@ -87,11 +86,6 @@ export function renderActivitiesList(onActivityClick) {
 
     html += CategoryGroup.build(category, records, {
       onActivityClick: onActivityClick || activitiesContainer._onActivityClick,
-      onActivityDelete: async (recordId) => {
-        const saved = await deleteRecordedActivity(recordId, iso);
-        if (!saved) return;
-        renderActivitiesList(onActivityClick || activitiesContainer._onActivityClick);
-      },
       getActivity: getActivity,
     });
   });
@@ -102,21 +96,8 @@ export function renderActivitiesList(onActivityClick) {
   CategoryGroup.bindEvents(activitiesContainer, activities, {
     onActivityClick: onActivityClick || activitiesContainer._onActivityClick,
     onActivityDelete: async (recordId) => {
-      const saved = await deleteRecordedActivity(recordId, iso);
-      if (!saved) return;
-      renderActivitiesList(onActivityClick || activitiesContainer._onActivityClick);
+      await deleteRecordedActivity(recordId, iso);
     },
     getActivity: getActivity,
   });
-
-  // Recalculate scrollable area height after any UI change
-  adjustActivitiesContainerHeight();
-}
-
-/**
- * Gets the activities list container element
- * @returns {HTMLElement} The activities list container
- */
-export function getActivitiesListContainer() {
-  return document.getElementById('activities-list');
 }

@@ -3,6 +3,7 @@ import { closeModal, openModal, topModalId } from '../../../components/Modal.js'
 import { showConfirm, showChoice } from '../../../components/ConfirmDialog.js';
 import { getLocalISODate } from '../../../shared/datetime.js';
 import { hexToRgba } from '../../../shared/color.js';
+import { escapeAttribute, escapeHtml } from '../../../shared/sanitize.js';
 import {
   addProgram,
   updateProgramPlan,
@@ -13,8 +14,7 @@ import {
   findOverlappingPrograms,
 } from '../programs.js';
 import { programItemPresentation } from '../helpers/programItems.js';
-import { RoutinePickerModal } from './RoutinePickerModal.js';
-import { ActivityPickerModal } from './ActivityPickerModal.js';
+import { ensureFitnessModalMarkup } from '../FitnessModalMarkup.js';
 
 const MODAL_ID = 'program-builder-modal';
 const DEFAULT_LENGTH_DAYS = 55; // today + 55 days is an eight-week block
@@ -166,6 +166,7 @@ export const ProgramBuilderModal = {
    * @returns {void}
    */
   openCreateMode({ onSaved = null } = {}) {
+    ensureFitnessModalMarkup(MODAL_ID);
     this._bindStaticHandlers();
     this._editProgramId = null;
     this._onSaved = onSaved;
@@ -190,6 +191,7 @@ export const ProgramBuilderModal = {
    * @returns {void}
    */
   openEditMode(programId, { onSaved = null } = {}) {
+    ensureFitnessModalMarkup(MODAL_ID);
     const program = getProgram(programId);
     if (!program) return;
 
@@ -417,8 +419,8 @@ export const ProgramBuilderModal = {
     return `
       <span class="program-day-item inline-flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-xl text-sm font-medium text-gray-900 dark:text-white max-w-full" style="border:2px solid ${color}; background-color:${hexToRgba(color, 0.12)};">
         ${iconHTML}
-        <span class="truncate">${name}</span>
-        <button type="button" class="program-day-item-remove w-5 h-5 rounded-full flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-black/10 dark:hover:bg-white/10 transition-colors flex-shrink-0" data-day-of-week="${day}" data-index="${index}" aria-label="Remove ${name} from ${FULL_DAY_NAMES[day]}">
+        <span class="truncate">${escapeHtml(name)}</span>
+        <button type="button" class="program-day-item-remove w-5 h-5 rounded-full flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-black/10 dark:hover:bg-white/10 transition-colors flex-shrink-0" data-day-of-week="${day}" data-index="${index}" aria-label="Remove ${escapeAttribute(name)} from ${FULL_DAY_NAMES[day]}">
           <span class="material-icons text-sm">close</span>
         </button>
       </span>
@@ -461,12 +463,14 @@ export const ProgramBuilderModal = {
    * @returns {void}
    */
   _openDayRoutinePicker(dayOfWeek) {
-    RoutinePickerModal.open({
-      selectedIds: this._idsOfType(dayOfWeek, 'routine'),
-      title: `${FULL_DAY_NAMES[dayOfWeek]} Routines`,
-      confirmLabel: 'Done',
-      allowEmpty: true,
-      onConfirm: (routineIds) => this._replaceDayItems(dayOfWeek, 'routine', routineIds),
+    import('./RoutinePickerModal.js').then(({ RoutinePickerModal }) => {
+      RoutinePickerModal.open({
+        selectedIds: this._idsOfType(dayOfWeek, 'routine'),
+        title: `${FULL_DAY_NAMES[dayOfWeek]} Routines`,
+        confirmLabel: 'Done',
+        allowEmpty: true,
+        onConfirm: (routineIds) => this._replaceDayItems(dayOfWeek, 'routine', routineIds),
+      });
     });
   },
 
@@ -477,12 +481,14 @@ export const ProgramBuilderModal = {
    * @returns {void}
    */
   _openDayActivityPicker(dayOfWeek) {
-    ActivityPickerModal.open({
-      selectedIds: this._idsOfType(dayOfWeek, 'activity'),
-      title: `${FULL_DAY_NAMES[dayOfWeek]} Activities`,
-      confirmLabel: 'Done',
-      allowEmpty: true,
-      onConfirm: (activityIds) => this._replaceDayItems(dayOfWeek, 'activity', activityIds),
+    import('./ActivityPickerModal.js').then(({ ActivityPickerModal }) => {
+      ActivityPickerModal.open({
+        selectedIds: this._idsOfType(dayOfWeek, 'activity'),
+        title: `${FULL_DAY_NAMES[dayOfWeek]} Activities`,
+        confirmLabel: 'Done',
+        allowEmpty: true,
+        onConfirm: (activityIds) => this._replaceDayItems(dayOfWeek, 'activity', activityIds),
+      });
     });
   },
 

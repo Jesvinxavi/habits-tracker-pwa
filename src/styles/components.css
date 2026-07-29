@@ -14,20 +14,6 @@
 .spring {
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
-.bounce-ios {
-  animation: bounceIOS 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-@keyframes bounceIOS {
-  0% {
-    transform: scale(0.95);
-  }
-  50% {
-    transform: scale(1.02);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
 /* Modern scrollbar */
 ::-webkit-scrollbar {
   width: 3px;
@@ -114,97 +100,6 @@
 .modal-content input:focus,
 .modal-content select:focus {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-/* Shared Modal Utility Classes */
-.modal-overlay-base {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-  z-index: 1001;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
-.modal-content-base {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(20px);
-  border-radius: 1rem;
-  width: 100%;
-  max-width: 28rem;
-  margin: 0 auto;
-  overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transform: scale(0.95);
-  opacity: 0;
-  transition: all 0.3s ease;
-}
-.modal-content-base.dark {
-  background: rgba(28, 28, 30, 0.9);
-  border: 1px solid rgba(55, 65, 81, 0.5);
-}
-.modal-header-base {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 1.5rem;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(229, 231, 235, 0.5);
-  border-radius: 1rem 1rem 0 0;
-  flex-shrink: 0;
-}
-.modal-header-base.dark {
-  background: rgba(31, 41, 55, 0.9);
-  border-bottom: 1px solid rgba(55, 65, 81, 0.5);
-}
-.modal-button-base {
-  padding: 0.5rem 1rem;
-  color: #007aff;
-  background: none;
-  border: none;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-.modal-button-base:hover {
-  background: rgba(0, 122, 255, 0.1);
-}
-.modal-button-base.dark:hover {
-  background: rgba(31, 41, 55, 0.5);
-}
-.modal-button-base:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.form-input-base {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(229, 231, 235, 1);
-  border-radius: 0.75rem;
-  color: #111827;
-  font-size: 1rem;
-  transition: all 0.2s ease;
-}
-.form-input-base.dark {
-  background: rgba(55, 65, 81, 0.8);
-  border: 1px solid rgba(75, 85, 99, 1);
-  color: #f9fafb;
-}
-.form-input-base:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.5);
-  border-color: #007aff;
-}
-.form-input-base::placeholder {
-  color: #6b7280;
-}
-.form-input-base.dark::placeholder {
-  color: #9ca3af;
 }
 /* Moved from index.html inline <style> on 2025-06-17 */
 /* Keep the hydrated app laid out behind an opaque loader during startup. */
@@ -438,7 +333,7 @@ body {
   padding-bottom: 0;
 }
 #fitness-view .week-calendar {
-  overflow-x: auto;
+  overflow-x: visible;
   overflow-y: visible;
   min-height: 120px;
   width: 100%;

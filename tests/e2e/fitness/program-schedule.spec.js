@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-07-29T12:00:00+01:00'));
+});
+
 async function seed(page) {
   await page.goto('/?test=true');
   await page.getByRole('tab', { name: 'Fitness view' }).click();
@@ -146,7 +150,7 @@ test.describe('program scheduling', () => {
     await expect(page.locator('#program-builder-modal')).toBeHidden();
 
     const stored = await page.evaluate(() => {
-      const p = window.appData.programs.find((x) => x.active);
+      const p = window.__APP_TEST__.getState().programs.find((x) => x.active);
       return { mode: p.scheduleMode, days: p.scheduledDays, rest: p.restDays };
     });
     expect(stored.mode).toBeUndefined();
@@ -177,7 +181,7 @@ test.describe('program scheduling', () => {
     await page.locator('#save-program-builder').click();
 
     const days = await page.evaluate(
-      () => window.appData.programs.find((x) => x.active).scheduledDays
+      () => window.__APP_TEST__.getState().programs.find((x) => x.active).scheduledDays
     );
     expect(days).toHaveLength(2);
     expect(days.filter((d) => d.routineId)).toHaveLength(1);
@@ -312,6 +316,7 @@ test.describe('program week progress', () => {
     await seed(page);
     await makeProgram(page, { pinToToday: true });
     await page.locator('#program-tile').click();
+    await expect(page.locator('#program-details-modal')).toBeVisible();
 
     // Nothing done yet: both bars carry the behind-schedule red.
     const barColors = () =>
@@ -347,7 +352,7 @@ test.describe('program week progress', () => {
     await page.evaluate(async () => {
       const { recordActivitiesForDate } = await import('/src/features/fitness/activities.js');
       const { getLocalISODate } = await import('/src/shared/datetime.js');
-      const bench = window.appData.activities.find((a) => a.name === 'Bench Press');
+      const bench = window.__APP_TEST__.getState().activities.find((a) => a.name === 'Bench Press');
       await recordActivitiesForDate([bench.id], getLocalISODate(new Date()));
     });
 
@@ -449,7 +454,7 @@ test.describe('editing a running program', () => {
 
     // The edit is stored as history rather than as a rewrite.
     const phases = await page.evaluate(
-      () => window.appData.programs.find((p) => p.active).schedulePhases
+      () => window.__APP_TEST__.getState().programs.find((p) => p.active).schedulePhases
     );
     expect(phases).toHaveLength(1);
     expect(phases[0].scheduledDays).toHaveLength(1);
@@ -505,7 +510,7 @@ test.describe('editing a running program', () => {
     // Do last Monday's session, back when it was the plan.
     await page.evaluate(async (date) => {
       const { recordActivitiesForDate } = await import('/src/features/fitness/activities.js');
-      const bench = window.appData.activities.find((a) => a.name === 'Bench Press');
+      const bench = window.__APP_TEST__.getState().activities.find((a) => a.name === 'Bench Press');
       await recordActivitiesForDate([bench.id], date);
     }, lastMonday);
 
@@ -558,7 +563,7 @@ test.describe('conflicting program dates', () => {
     // Dismissing leaves both the builder open and the first program untouched.
     await dismiss.click();
     await expect(page.locator('#program-builder-modal')).toBeVisible();
-    expect(await page.evaluate(() => window.appData.programs.length)).toBe(1);
+    expect(await page.evaluate(() => window.__APP_TEST__.getState().programs.length)).toBe(1);
   });
 
   test('replace deletes the clashing program and saves the new one', async ({ page }) => {
@@ -570,7 +575,7 @@ test.describe('conflicting program dates', () => {
     await expect(page.locator('#program-builder-modal')).toBeHidden();
     await expect(page.locator('#program-tile')).toContainText('Second');
 
-    const names = await page.evaluate(() => window.appData.programs.map((p) => p.name));
+    const names = await page.evaluate(() => window.__APP_TEST__.getState().programs.map((p) => p.name));
     expect(names).toEqual(['Second']);
   });
 
@@ -583,7 +588,7 @@ test.describe('conflicting program dates', () => {
     await expect(page.locator('#program-builder-title')).toHaveText('Edit Program');
     await expect(page.locator('#program-name-input')).toHaveValue('First');
     // The unsaved second program was discarded rather than stored.
-    expect(await page.evaluate(() => window.appData.programs.length)).toBe(1);
+    expect(await page.evaluate(() => window.__APP_TEST__.getState().programs.length)).toBe(1);
   });
 
   test('editing a program back onto its own dates raises nothing', async ({ page }) => {
@@ -605,13 +610,13 @@ test.describe('conflicting program dates', () => {
     await makeProgram(page, 'Second', '2026-11-01', '2026-11-30');
 
     await expect(page.locator('#global-confirm-modal')).toBeHidden();
-    expect(await page.evaluate(() => window.appData.programs.length)).toBe(2);
+    expect(await page.evaluate(() => window.__APP_TEST__.getState().programs.length)).toBe(2);
   });
 });
 
 test.describe('adding a program day', () => {
   async function makeTodayProgram(page) {
-    const weekday = await page.evaluate(() => new Date().getUTCDay());
+    const weekday = await page.evaluate(() => new Date().getDay());
     await openBuilder(page);
     await pinRoutines(page, weekday, ['Push Day']);
     await page.locator('#program-name-input').fill('Today Plan');
@@ -624,7 +629,7 @@ test.describe('adding a program day', () => {
     await makeTodayProgram(page);
     // Saving a program plans days; it does not fill them. The user adds a
     // session when they do it.
-    expect(await page.evaluate(() => Object.values(window.appData.recordedActivities).flat().length)).toBe(0);
+    expect(await page.evaluate(() => Object.values(window.__APP_TEST__.getState().recordedActivities).flat().length)).toBe(0);
   });
 
   test('the dropdown item records the day\'s scheduled routines', async ({ page }) => {
@@ -635,13 +640,13 @@ test.describe('adding a program day', () => {
     await page.locator('[data-action="add-program-day"]').click();
 
     await expect(page.locator('#activities-list')).toContainText('Bench Press');
-    expect(await page.evaluate(() => Object.values(window.appData.recordedActivities).flat().length)).toBe(1);
+    expect(await page.evaluate(() => Object.values(window.__APP_TEST__.getState().recordedActivities).flat().length)).toBe(1);
 
     // Running it again says so rather than doubling up.
     await page.locator('#fitness-add-menu-btn').click();
     await page.locator('[data-action="add-program-day"]').click();
     await expect(page.locator('#global-confirm-modal')).toContainText('Already Logged');
-    expect(await page.evaluate(() => Object.values(window.appData.recordedActivities).flat().length)).toBe(1);
+    expect(await page.evaluate(() => Object.values(window.__APP_TEST__.getState().recordedActivities).flat().length)).toBe(1);
   });
 
   test('a day holding other training still gets its session added', async ({ page }) => {
@@ -653,7 +658,7 @@ test.describe('adding a program day', () => {
     await page.evaluate(async () => {
       const { recordActivitiesForDate } = await import('/src/features/fitness/activities.js');
       const { getLocalISODate } = await import('/src/shared/datetime.js');
-      const run = window.appData.activities.find((a) => a.name === 'Treadmill Run');
+      const run = window.__APP_TEST__.getState().activities.find((a) => a.name === 'Treadmill Run');
       await recordActivitiesForDate([run.id], getLocalISODate(new Date()));
     });
 
@@ -663,7 +668,7 @@ test.describe('adding a program day', () => {
 
     await expect(page.locator('#activities-list')).toContainText('Bench Press');
     await expect(page.locator('#activities-list')).toContainText('Treadmill Run');
-    expect(await page.evaluate(() => Object.values(window.appData.recordedActivities).flat().length)).toBe(2);
+    expect(await page.evaluate(() => Object.values(window.__APP_TEST__.getState().recordedActivities).flat().length)).toBe(2);
   });
 
   test('with no program scheduled for the day it explains itself', async ({ page }) => {
@@ -686,7 +691,7 @@ test.describe('adding a program day', () => {
 
   test('a day pinned to an activity records that activity too', async ({ page }) => {
     await seed(page);
-    const weekday = await page.evaluate(() => new Date().getUTCDay());
+    const weekday = await page.evaluate(() => new Date().getDay());
     await openBuilder(page);
     await pinActivities(page, weekday, ['Treadmill Run']);
     await page.locator('#program-name-input').fill('Solo');

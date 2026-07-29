@@ -91,7 +91,7 @@ test.describe('fitness page shell', () => {
       const { toggleTheme } = await import('/src/core/theme.js');
       await toggleTheme();
     });
-    await page.waitForTimeout(400);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     const after = await page.evaluate(() => ({
       theme: document.documentElement.getAttribute('data-theme'),
       activityBg: getComputedStyle(document.querySelector('#fitness-activity-btn')).backgroundColor,

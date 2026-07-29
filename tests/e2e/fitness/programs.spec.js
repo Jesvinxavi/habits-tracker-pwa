@@ -169,13 +169,14 @@ test.describe('program builder and tile', () => {
     expect(order.hostIndex).toBeGreaterThan(order.buttonsIndex);
     expect(order.hostIndex).toBeLessThan(order.calendarIndex);
 
-    // The tile itself is the progress indicator, with a textual value so the
-    // fill is never the only cue.
-    await expect(tile).toHaveAttribute('role', 'progressbar');
-    await expect(tile).toHaveAttribute('aria-valuemin', '0');
-    await expect(tile).toHaveAttribute('aria-valuemax', '100');
-    await expect(tile).toHaveAttribute('aria-valuenow', '0');
-    await expect(tile).toHaveAttribute('aria-valuetext', /0 of 23 workouts completed/);
+    // The tile is a native button; a nested screen-reader node exposes progress
+    // so activation and numeric state each use the correct semantic.
+    const progress = tile.getByRole('progressbar');
+    await expect(tile).toHaveRole('button');
+    await expect(progress).toHaveAttribute('aria-valuemin', '0');
+    await expect(progress).toHaveAttribute('aria-valuemax', '100');
+    await expect(progress).toHaveAttribute('aria-valuenow', '0');
+    await expect(progress).toHaveAttribute('aria-valuetext', /0 of 23 workouts completed/);
     await expect(tile.locator('.program-tile-fill')).toHaveCount(1);
   });
 
@@ -197,7 +198,8 @@ test.describe('program builder and tile', () => {
     });
 
     await expect(page.locator('.program-workouts')).toHaveText('0/1');
-    await expect(page.locator('#program-tile')).toHaveAttribute('aria-valuenow', '0');
+    const progress = page.locator('#program-tile').getByRole('progressbar');
+    await expect(progress).toHaveAttribute('aria-valuenow', '0');
 
     await page.evaluate(async () => {
       const { recordActivity } = await import('/src/features/fitness/activities.js');
@@ -209,7 +211,7 @@ test.describe('program builder and tile', () => {
 
     await expect(page.locator('.program-workouts')).toHaveText('1/1');
     await expect(page.locator('.program-percent-pill')).toHaveText('100%');
-    await expect(page.locator('#program-tile')).toHaveAttribute('aria-valuenow', '100');
+    await expect(progress).toHaveAttribute('aria-valuenow', '100');
     // The fill tracks the value.
     const fill = await page.locator('.program-tile-fill').getAttribute('style');
     expect(fill).toContain('100%');
@@ -276,7 +278,7 @@ test.describe('program builder and tile', () => {
     await expect(page.locator('#program-tile')).toContainText('Completed');
 
     const activeCount = await page.evaluate(
-      () => window.appData.programs.filter((p) => p.active).length
+      () => window.__APP_TEST__.getState().programs.filter((p) => p.active).length
     );
     expect(activeCount).toBe(1);
   });
@@ -331,7 +333,7 @@ test.describe('program builder and tile', () => {
     await page.locator('#program-details-notes').fill('Deload in week 5');
     await page.locator('#program-details-notes').blur();
     await expect
-      .poll(() => page.evaluate(() => window.appData.programs.find((p) => p.active).notes))
+      .poll(() => page.evaluate(() => window.__APP_TEST__.getState().programs.find((p) => p.active).notes))
       .toBe('Deload in week 5');
 
     await page.locator('#close-program-details').click();

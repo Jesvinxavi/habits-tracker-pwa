@@ -39,4 +39,6 @@ const crud = createCrudMutations({
 
 export const create = crud.create;
 export const update = crud.update;
+// Compatibility only for pre-archive clients cached by an older service worker.
+// Remove after 2026-10-29 once that stale-client window has closed.
 export const removeCascade = crud.remove;

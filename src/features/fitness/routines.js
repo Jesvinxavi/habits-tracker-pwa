@@ -3,6 +3,18 @@ import { generateUniqueId } from '../../shared/common.js';
 import { getLocalMidnightISOString } from '../../shared/datetime.js';
 import { getActivity, isArchivedActivity, recordActivitiesForDate } from './activities.js';
 
+let indexedRoutines = null;
+let routinesById = new Map();
+
+function ensureRoutineIndex() {
+  const routines = getState().routines;
+  if (routines !== indexedRoutines) {
+    indexedRoutines = routines;
+    routinesById = new Map(routines.map((routine) => [routine.id, routine]));
+  }
+  return routinesById;
+}
+
 /**
  * Creates a new routine — a named, ordered set of activities performed together.
  * @param {{name: string, activityIds?: string[]}} data Routine details.
@@ -49,7 +61,7 @@ export async function archiveRoutine(routineId) {
  * @param {object} routine Routine, or undefined.
  * @returns {boolean} True when it has been removed from the list.
  */
-export function isArchivedRoutine(routine) {
+function isArchivedRoutine(routine) {
   return Boolean(routine?.archivedAt);
 }
 
@@ -69,7 +81,7 @@ export function getRoutines() {
  * @returns {object|undefined} The routine, or undefined when it does not exist.
  */
 export function getRoutine(routineId) {
-  return getState().routines.find((routine) => routine.id === routineId);
+  return ensureRoutineIndex().get(routineId);
 }
 
 /**
@@ -103,14 +115,4 @@ export async function recordRoutinesForDate(routineIds, isoDate) {
     getRoutineActivities(routineId).map((activity) => activity.id)
   );
   return recordActivitiesForDate(activityIds, isoDate);
-}
-
-/**
- * Records every activity in a routine for the given date.
- * @param {string} routineId Routine client id.
- * @param {string} isoDate YYYY-MM-DD
- * @returns {Promise<{recorded: number, failed: number, blocked: boolean}>} Counts for the attempt.
- */
-export async function recordRoutineForDate(routineId, isoDate) {
-  return recordRoutinesForDate([routineId], isoDate);
 }

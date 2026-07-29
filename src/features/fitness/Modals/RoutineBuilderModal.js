@@ -2,9 +2,10 @@
 import { closeModal, openModal, topModalId } from '../../../components/Modal.js';
 import { showConfirm } from '../../../components/ConfirmDialog.js';
 import { hexToRgba } from '../../../shared/color.js';
+import { escapeAttribute, escapeHtml, normalizeHexColor } from '../../../shared/sanitize.js';
 import { getActivity, getActivityCategory } from '../activities.js';
-import { ActivityPickerModal } from './ActivityPickerModal.js';
 import { addRoutine, updateRoutine, archiveRoutine, getRoutine, getRoutineActivities } from '../routines.js';
+import { ensureFitnessModalMarkup } from '../FitnessModalMarkup.js';
 
 const MODAL_ID = 'routine-builder-modal';
 
@@ -31,6 +32,7 @@ export const RoutineBuilderModal = {
     title = 'New Routine',
     onSaved = null,
   } = {}) {
+    ensureFitnessModalMarkup(MODAL_ID);
     this._bindStaticHandlers();
     this._editRoutineId = null;
     this._onSaved = onSaved;
@@ -54,6 +56,7 @@ export const RoutineBuilderModal = {
    * @returns {void}
    */
   openEditMode(routineId, { onSaved = null } = {}) {
+    ensureFitnessModalMarkup(MODAL_ID);
     const routine = getRoutine(routineId);
     if (!routine) return;
 
@@ -138,17 +141,19 @@ export const RoutineBuilderModal = {
         const activity = getActivity(activityId);
         if (!activity) return '';
         const category = getActivityCategory(activity.categoryId);
-        const color = category?.color || '#64748B';
+        const color = normalizeHexColor(category?.color);
+        const safeActivityId = escapeAttribute(activityId);
+        const safeName = escapeHtml(activity.name);
         return `
-        <div class="routine-selected-item flex items-center px-3 py-2 rounded-xl w-full" style="border: 2.5px solid ${color}; background-color: ${hexToRgba(color, 0.05)};" data-activity-id="${activityId}">
+        <div class="routine-selected-item flex items-center px-3 py-2 rounded-xl w-full" style="border: 2.5px solid ${color}; background-color: ${hexToRgba(color, 0.05)};" data-activity-id="${safeActivityId}">
           <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 w-4 flex-shrink-0">${index + 1}</span>
           <div class="activity-icon w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center mx-2 text-xl" style="background-color: ${color}20;" aria-hidden="true">
-            ${activity.icon || category?.icon || ''}
+            ${escapeHtml(activity.icon || category?.icon || '')}
           </div>
           <div class="flex-grow text-left min-w-0">
-            <div class="font-semibold leading-tight text-gray-900 dark:text-white truncate">${activity.name}</div>
+            <div class="font-semibold leading-tight text-gray-900 dark:text-white truncate">${safeName}</div>
           </div>
-          <button class="routine-remove-activity w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-colors ml-2 flex-shrink-0" data-activity-id="${activityId}" aria-label="Remove ${activity.name}">
+          <button class="routine-remove-activity w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-colors ml-2 flex-shrink-0" data-activity-id="${safeActivityId}" aria-label="Remove ${escapeAttribute(activity.name)}">
             <span class="material-icons text-lg">close</span>
           </button>
         </div>
@@ -169,16 +174,18 @@ export const RoutineBuilderModal = {
    * @returns {void}
    */
   _openActivityPicker() {
-    ActivityPickerModal.open({
-      selectedIds: [...this._selectedIds],
-      title: 'Select Activities',
-      confirmLabel: 'Done',
-      onConfirm: (activityIds) => {
-        this._selectedIds = activityIds;
-        this._renderSelected();
-        this._updateCount();
-        this._validate();
-      },
+    import('./ActivityPickerModal.js').then(({ ActivityPickerModal }) => {
+      ActivityPickerModal.open({
+        selectedIds: [...this._selectedIds],
+        title: 'Select Activities',
+        confirmLabel: 'Done',
+        onConfirm: (activityIds) => {
+          this._selectedIds = activityIds;
+          this._renderSelected();
+          this._updateCount();
+          this._validate();
+        },
+      });
     });
   },
 

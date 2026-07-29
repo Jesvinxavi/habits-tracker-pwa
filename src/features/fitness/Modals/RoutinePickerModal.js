@@ -1,7 +1,8 @@
 // RoutinePickerModal.js - Multi-select routines to record for the selected day
 import { closeModal, openModal, topModalId } from '../../../components/Modal.js';
+import { escapeAttribute, escapeHtml } from '../../../shared/sanitize.js';
 import { getRoutines, getRoutineActivities, getRoutine } from '../routines.js';
-import { RoutineBuilderModal } from './RoutineBuilderModal.js';
+import { ensureFitnessModalMarkup } from '../FitnessModalMarkup.js';
 
 const MODAL_ID = 'routine-picker-modal';
 const INDICATOR_COLOR = '#0060C7';
@@ -33,6 +34,7 @@ export const RoutinePickerModal = {
     allowEmpty = false,
     onConfirm = null,
   } = {}) {
+    ensureFitnessModalMarkup(MODAL_ID);
     this._bindStaticHandlers();
     // Drop ids whose routine has been deleted so they never re-enter a selection.
     this._selectedIds = selectedIds.filter((id) => Boolean(getRoutine(id)));
@@ -82,7 +84,7 @@ export const RoutinePickerModal = {
       list.innerHTML = `
         <div class="flex flex-col items-center justify-center py-10 text-center space-y-2">
           <span class="material-icons text-4xl text-gray-400">search_off</span>
-          <p class="text-gray-600 dark:text-gray-400 font-medium">No routines match "${query}"</p>
+          <p class="text-gray-600 dark:text-gray-400 font-medium">No routines match "${escapeHtml(query)}"</p>
         </div>
       `;
       return;
@@ -100,7 +102,9 @@ export const RoutinePickerModal = {
       `;
       list.querySelector('#picker-create-routine-btn')?.addEventListener('click', () => {
         closeModal(MODAL_ID);
-        RoutineBuilderModal.openCreateMode();
+        import('./RoutineBuilderModal.js').then(({ RoutineBuilderModal }) => {
+          RoutineBuilderModal.openCreateMode();
+        });
       });
       return;
     }
@@ -109,16 +113,17 @@ export const RoutinePickerModal = {
       .map((routine) => {
         const count = getRoutineActivities(routine.id).length;
         const isSelected = this._selectedIds.includes(routine.id);
+        const routineId = escapeAttribute(routine.id);
         // Inset rather than an outer ring, for the same reason as the activity
         // picker: an outer ring is clipped by the scrolling list.
         const selectedEdge = isSelected ? ` style="box-shadow: inset 0 0 0 2px ${INDICATOR_COLOR};"` : '';
         return `
-        <div class="routine-card selectable-routine-item flex items-center px-3 py-3 rounded-xl w-full bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 transition-colors cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600" data-routine-id="${routine.id}" role="checkbox" aria-checked="${isSelected}" tabindex="0"${selectedEdge}>
+        <div class="routine-card selectable-routine-item flex items-center px-3 py-3 rounded-xl w-full bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 transition-colors cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600" data-routine-id="${routineId}" role="checkbox" aria-checked="${isSelected}" tabindex="0"${selectedEdge}>
           <div class="w-9 h-9 flex-shrink-0 rounded-lg bg-ios-blue/10 flex items-center justify-center mr-3">
             <span class="material-icons text-ios-blue text-xl">repeat</span>
           </div>
           <div class="flex-grow text-left min-w-0">
-            <div class="font-semibold leading-tight text-gray-900 dark:text-white truncate">${routine.name}</div>
+            <div class="font-semibold leading-tight text-gray-900 dark:text-white truncate">${escapeHtml(routine.name)}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400">${count} ${count === 1 ? 'activity' : 'activities'}</div>
           </div>
           <span class="selection-indicator w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ml-3"

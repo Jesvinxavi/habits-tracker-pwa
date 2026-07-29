@@ -2,6 +2,7 @@
 
 import { deepClone, generateUniqueId } from '../shared/common.js';
 import { getLocalMidnightISOString } from '../shared/datetime.js';
+import { normalizeHexColor } from '../shared/sanitize.js';
 import { isCloudBackend } from './dataBackend.js';
 
 // Helper to get local date without timezone issues
@@ -50,29 +51,105 @@ const initialState = {
   syncStatus: 'legacy',
 };
 
-// Application state - private for immutability
-const _appData = deepClone(initialState);
-
-// For quick dev inspection in DevTools.
-if (typeof window !== 'undefined') {
-  window.appData = _appData;
+/**
+ * Recursively freezes state in development so accidental writes fail at the
+ * call site. Production skips the walk; immutable reducer updates still provide
+ * stable references for selectors without paying a deep-freeze cost.
+ * @param {unknown} value
+ * @returns {unknown}
+ */
+function freezeForDevelopment(value) {
+  if (!import.meta.env.DEV || value === null || typeof value !== 'object' || Object.isFrozen(value)) {
+    return value;
+  }
+  Object.freeze(value);
+  Object.values(value).forEach(freezeForDevelopment);
+  return value;
 }
 
-// Public immutable state access
+const initialAppData = deepClone(initialState);
+initialAppData.habits.forEach(ensureHabitIntegrity);
+ensureHolidayIntegrity(initialAppData);
+
+// Application state - private for immutability. The root reference is replaced
+// after every committed action, allowing cheap identity-based subscriptions.
+let _appData = freezeForDevelopment(initialAppData);
+
+// A deliberately narrow hook for the legacy Playwright harness. Production and
+// cloud-authenticated builds expose no mutable application-state global.
+if (typeof window !== 'undefined' && import.meta.env.DEV && !isCloudBackend()) {
+  window.__APP_TEST__ = Object.freeze({
+    getState,
+    dispatch,
+  });
+}
+
+// Public immutable state access. The development freeze protects this shared
+// snapshot; callers must dispatch actions rather than mutating it.
 export function getState() {
-  return deepClone(_appData);
+  return _appData;
 }
 
 // Observer pattern for state changes
 export const listeners = new Set();
 
-export function subscribe(fn) {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
+/**
+ * Subscribes either to all committed state changes (`subscribe(listener)`) or
+ * to one selected slice (`subscribe(selector, listener, options)`). Slice
+ * listeners run only when their selected value changes by the equality check.
+ * @param {Function} selectorOrListener
+ * @param {Function} [listener]
+ * @param {{equalityFn?: Function, fireImmediately?: boolean}} [options]
+ * @returns {Function} Unsubscribe callback
+ */
+export function subscribe(selectorOrListener, listener, options = {}) {
+  const isSelectorSubscription = typeof listener === 'function';
+  const subscription = isSelectorSubscription
+    ? {
+        selector: selectorOrListener,
+        listener,
+        equalityFn: options.equalityFn || Object.is,
+        selected: selectorOrListener(_appData),
+      }
+    : {
+        selector: null,
+        listener: selectorOrListener,
+        equalityFn: null,
+        selected: undefined,
+      };
+
+  listeners.add(subscription);
+  if (isSelectorSubscription && options.fireImmediately) {
+    listener(subscription.selected, undefined, _appData, undefined);
+  }
+  return () => listeners.delete(subscription);
 }
 
-export function notify() {
-  listeners.forEach((fn) => fn(_appData));
+/**
+ * Notifies subscriptions independently. A broken view must not roll back an
+ * already committed reducer transition or prevent other views from updating.
+ * @param {object} [nextState]
+ * @param {object} [previousState]
+ * @param {object} [action]
+ * @returns {void}
+ */
+export function notify(nextState = _appData, previousState = _appData, action) {
+  listeners.forEach((subscription) => {
+    try {
+      if (!subscription.selector) {
+        subscription.listener(nextState, previousState, action);
+        return;
+      }
+
+      const nextSelected = subscription.selector(nextState);
+      if (subscription.equalityFn(subscription.selected, nextSelected)) return;
+      const previousSelected = subscription.selected;
+      subscription.selected = nextSelected;
+      subscription.listener(nextSelected, previousSelected, nextState, action);
+    } catch (error) {
+      console.error('Error in state subscriber:', error);
+    }
+  });
 }
 
 // Action Types - Centralized action constants
@@ -111,6 +188,7 @@ export const ActionTypes = {
   ADD_ACTIVITY: 'ADD_ACTIVITY',
   UPDATE_ACTIVITY: 'UPDATE_ACTIVITY',
   RECORD_ACTIVITY: 'RECORD_ACTIVITY',
+  RECORD_ACTIVITIES: 'RECORD_ACTIVITIES',
   DELETE_RECORDED_ACTIVITY: 'DELETE_RECORDED_ACTIVITY',
   UPDATE_RECORDED_ACTIVITY: 'UPDATE_RECORDED_ACTIVITY',
   UPDATE_ACTIVITY_CATEGORY_COLOR: 'UPDATE_ACTIVITY_CATEGORY_COLOR',
@@ -246,6 +324,10 @@ export const Actions = {
     type: ActionTypes.RECORD_ACTIVITY,
     payload: { activityId, date, data },
   }),
+  recordActivities: (date, records) => ({
+    type: ActionTypes.RECORD_ACTIVITIES,
+    payload: { date, records },
+  }),
   deleteRecordedActivity: (recordId, date) => ({
     type: ActionTypes.DELETE_RECORDED_ACTIVITY,
     payload: { recordId, date },
@@ -350,7 +432,7 @@ export function dispatch(action) {
     return action(dispatch, () => _appData);
   }
 
-  const prevState = deepClone(_appData);
+  const prevState = _appData;
 
   if (
     isCloudBackend() &&
@@ -382,17 +464,17 @@ export function dispatch(action) {
   try {
     // Apply the action to create new state
     const newState = reducer(prevState, action);
+    if (newState === prevState) return true;
 
-    // Update _appData with new state
-    Object.assign(_appData, newState);
+    // Commit before notifying. Subscribers are isolated from reducer failures
+    // and from one another, so a rendering error cannot undo valid user data.
+    _appData = freezeForDevelopment(newState);
 
     // Notify listeners
-    notify();
+    notify(_appData, prevState, action);
     return true;
   } catch (error) {
     console.error('Error dispatching action:', action, error);
-    // Restore previous state on error
-    Object.assign(_appData, prevState);
     return false;
   }
 }
@@ -401,7 +483,7 @@ export function dispatch(action) {
 function reducer(state, action) {
   switch (action.type) {
     case ActionTypes.ADD_HABIT:
-      const newHabit = action.payload;
+      const newHabit = deepClone(action.payload);
       ensureHabitIntegrity(newHabit);
       return {
         ...state,
@@ -500,7 +582,7 @@ function reducer(state, action) {
     case ActionTypes.ADD_CATEGORY:
       return {
         ...state,
-        categories: [...state.categories, action.payload],
+        categories: [...state.categories, deepClone(action.payload)],
       };
 
     case ActionTypes.UPDATE_CATEGORY:
@@ -521,18 +603,26 @@ function reducer(state, action) {
       };
 
     case ActionTypes.SET_SELECTED_DATE:
+      if (state.selectedDate === action.payload) return state;
       return {
         ...state,
         selectedDate: action.payload,
       };
 
     case ActionTypes.SET_SELECTED_GROUP:
+      if (state.selectedGroup === action.payload) return state;
       return {
         ...state,
         selectedGroup: action.payload,
       };
 
     case ActionTypes.SET_GROUP_AND_DATE:
+      if (
+        state.selectedGroup === action.payload.group &&
+        state.selectedDate === action.payload.date
+      ) {
+        return state;
+      }
       return {
         ...state,
         selectedGroup: action.payload.group,
@@ -540,12 +630,14 @@ function reducer(state, action) {
       };
 
     case ActionTypes.SET_FITNESS_SELECTED_DATE:
+      if (state.fitnessSelectedDate === action.payload) return state;
       return {
         ...state,
         fitnessSelectedDate: action.payload,
       };
 
     case ActionTypes.SET_APP_FIRST_OPEN_DATE:
+      if (state.appFirstOpenDate === action.payload) return state;
       return {
         ...state,
         appFirstOpenDate: action.payload,
@@ -560,7 +652,7 @@ function reducer(state, action) {
     case ActionTypes.ADD_HOLIDAY_PERIOD:
       return {
         ...state,
-        holidayPeriods: [...state.holidayPeriods, action.payload],
+        holidayPeriods: [...state.holidayPeriods, deepClone(action.payload)],
       };
 
     case ActionTypes.DELETE_HOLIDAY_PERIOD:
@@ -600,7 +692,7 @@ function reducer(state, action) {
     case ActionTypes.ADD_ACTIVITY:
       return {
         ...state,
-        activities: [...state.activities, action.payload],
+        activities: [...state.activities, deepClone(action.payload)],
       };
 
     case ActionTypes.UPDATE_ACTIVITY:
@@ -651,6 +743,23 @@ function reducer(state, action) {
         },
       };
 
+    case ActionTypes.RECORD_ACTIVITIES: {
+      const batchDate = String(action.payload.date).slice(0, 10);
+      const activityIds = new Set(state.activities.map((item) => item.id));
+      const batchRecords = action.payload.records
+        .filter((item) => activityIds.has(item.activityId))
+        .map((item) => ({ ...deepClone(item), date: batchDate }));
+      if (batchRecords.length === 0) return state;
+      const currentRecordedActivities = state.recordedActivities || {};
+      return {
+        ...state,
+        recordedActivities: {
+          ...currentRecordedActivities,
+          [batchDate]: [...(currentRecordedActivities[batchDate] || []), ...batchRecords],
+        },
+      };
+    }
+
     case ActionTypes.DELETE_RECORDED_ACTIVITY: {
       const { recordId, date } = action.payload;
       const records = { ...state.recordedActivities };
@@ -673,11 +782,23 @@ function reducer(state, action) {
     }
 
     case ActionTypes.UPDATE_ACTIVITY_CATEGORY_COLOR:
+      if (
+        !state.activityCategories.some(
+          (category) =>
+            category.id === action.payload.categoryId &&
+            category.color !== normalizeHexColor(action.payload.newColor, category.color)
+        )
+      ) {
+        return state;
+      }
       return {
         ...state,
         activityCategories: state.activityCategories.map((category) =>
           category.id === action.payload.categoryId
-            ? { ...category, color: action.payload.newColor }
+            ? {
+                ...category,
+                color: normalizeHexColor(action.payload.newColor, category.color),
+              }
             : category
         ),
       };
@@ -685,7 +806,7 @@ function reducer(state, action) {
     case ActionTypes.ADD_ROUTINE:
       return {
         ...state,
-        routines: [...state.routines, action.payload],
+        routines: [...state.routines, deepClone(action.payload)],
       };
 
     case ActionTypes.UPDATE_ROUTINE:
@@ -702,7 +823,7 @@ function reducer(state, action) {
     case ActionTypes.ADD_PROGRAM:
       return {
         ...state,
-        programs: [...state.programs, action.payload],
+        programs: [...state.programs, deepClone(action.payload)],
       };
 
     case ActionTypes.UPDATE_PROGRAM:
@@ -731,6 +852,9 @@ function reducer(state, action) {
       };
 
     case ActionTypes.SET_REST_DAY: {
+      if (Boolean(state.restDays[action.payload.dateKey]) === Boolean(action.payload.desired)) {
+        return state;
+      }
       const restDays = { ...state.restDays };
       if (action.payload.desired) restDays[action.payload.dateKey] = true;
       else delete restDays[action.payload.dateKey];
@@ -744,6 +868,7 @@ function reducer(state, action) {
       };
 
     case ActionTypes.SET_DARK_MODE:
+      if (state.settings.darkMode === action.payload) return state;
       return {
         ...state,
         settings: { ...state.settings, darkMode: action.payload },
@@ -771,18 +896,21 @@ function reducer(state, action) {
       return { ...state, homeSectionVisibility: { ...action.payload } };
 
     case ActionTypes.IMPORT_DATA:
-      return { ...state, ...action.payload };
+      return { ...state, ...deepClone(action.payload) };
 
     case ActionTypes.HYDRATE_CACHE:
-      return { ...state, ...action.payload };
+      return { ...state, ...deepClone(action.payload) };
 
     case ActionTypes.SET_SYNC_STATUS:
+      if (state.syncStatus === action.payload) return state;
       return { ...state, syncStatus: action.payload };
 
     case ActionTypes.APPLY_OPTIMISTIC_OPERATION:
     case ActionTypes.APPLY_REMOTE_CHANGE:
     case ActionTypes.ROLLBACK_OPERATION:
-      return action.payload?.statePatch ? { ...state, ...action.payload.statePatch } : state;
+      return action.payload?.statePatch
+        ? { ...state, ...deepClone(action.payload.statePatch) }
+        : state;
 
     case ActionTypes.CONFIRM_OPERATION: {
       const { entityType, canonicalRecord } = action.payload || {};
@@ -901,16 +1029,10 @@ export function ensureHabitIntegrity(habit) {
   }
 }
 
-// Patch existing habits right away (in case data was loaded before introduce)
-_appData.habits.forEach(ensureHabitIntegrity);
-
 export function ensureHolidayIntegrity(state = _appData) {
   if (!Array.isArray(state.holidayDates)) state.holidayDates = [];
   if (!Array.isArray(state.holidayPeriods)) state.holidayPeriods = [];
 }
 
-// Ensure defaults exist immediately
-ensureHolidayIntegrity(_appData);
-
 // Export enhanced state management utilities
-export { initialState, reducer };
+export { freezeForDevelopment, initialState, reducer };

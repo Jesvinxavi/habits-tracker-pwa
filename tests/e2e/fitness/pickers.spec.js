@@ -62,7 +62,7 @@ test.describe('add-activity picker', () => {
 
     // No details modal, nothing recorded yet.
     await expect(page.locator('#activity-details-modal')).toBeHidden();
-    expect(await page.evaluate(() => Object.values(window.appData.recordedActivities).flat().length)).toBe(0);
+    expect(await page.evaluate(() => Object.values(window.__APP_TEST__.getState().recordedActivities).flat().length)).toBe(0);
 
     const selected = tile(page, 'Cycling');
     await expect(selected).toHaveAttribute('aria-checked', 'true');
@@ -103,7 +103,7 @@ test.describe('add-activity picker', () => {
     await expect(list).toContainText('Bench Press');
 
     const recorded = await page.evaluate(() =>
-      Object.values(window.appData.recordedActivities).flat().map((r) => ({
+      Object.values(window.__APP_TEST__.getState().recordedActivities).flat().map((r) => ({
         name: r.activityName, duration: r.duration, sets: r.sets ?? null,
       }))
     );
@@ -138,7 +138,7 @@ test.describe('add-activity picker', () => {
     await page.locator('#confirm-activity-picker').click();
 
     await expect(page.locator('#global-confirm-modal')).toContainText('Rest Day');
-    expect(await page.evaluate(() => Object.values(window.appData.recordedActivities).flat().length)).toBe(0);
+    expect(await page.evaluate(() => Object.values(window.__APP_TEST__.getState().recordedActivities).flat().length)).toBe(0);
   });
 
   test('the Activities button still opens the full library', async ({ page }) => {
@@ -185,7 +185,7 @@ test.describe('add-routine picker', () => {
 
     // Every activity across both routines is recorded once.
     const recorded = await page.evaluate(() =>
-      Object.values(window.appData.recordedActivities).flat().map((r) => r.activityName).sort()
+      Object.values(window.__APP_TEST__.getState().recordedActivities).flat().map((r) => r.activityName).sort()
     );
     expect(recorded).toEqual(['Bench Press', 'Cycling', 'Treadmill Run']);
   });
@@ -241,7 +241,7 @@ test.describe('add-routine picker', () => {
     await expect(page.locator('#global-confirm-modal')).toContainText('Rest Day');
     // Exactly one dialog, not one per routine.
     await expect(page.locator('#global-confirm-modal')).toHaveCount(1);
-    expect(await page.evaluate(() => Object.values(window.appData.recordedActivities).flat().length)).toBe(0);
+    expect(await page.evaluate(() => Object.values(window.__APP_TEST__.getState().recordedActivities).flat().length)).toBe(0);
   });
 
   test('empty state still offers to create a routine', async ({ page }) => {

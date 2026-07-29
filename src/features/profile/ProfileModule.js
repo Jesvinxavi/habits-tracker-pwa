@@ -16,8 +16,11 @@ import {
   updateSyncStatusUi,
 } from '../../core/syncStatusUi.js';
 import { toggleTheme } from '../../core/theme.js';
+import { shallowArrayEqual } from '../../shared/equality.js';
 
 let unsubscribeState;
+let initialized = false;
+let profileContainer = null;
 
 function profileTemplate() {
   return `
@@ -244,14 +247,30 @@ function render(container) {
 
 export const ProfileModule = {
   async init() {
+    if (initialized) return;
     const container = document.getElementById('profile-view');
     if (!container) return;
+    profileContainer = container;
     container.innerHTML = profileTemplate();
     renderIdentity(container);
     bindEvents(container);
-    unsubscribeState?.();
-    unsubscribeState = subscribe(() => render(container));
     render(container);
+    initialized = true;
+  },
+
+  activate() {
+    if (!initialized || !profileContainer || unsubscribeState) return;
+    unsubscribeState = subscribe(
+      (state) => [state.settings, state.syncStatus],
+      () => render(profileContainer),
+      { equalityFn: shallowArrayEqual }
+    );
+    render(profileContainer);
+  },
+
+  deactivate() {
+    unsubscribeState?.();
+    unsubscribeState = null;
   },
 };
 

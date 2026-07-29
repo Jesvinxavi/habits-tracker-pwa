@@ -8,7 +8,6 @@ import { isRestDay, toggleRestDay } from './restDays.js';
 import { getState } from '../../core/state.js';
 import { getLocalISODate } from '../../shared/datetime.js';
 import { getActivitiesForDate } from './activities.js';
-import { renderActivitiesList } from './ActivityList/ActivitiesList.js';
 import { showConfirm } from '../../components/ConfirmDialog.js';
 import { mountAddMenu } from './AddMenu.js';
 
@@ -97,16 +96,12 @@ function bindRestToggle(container, onToggle) {
     // Proceed with rest day toggle if no activities are recorded
     const saved = await toggleRestDay(iso);
     if (!saved) return;
-    updateRestToggle(container);
 
     // Refresh the calendar to show/hide rest day styling
     const calEl = document.querySelector(
       '#fitness-view hh-calendar[state-key="fitnessSelectedDate"]'
     );
     calEl?.refresh?.();
-
-    // Refresh the activity list to show rest day message or activities
-    renderActivitiesList();
 
     if (onToggle) {
       onToggle(isRestDay(iso));

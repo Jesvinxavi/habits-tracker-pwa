@@ -5,9 +5,10 @@
  * Extracted from src/ui/fitness.js for better modularity
  */
 
-import { getState } from '../../../core/state.js';
 import { getActivity } from '../activities.js';
 import { formatDuration, formatLastPerformed } from '../../../shared/datetime.js';
+import { escapeHtml, normalizeHexColor } from '../../../shared/sanitize.js';
+import { getRecordedHistoryIndex } from './recordedHistory.js';
 
 /**
  * Calculates comprehensive statistics for an activity
@@ -19,14 +20,7 @@ export function calculateActivityStatistics(activityId) {
   if (!activity) return null;
 
   // Get all records for this activity across all dates
-  const allRecords = [];
-  Object.values(getState().recordedActivities || {}).forEach((dayRecords) => {
-    dayRecords.forEach((record) => {
-      if (record.activityId === activityId) {
-        allRecords.push(record);
-      }
-    });
-  });
+  const allRecords = getRecordedHistoryIndex().byActivity.get(activityId) || [];
 
   if (allRecords.length === 0) {
     return {
@@ -45,9 +39,6 @@ export function calculateActivityStatistics(activityId) {
       weeklyAverage: 0,
     };
   }
-
-  // Sort records by timestamp
-  allRecords.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
   const stats = {
     totalSessions: allRecords.length,
@@ -281,10 +272,11 @@ export function buildStatsContent(activity, stats, category) {
 
   // Best session
   if (stats.bestSession) {
+    const categoryColor = normalizeHexColor(category?.color);
     content += `
       <div class="stats-section">
         <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Best Session</h4>
-        <div class="stat-card bg-gradient-to-r from-${category.color.slice(1)} to-${category.color.slice(1)} bg-opacity-10 p-4 rounded-lg border-2" style="border-color: ${category.color}40;">
+        <div class="stat-card bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border-2" style="border-color: ${categoryColor}40;">
           ${formatBestSession(stats.bestSession, activity)}
           <div class="text-xs text-gray-500 dark:text-gray-400 mt-2">
             ${new Date(stats.bestSession.timestamp).toLocaleDateString()}
@@ -304,7 +296,7 @@ export function buildStatsContent(activity, stats, category) {
  * @param {Object} activity - The activity object
  * @returns {string} HTML string for the best session display
  */
-export function formatBestSession(session, activity) {
+function formatBestSession(session, activity) {
   if (activity.trackingType === 'sets-reps' && session.sets) {
     const totalVolume = session.sets.reduce((sum, set) => {
       const weight = parseFloat(set.value) || 0;
@@ -319,7 +311,7 @@ export function formatBestSession(session, activity) {
         ${session.sets.length} sets • ${totalVolume.toFixed(1)} volume
       </div>
       <div class="text-xs text-gray-600 dark:text-gray-300">
-        Max weight: ${maxWeight}${session.sets[0]?.unit !== 'none' ? session.sets[0]?.unit || '' : ''}
+        Max weight: ${maxWeight}${session.sets[0]?.unit !== 'none' ? escapeHtml(session.sets[0]?.unit || '') : ''}
       </div>
     `;
   } else {
@@ -341,7 +333,7 @@ export function formatBestSession(session, activity) {
 
     return `
       <div class="text-sm font-semibold text-gray-900 dark:text-white">
-        ${durationText}${session.intensity ? ` • ${session.intensity} intensity` : ''}
+        ${escapeHtml(durationText)}${session.intensity ? ` • ${escapeHtml(session.intensity)} intensity` : ''}
       </div>
       <div class="text-xs text-gray-600 dark:text-gray-300">
         ${prefersLower(activity) ? 'Quickest session' : 'Longest duration session'}
@@ -355,15 +347,10 @@ export function formatBestSession(session, activity) {
  * @param {string} activityId - The activity ID
  * @returns {string} - The weight unit (e.g., 'lbs', 'kg') or empty string
  */
-export function getWeightUnitForActivity(activityId) {
-  const allRecords = [];
-  Object.values(getState().recordedActivities || {}).forEach((dayRecords) => {
-    dayRecords.forEach((record) => {
-      if (record.activityId === activityId && record.sets) {
-        allRecords.push(record);
-      }
-    });
-  });
+function getWeightUnitForActivity(activityId) {
+  const allRecords = (getRecordedHistoryIndex().byActivity.get(activityId) || []).filter(
+    (record) => record.sets
+  );
 
   // Find the most recent record with a non-'none' unit
   for (let i = allRecords.length - 1; i >= 0; i--) {
@@ -385,18 +372,13 @@ export function getWeightUnitForActivity(activityId) {
  * @param {string} activityId The activity ID.
  * @returns {Array<{date: string, value: number}>} Progression data, oldest first.
  */
-export function extractDurationProgressionData(activityId) {
+function extractDurationProgressionData(activityId) {
   const activity = getActivity(activityId);
   if (!activity || activity.trackingType === 'sets-reps') return [];
 
-  const allRecords = [];
-  Object.values(getState().recordedActivities || {}).forEach((dayRecords) => {
-    dayRecords.forEach((record) => {
-      if (record.activityId === activityId && record.duration) allRecords.push(record);
-    });
-  });
-
-  allRecords.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const allRecords = (getRecordedHistoryIndex().byActivity.get(activityId) || []).filter(
+    (record) => record.duration
+  );
 
   return allRecords.map((record) => {
     let minutes = parseFloat(record.duration) || 0;
@@ -423,24 +405,14 @@ export function extractProgressionSeries(activity) {
   return { points: extractDurationProgressionData(activity.id), unit: 'min' };
 }
 
-export function extractStrengthProgressionData(activityId) {
+function extractStrengthProgressionData(activityId) {
   const activity = getActivity(activityId);
   if (!activity || activity.trackingType !== 'sets-reps') return [];
 
   // Flatten records similar to calculateActivityStatistics
-  const allRecords = [];
-  Object.values(getState().recordedActivities || {}).forEach((dayRecords) => {
-    dayRecords.forEach((record) => {
-      if (record.activityId === activityId) {
-        allRecords.push(record);
-      }
-    });
-  });
+  const allRecords = getRecordedHistoryIndex().byActivity.get(activityId) || [];
 
   if (allRecords.length === 0) return [];
-
-  // Sort by timestamp so earliest first
-  allRecords.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
   const progression = [];
 
@@ -474,7 +446,7 @@ export function extractStrengthProgressionData(activityId) {
  * @param {Object} activity The activity object.
  * @returns {boolean} True when lower is better.
  */
-export function prefersLower(activity) {
+function prefersLower(activity) {
   return activity?.trackingType !== 'sets-reps' && activity?.betterDirection === 'lower';
 }
 
@@ -563,7 +535,7 @@ export function shortDateLabel(iso) {
  * @param {string} [axisLabel] Y-axis title, e.g. "Max weight (kg)".
  * @returns {string} SVG markup, or an empty string with fewer than two points.
  */
-export function generateProgressChartSVG(data, color = '#3b82f6', unit = '', axisLabel = '') {
+function generateProgressChartSVG(data, color = '#3b82f6', unit = '', axisLabel = '') {
   if (!data || data.length < 2) return '';
 
   const width = 320;

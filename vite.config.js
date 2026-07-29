@@ -127,7 +127,15 @@ export default defineConfig(({ command }) => {
           manualChunks(id) {
             if (id.includes('/src/features/habits/modals/')) return 'habits-modals';
             if (id.includes('/src/features/habits/')) return 'habits-core';
-            if (id.includes('/src/features/fitness/Modals/')) return 'fitness-modals';
+            // Fitness dialogs and the timer are real interaction boundaries.
+            // Let Rollup preserve their dynamic-import chunks instead of forcing
+            // every dialog back into one eager feature bundle.
+            if (
+              id.includes('/src/features/fitness/Modals/') ||
+              id.includes('/src/features/fitness/TimerModule.js')
+            ) {
+              return undefined;
+            }
             if (id.includes('/src/features/fitness/')) return 'fitness-core';
             if (
               id.includes('/src/shared/common.js') ||
@@ -147,10 +155,10 @@ export default defineConfig(({ command }) => {
             return undefined;
           },
           chunkFileNames: (chunkInfo) => {
-            const facadeModuleId = chunkInfo.facadeModuleId
+            const facadeName = chunkInfo.facadeModuleId
               ? chunkInfo.facadeModuleId.split('/').pop().replace('.js', '')
-              : 'chunk';
-            return `assets/${facadeModuleId}-[hash].js`;
+              : null;
+            return `assets/${chunkInfo.name || facadeName || 'chunk'}-[hash].js`;
           },
           assetFileNames: (assetInfo) => {
             const info = assetInfo.name.split('.');

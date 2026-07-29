@@ -3,6 +3,7 @@ import { getActivityCategory } from '../activities.js';
 import { calculateActivityStatistics, buildStatsContent } from '../helpers/activityStats.js';
 import { getState } from '../../../core/state.js';
 import { closeModal, openModal, topModalId } from '../../../components/Modal.js';
+import { escapeHtml, normalizeHexColor } from '../../../shared/sanitize.js';
 
 const MODAL_ID = 'activity-stats-modal';
 
@@ -16,7 +17,7 @@ export const StatsModal = {
     if (!activity) return;
 
     const stats = calculateActivityStatistics(activityId);
-    const category = getActivityCategory(activity.categoryId);
+    const category = getActivityCategory(activity.categoryId) || {};
 
     this._createModal(activity, stats, category);
     this._bindCloseHandlers();
@@ -37,6 +38,7 @@ export const StatsModal = {
    * @private
    */
   _createModal(activity, stats, category) {
+    const color = normalizeHexColor(category.color);
     // z-[1004] rather than the old z-50: this modal is opened from the activity
     // details modal (z-[1002]) and the library beneath it, so anything under
     // that ladder renders behind them and looks like nothing happened.
@@ -45,11 +47,11 @@ export const StatsModal = {
         <div class="modal-content bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] flex flex-col">
           <div class="modal-header flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
             <div class="flex items-center gap-3">
-              <div class="activity-icon w-10 h-10 rounded-full flex items-center justify-center text-xl" style="background-color: ${category.color}20; color: ${category.color};">
-                ${activity.icon || category.icon}
+              <div class="activity-icon w-10 h-10 rounded-full flex items-center justify-center text-xl" style="background-color: ${color}20; color: ${color};">
+                ${escapeHtml(activity.icon || category.icon || '🎯')}
               </div>
               <div>
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${activity.name}</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${escapeHtml(activity.name)}</h3>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Activity Statistics</p>
               </div>
             </div>

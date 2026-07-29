@@ -56,7 +56,7 @@ function toKey(time) {
  * @param {string} iso Date key.
  * @returns {number} Weekday index, 0 = Sunday, or NaN for an invalid key.
  */
-export function weekdayOf(iso) {
+function weekdayOf(iso) {
   const time = toUtcTime(iso);
   return Number.isNaN(time) ? NaN : new Date(time).getUTCDay();
 }

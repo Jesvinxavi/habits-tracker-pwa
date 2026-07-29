@@ -1,7 +1,8 @@
 // RoutinesModal.js - Lists saved routines with create and edit affordances
 import { closeModal, openModal, topModalId } from '../../../components/Modal.js';
+import { escapeAttribute, escapeHtml } from '../../../shared/sanitize.js';
 import { getRoutines, getRoutineActivities } from '../routines.js';
-import { RoutineBuilderModal } from './RoutineBuilderModal.js';
+import { ensureFitnessModalMarkup } from '../FitnessModalMarkup.js';
 
 const MODAL_ID = 'routines-modal';
 
@@ -17,6 +18,7 @@ export const RoutinesModal = {
    * @returns {void}
    */
   open() {
+    ensureFitnessModalMarkup(MODAL_ID);
     this._bindStaticHandlers();
     const filter = document.getElementById('routines-filter');
     if (filter) filter.value = '';
@@ -69,7 +71,7 @@ export const RoutinesModal = {
         ? `
         <div class="flex flex-col items-center justify-center py-10 text-center space-y-2">
           <span class="material-icons text-4xl text-gray-400">search_off</span>
-          <p class="text-gray-600 dark:text-gray-400 font-medium">No routines match "${query}"</p>
+          <p class="text-gray-600 dark:text-gray-400 font-medium">No routines match "${escapeHtml(query)}"</p>
         </div>
       `
         : `
@@ -86,16 +88,17 @@ export const RoutinesModal = {
       .map((routine) => {
         // Filtered count, so a routine referencing deleted activities reports honestly.
         const count = getRoutineActivities(routine.id).length;
+        const routineId = escapeAttribute(routine.id);
         return `
-        <div class="routine-card flex items-center px-3 py-3 rounded-xl w-full bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 transition-colors cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600" data-routine-id="${routine.id}" tabindex="0">
+        <div class="routine-card flex items-center px-3 py-3 rounded-xl w-full bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 transition-colors cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600" data-routine-id="${routineId}" role="button" tabindex="0">
           <div class="w-9 h-9 flex-shrink-0 rounded-lg bg-ios-blue/10 flex items-center justify-center mr-3">
             <span class="material-icons text-ios-blue text-xl">repeat</span>
           </div>
           <div class="flex-grow text-left min-w-0">
-            <div class="font-semibold leading-tight text-gray-900 dark:text-white truncate">${routine.name}</div>
+            <div class="font-semibold leading-tight text-gray-900 dark:text-white truncate">${escapeHtml(routine.name)}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400">${count} ${count === 1 ? 'activity' : 'activities'}</div>
           </div>
-          <button class="edit-routine-btn w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ml-3" data-routine-id="${routine.id}" aria-label="Edit routine">
+          <button class="edit-routine-btn w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ml-3" data-routine-id="${routineId}" aria-label="Edit ${escapeAttribute(routine.name)}">
             <span class="material-icons text-lg">edit</span>
           </button>
         </div>
@@ -136,7 +139,9 @@ export const RoutinesModal = {
    * @returns {void}
    */
   _openEditor(routineId) {
-    RoutineBuilderModal.openEditMode(routineId, { onSaved: () => this._render() });
+    import('./RoutineBuilderModal.js').then(({ RoutineBuilderModal }) => {
+      RoutineBuilderModal.openEditMode(routineId, { onSaved: () => this._render() });
+    });
   },
 
   /**
@@ -148,7 +153,9 @@ export const RoutinesModal = {
     if (!modal || modal.dataset.listenerAttached) return;
 
     document.getElementById('new-routine-btn')?.addEventListener('click', () => {
-      RoutineBuilderModal.openCreateMode({ onSaved: () => this._render() });
+      import('./RoutineBuilderModal.js').then(({ RoutineBuilderModal }) => {
+        RoutineBuilderModal.openCreateMode({ onSaved: () => this._render() });
+      });
     });
 
     document.getElementById('close-routines-modal')?.addEventListener('click', () => {

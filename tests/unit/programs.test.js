@@ -82,6 +82,29 @@ describe('programs', () => {
     expect(program.sortOrder).toBe(0);
   });
 
+  it('memoizes progress until a relevant state branch changes', async () => {
+    const created = await addProgram({
+      name: 'Memo block',
+      startDate: '2026-07-01',
+      endDate: '2026-08-31',
+      scheduledDays: [{ dayOfWeek: 3, activityId: 'a1' }],
+    });
+    const program = getProgram(created.id);
+    const first = getProgramProgress(program);
+    expect(getProgramProgress(program)).toBe(first);
+
+    dispatch({
+      ...Actions.recordActivity('a1', '2026-07-29', {
+        id: 'memo-record',
+        activityId: 'a1',
+        date: '2026-07-29',
+        timestamp: '2026-07-29T10:00:00.000Z',
+      }),
+      meta: { source: 'test' },
+    });
+    expect(getProgramProgress(program)).not.toBe(first);
+  });
+
   it('keeps exactly one program active', async () => {
     const first = await addProgram({ name: 'One', startDate: '2026-01-01', endDate: '2026-02-01' });
     const second = await addProgram({ name: 'Two', startDate: '2026-03-01', endDate: '2026-04-01' });

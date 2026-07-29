@@ -1,6 +1,7 @@
 // CategorySection.js - Category section with expand/collapse functionality
 import { buildMuscleGroupHeader } from '../helpers/muscleHelpers.js';
 import { hexToRgba } from '../../../shared/color.js';
+import { escapeAttribute, escapeHtml, normalizeHexColor } from '../../../shared/sanitize.js';
 
 /**
  * Builds a category section with collapsible header and activities
@@ -17,18 +18,23 @@ export function buildCategorySection(
   collapsed = false
 ) {
   const categoryId = `search-category-${category.id}`;
+  const safeCategoryId = escapeAttribute(category.id);
+  const safeSectionId = escapeAttribute(categoryId);
+  const color = normalizeHexColor(category.color);
+  const icon = escapeHtml(category.icon || '🎯');
+  const name = escapeHtml(category.name || '');
 
   // Build expand/collapse button. The chevron points right while collapsed, the
   // same -90deg rotation toggleSearchCategory animates to.
   const expandBtn = `
-    <button class="search-expand-btn h-5 w-5 flex items-center justify-center text-black" data-category-id="${category.id}" aria-expanded="${!collapsed}">
+    <button class="search-expand-btn h-5 w-5 flex items-center justify-center text-black" data-category-id="${safeCategoryId}" aria-expanded="${!collapsed}">
       <span class="material-icons transition-transform leading-none"${collapsed ? ' style="transform: rotate(-90deg);"' : ''}>expand_more</span>
     </button>
   `;
 
   // Build edit button matching habits page style
   const editBtn = `
-    <button class="search-edit-category-btn w-8 h-8 rounded-full flex items-center justify-center ml-2" data-category-id="${category.id}" style="background-color:${category.color}">
+    <button class="search-edit-category-btn w-8 h-8 rounded-full flex items-center justify-center ml-2" data-category-id="${safeCategoryId}" style="background-color:${color}">
       <span class="material-icons text-white text-lg">edit</span>
     </button>
   `;
@@ -60,12 +66,12 @@ export function buildCategorySection(
   }
 
   return `
-    <div class="search-category-section mb-4${collapsed ? ' collapsed' : ''}" data-category-id="${category.id}" id="${categoryId}">
+    <div class="search-category-section mb-4${collapsed ? ' collapsed' : ''}" data-category-id="${safeCategoryId}" id="${safeSectionId}">
       <div class="flex items-center gap-2">
-        <div class="search-category-header flex items-center justify-between px-4 py-2 rounded-xl cursor-pointer select-none flex-grow" style="background:${hexToRgba(category.color, 0.25)};">
+        <div class="search-category-header flex items-center justify-between px-4 py-2 rounded-xl cursor-pointer select-none flex-grow" style="background:${hexToRgba(color, 0.25)};">
           <div class="category-title flex items-center gap-2">
-            <span class="text-base" aria-hidden="true">${category.icon}</span>
-            <span class="font-semibold text-base leading-none text-gray-900 dark:text-white">${category.name}</span>
+            <span class="text-base" aria-hidden="true">${icon}</span>
+            <span class="font-semibold text-base leading-none text-gray-900 dark:text-white">${name}</span>
           </div>
           ${expandBtn}
         </div>
@@ -85,16 +91,20 @@ export function buildCategorySection(
  * @returns {string} HTML string for the activity tile
  */
 function buildActivityTile(activity, category) {
+  const color = normalizeHexColor(category.color);
+  const activityId = escapeAttribute(activity.id);
+  const icon = escapeHtml(activity.icon || category.icon || '🎯');
+  const name = escapeHtml(activity.name || '');
   // No stats or edit buttons: the whole tile opens the activity's details, and
   // both actions live in there instead.
   return `
     <div style="margin-bottom: 0.125rem;">
-      <div class="search-activity-item activity-card flex items-center px-3 py-2 rounded-xl w-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-ios-blue" style="border: 2.5px solid ${category.color}; background-color: ${hexToRgba(category.color, 0.05)};" data-activity-id="${activity.id}">
-        <div class="activity-icon w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center mr-3 text-xl" style="background-color: ${category.color}20;" aria-hidden="true">
-          ${activity.icon || category.icon}
+      <div class="search-activity-item activity-card flex items-center px-3 py-2 rounded-xl w-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-ios-blue" style="border: 2.5px solid ${color}; background-color: ${hexToRgba(color, 0.05)};" data-activity-id="${activityId}" role="button" tabindex="0">
+        <div class="activity-icon w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center mr-3 text-xl" style="background-color: ${color}20;" aria-hidden="true">
+          ${icon}
         </div>
         <div class="activity-content flex-grow text-left min-w-0">
-          <div class="activity-name font-semibold leading-tight text-gray-900 dark:text-white truncate">${activity.name}</div>
+          <div class="activity-name font-semibold leading-tight text-gray-900 dark:text-white truncate">${name}</div>
         </div>
         <span class="material-icons text-lg text-gray-400 flex-shrink-0 ml-3" aria-hidden="true">chevron_right</span>
       </div>
@@ -106,8 +116,8 @@ function buildActivityTile(activity, category) {
  * Toggles category collapse/expand in search section
  * @param {string} categoryId - The category ID to toggle
  */
-export function toggleSearchCategory(categoryId) {
-  const section = document.querySelector(`#search-category-${categoryId}`);
+function toggleSearchCategory(categoryId) {
+  const section = document.getElementById(`search-category-${categoryId}`);
   if (!section) return;
 
   const contentDiv = section.querySelector('.search-category-content');
@@ -180,7 +190,7 @@ export function bindCategorySectionEvents(content, onColorChange, onToggle = nul
   const toggle = (categoryId) => {
     toggleSearchCategory(categoryId);
     if (!onToggle) return;
-    const section = content.querySelector(`#search-category-${categoryId}`);
+    const section = document.getElementById(`search-category-${categoryId}`);
     onToggle(categoryId, !section?.classList.contains('collapsed'));
   };
 

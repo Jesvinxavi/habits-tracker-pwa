@@ -21,25 +21,42 @@ import {
 import { formatDuration } from '../../shared/datetime.js';
 import { isHoliday } from '../../features/holidays/holidays.js';
 import { isRestDay } from '../../features/fitness/restDays.js';
+import { getRecordedHistoryIndex } from '../fitness/helpers/recordedHistory.js';
 
 // Current stats view state - 'habits' or 'fitness'
 let currentStatsView = 'habits';
 let activeCarouselInterval = null;
+let unsubscribeState = null;
+let initialized = false;
 
 /**
  * Initializes the stats view with all its components
  */
 export function initializeStats() {
+  if (initialized) return;
   buildHeader();
   buildStatsContainer();
 
-  // Subscribe to state changes for reactive updates
-  subscribe(() => {
-    renderStatsContent();
-  });
-
   // Initial render
   renderStatsContent();
+  initialized = true;
+}
+
+export function activate() {
+  if (!initialized || unsubscribeState) return;
+  unsubscribeState = subscribe(() => {
+    renderStatsContent();
+  });
+  renderStatsContent();
+}
+
+export function deactivate() {
+  unsubscribeState?.();
+  unsubscribeState = null;
+  if (activeCarouselInterval) {
+    clearInterval(activeCarouselInterval);
+    activeCarouselInterval = null;
+  }
 }
 
 /**
@@ -574,6 +591,7 @@ function calculateFitnessStatistics() {
   // library, so they are not counted as activities the user has.
   const activities = (getState().activities || []).filter((activity) => !activity.archivedAt);
   const recordedActivities = getState().recordedActivities || {};
+  const history = getRecordedHistoryIndex(recordedActivities);
 
   const stats = {
     totalActivities: activities.length,
@@ -588,8 +606,7 @@ function calculateFitnessStatistics() {
   };
 
   // Calculate from recorded activities
-  Object.values(recordedActivities).forEach((dayRecords) => {
-    dayRecords.forEach((record) => {
+  history.allRecords.forEach((record) => {
       stats.totalSessions++;
 
       // Track categories
@@ -607,14 +624,13 @@ function calculateFitnessStatistics() {
         }
         stats.totalDuration += durationInMinutes;
       }
-    });
   });
 
   // Calculate recent sessions (last 30 days)
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  Object.entries(recordedActivities).forEach(([dateStr, dayRecords]) => {
+  history.byDate.forEach((dayRecords, dateStr) => {
     const recordDate = new Date(dateStr);
     if (recordDate >= thirtyDaysAgo) {
       stats.recentSessions += dayRecords.length;
@@ -1208,7 +1224,6 @@ function initializeHabitCompletionCarousel() {
   let currentSlide = 0;
   let touchStartX = 0;
   let touchEndX = 0;
-  let autoScrollInterval = null;
   function updateActiveSlide(index) {
     if (index < 0 || index >= slides.length) return;
     currentSlide = index;
@@ -1283,15 +1298,17 @@ function initializeHabitCompletionCarousel() {
   }
   carousel.style.cursor = 'grab';
   // --- Autoscroll ---
-  if (autoScrollInterval) clearInterval(autoScrollInterval);
-  autoScrollInterval = setInterval(() => {
+  if (activeCarouselInterval) clearInterval(activeCarouselInterval);
+  activeCarouselInterval = setInterval(() => {
     nextSlide();
   }, 30000);
   carousel.addEventListener('mouseenter', () => {
-    if (autoScrollInterval) clearInterval(autoScrollInterval);
+    if (activeCarouselInterval) clearInterval(activeCarouselInterval);
+    activeCarouselInterval = null;
   });
   carousel.addEventListener('mouseleave', () => {
-    autoScrollInterval = setInterval(() => {
+    if (activeCarouselInterval) clearInterval(activeCarouselInterval);
+    activeCarouselInterval = setInterval(() => {
       nextSlide();
     }, 30000);
   });

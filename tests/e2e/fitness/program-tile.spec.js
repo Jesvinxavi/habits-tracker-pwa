@@ -27,7 +27,7 @@ async function setup(page, pct) {
     const want = Math.round((targetPct / 100) * planned.length);
     for (const d of past.slice(0, want)) await recordActivity(a.id, d, {});
   }, pct);
-  await page.waitForTimeout(900);
+  await expect(page.locator('#program-tile')).toBeVisible();
 }
 
 function contrastFns() {
@@ -72,7 +72,7 @@ test('filled tile keeps every label above AA in dark mode', async ({ page }) => 
     const { toggleTheme } = await import('/src/core/theme.js');
     await toggleTheme();
   });
-  await page.waitForTimeout(700);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   const result = await page.evaluate('(() => {' + contrastFns() + `
     const tile = document.querySelector('#program-tile');
     const cardBg = parse(getComputedStyle(document.body).backgroundColor);
@@ -97,8 +97,9 @@ test('filled tile keeps every label above AA in dark mode', async ({ page }) => 
 test('fill tracks the percentage and there is no separate bar', async ({ page }) => {
   await setup(page, 0);
   const tile = page.locator('#program-tile');
-  await expect(tile).toHaveAttribute('role', 'progressbar');
-  await expect(tile).toHaveAttribute('aria-valuenow', '0');
+  const progress = tile.getByRole('progressbar');
+  await expect(tile).toHaveRole('button');
+  await expect(progress).toHaveAttribute('aria-valuenow', '0');
   await expect(tile.locator('.program-tile-fill')).toHaveCount(1);
   const zero = await tile.locator('.program-tile-fill').getAttribute('style');
   expect(zero).toContain('0%');
@@ -116,9 +117,9 @@ test('fill tracks the percentage and there is no separate bar', async ({ page })
     for (const d of past) await recordActivity(getState().activities[0].id, d, {});
   });
 
-  await expect(tile).not.toHaveAttribute('aria-valuenow', '0');
+  await expect(progress).not.toHaveAttribute('aria-valuenow', '0');
   const after = await tile.locator('.program-tile-fill').getAttribute('style');
   expect(after).not.toContain(' 0%');
-  const valueText = await tile.getAttribute('aria-valuetext');
+  const valueText = await progress.getAttribute('aria-valuetext');
   expect(valueText).toMatch(/\d+ of \d+ workouts completed/);
 });

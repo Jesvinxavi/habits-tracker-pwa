@@ -2,7 +2,6 @@ import { openModal, closeModal } from '../../../components/Modal.js';
 import { initializeTimePicker } from '../utils/HabitFormPickers.js';
 import { dispatch, Actions } from '../../../core/state.js';
 import { generateUniqueId } from '../../../shared/common.js';
-import { renderHabitsList } from '../HabitsListModule.js';
 import { getState } from '../../../core/state.js';
 import { initIconPicker, getSelectedIcon, setSelectedIcon } from './HabitIconPicker.js';
 import {
@@ -22,6 +21,7 @@ import {
 } from '../utils/HabitFrequencySection.js';
 import { initTargetSection, updateTargetExample } from '../utils/HabitTargetSection.js';
 import { showConfirm } from '../../../components/ConfirmDialog.js';
+import { getLocalMidnightISOString } from '../../../shared/datetime.js';
 
 let editingHabitId = null;
 let formInitialized = false;
@@ -394,9 +394,6 @@ async function handleSaveHabit() {
   const defaultIncInput = document.getElementById('default-increment-input');
   const defaultIncVal = defaultIncInput ? parseInt(defaultIncInput.value || '1', 10) : 1;
 
-  // Import timezone-safe date helper
-  const { getLocalMidnightISOString } = await import('../../../shared/datetime.js');
-  
   const habitObj = {
     id: generateUniqueId(),
     name: data.name,
@@ -477,7 +474,6 @@ async function handleSaveHabit() {
   }
 
   closeAddHabitModal();
-  renderHabitsList();
 }
 
 // Ensure delete button exists in modal footer
@@ -505,7 +501,6 @@ function deleteHabit() {
       const saved = await dispatch(Actions.deleteHabit(editingHabitId));
       if (!saved) return;
       closeAddHabitModal();
-      renderHabitsList();
     },
   });
 }

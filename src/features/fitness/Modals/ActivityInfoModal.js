@@ -1,8 +1,11 @@
 // ActivityInfoModal.js - Read-only overview of one activity
 import { closeModal, isModalOpen, openModal, topModalId } from '../../../components/Modal.js';
 import { subscribe } from '../../../core/state.js';
+import { shallowArrayEqual } from '../../../shared/equality.js';
+import { normalizeHexColor } from '../../../shared/sanitize.js';
 import { getActivity, getActivityCategory, updateActivity } from '../activities.js';
 import { buildProgressCard } from '../helpers/activityStats.js';
+import { ensureFitnessModalMarkup } from '../FitnessModalMarkup.js';
 
 const MODAL_ID = 'activity-info-modal';
 // Long enough that typing a sentence commits once rather than per keystroke,
@@ -34,6 +37,7 @@ export const ActivityInfoModal = {
    */
   open(activityId, callbacks = {}) {
     if (!getActivity(activityId)) return;
+    ensureFitnessModalMarkup(MODAL_ID);
 
     this._bindStaticHandlers();
     this._activityId = activityId;
@@ -43,9 +47,13 @@ export const ActivityInfoModal = {
     // Recording from this modal changes the chart underneath it, so keep the
     // view live while it is open and drop the listener on close.
     if (!this._unsubscribe) {
-      this._unsubscribe = subscribe(() => {
-        if (isModalOpen(MODAL_ID)) this._render({ keepNotes: true });
-      });
+      this._unsubscribe = subscribe(
+        (state) => [state.activities, state.activityCategories, state.recordedActivities],
+        () => {
+          if (isModalOpen(MODAL_ID)) this._render({ keepNotes: true });
+        },
+        { equalityFn: shallowArrayEqual }
+      );
     }
 
     openModal(MODAL_ID);
@@ -86,7 +94,7 @@ export const ActivityInfoModal = {
     const icon = document.getElementById('activity-info-icon');
     if (icon) {
       icon.textContent = activity.icon || category.icon || '🎯';
-      icon.style.backgroundColor = `${category.color || '#3b82f6'}20`;
+      icon.style.backgroundColor = `${normalizeHexColor(category.color, '#3B82F6')}20`;
     }
 
     const name = document.getElementById('activity-info-name');
@@ -162,17 +170,6 @@ export const ActivityInfoModal = {
       if (topModalId() !== MODAL_ID) return;
       event.preventDefault();
       this.close();
-    });
-
-    // An edit that renames or recolours the activity should show through here.
-    document.addEventListener('modalClosed', (event) => {
-      if (event.detail?.modalId !== 'add-activity-modal') return;
-      if (isModalOpen(MODAL_ID)) this._render({ keepNotes: true });
-    });
-
-    // Deleting the activity from the editor leaves nothing to describe.
-    document.addEventListener('ActivityDeleted', () => {
-      if (isModalOpen(MODAL_ID)) this.close();
     });
 
     modal.dataset.listenerAttached = 'true';

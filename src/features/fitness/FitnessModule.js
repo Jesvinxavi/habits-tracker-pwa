@@ -1,7 +1,6 @@
 // FitnessModule.js - Main entry point for the modular fitness feature
 import { FitnessView } from './FitnessView.js';
-import { Modals } from './FitnessModals.js';
-import { Timer } from './TimerModule.js';
+import { Modals, prefetchFitnessModal } from './FitnessModals.js';
 import { getState, dispatch, Actions, subscribe } from '../../core/state.js';
 import { getLocalMidnightISOString, getLocalISODate } from '../../shared/datetime.js';
 import { FitnessCalendar } from './FitnessCalendar.js';
@@ -10,10 +9,24 @@ import { recordRoutinesForDate } from './routines.js';
 import { renderProgramTile } from './ProgramTile.js';
 import { addProgramRoutinesToDate } from './programs.js';
 import { showConfirm } from '../../components/ConfirmDialog.js';
-import { isCloudBackend } from '../../core/dataBackend.js';
+import { shallowArrayEqual } from '../../shared/equality.js';
 
 // Flag to prevent double-initialisation when the module is imported twice (eagerly at boot and lazily via navigation)
 let _initialized = false;
+let _active = false;
+let _unsubscribe = null;
+
+function renderFitnessState() {
+  FitnessView.renderActivities((activityId, record) => {
+    if (record) {
+      Modals.openActivityDetailsWithRecord(activityId, record);
+    } else {
+      handleActivityClick(activityId);
+    }
+  });
+  renderProgramTile();
+  FitnessView.updateRestToggle();
+}
 
 /**
  * Opens the record modal. The rest-day guard lives inside that modal, so every
@@ -109,7 +122,11 @@ function buildAddMenuActions() {
     onAddProgramDay: () => void addProgramDayToSelectedDate(),
     onSaveAsRoutine: () => openSaveTodayAsRoutine(),
     onNewProgram: () => Modals.openProgramBuilder({ onSaved: () => renderProgramTile() }),
-    onTimer: () => Timer.openModal(),
+    onTimer: () =>
+      import('./TimerModule.js').then(({ Timer }) => {
+        Timer.bindEvents();
+        Timer.openModal();
+      }),
   };
 }
 
@@ -123,12 +140,6 @@ export async function initializeFitness() {
     return;
   }
   _initialized = true;
-
-  // Clean up any fitness categories that accidentally got mixed into habits categories
-  cleanupFitnessFromHabitsCategories();
-
-  // Clear any existing activities to ensure no prepopulated activities
-  clearExistingActivities();
 
   // Ensure fitness always starts on today when initialized
   const today = new Date();
@@ -161,17 +172,21 @@ export async function initializeFitness() {
       // dependent controls only.
       FitnessView.updateRestToggle();
     },
-    onRestToggle: () => {
-      // We just need to refresh the calendar and activity list to reflect the changes
-      // Refresh the activity list to show rest day message or activities
-      FitnessView.renderActivities((activityId, record) => {
-        if (record) {
-          Modals.openActivityDetailsWithRecord(activityId, record);
-        } else {
-          handleActivityClick(activityId);
-        }
-      });
-    },
+    onRestToggle: () => {},
+  });
+
+  [
+    ['fitness-activity-btn', 'activityLibrary'],
+    ['fitness-routines-btn', 'routines'],
+    ['fitness-add-menu-btn', 'activityPicker'],
+  ].forEach(([id, modalName]) => {
+    const trigger = document.getElementById(id);
+    trigger?.addEventListener('pointerdown', () => prefetchFitnessModal(modalName), {
+      once: true,
+    });
+    trigger?.addEventListener('pointerenter', () => prefetchFitnessModal(modalName), {
+      once: true,
+    });
   });
 
   // After calendar mount and storage-hydration event, center the calendar
@@ -180,102 +195,9 @@ export async function initializeFitness() {
     FitnessCalendar.scrollToSelected({ instant: true });
   }
 
-  // Subscribe to state changes for reactive updates
-  let lastFitnessDate = getState().fitnessSelectedDate;
-  subscribe(() => {
-    FitnessView.renderActivities((activityId, record) => {
-      if (record) {
-        Modals.openActivityDetailsWithRecord(activityId, record);
-      } else {
-        handleActivityClick(activityId);
-      }
-    });
-    // A single small template, so a plain re-render on any state change is cheap
-    // enough and keeps the tile honest as records, rest days and programs change.
-    renderProgramTile();
-    // Only update rest toggle if the selected date changed
-    if (getState().fitnessSelectedDate !== lastFitnessDate) {
-      lastFitnessDate = getState().fitnessSelectedDate;
-      FitnessView.updateRestToggle();
-    }
-  });
-
   // Initial render
-  FitnessView.renderActivities((activityId, record) => {
-    if (record) {
-      Modals.openActivityDetailsWithRecord(activityId, record);
-    } else {
-      handleActivityClick(activityId);
-    }
-  });
+  renderFitnessState();
 
-  // Render the program tile for the active program, if there is one
-  renderProgramTile();
-
-  // Set up responsive behavior
-  FitnessView.setupResponsiveBehavior();
-
-  // Initialize timer event handlers
-  Timer.bindEvents();
-
-  // Listen for activity recorded events
-  document.addEventListener('ActivityRecorded', () => {
-    FitnessView.renderActivities((activityId, record) => {
-      if (record) {
-        Modals.openActivityDetailsWithRecord(activityId, record);
-      } else {
-        handleActivityClick(activityId);
-      }
-    });
-  });
-}
-
-/**
- * Cleans up any fitness categories that accidentally got mixed into habits categories
- */
-function cleanupFitnessFromHabitsCategories() {
-  if (isCloudBackend()) return;
-  if (localStorage.getItem('habitsAppFitnessMigrationV1') === 'true') {
-    return;
-  }
-  
-  dispatch((dispatch, getState) => {
-    const state = getState();
-    const categories = state.categories.filter((cat) => !cat.id.startsWith('fitness-'));
-    
-    const activityCategories = [
-      { id: 'cardio', name: 'Cardio', icon: '❤️', color: '#ef4444' },
-      { id: 'strength', name: 'Strength', icon: '💪', color: '#3b82f6' },
-      { id: 'stretching', name: 'Stretching', icon: '🧘‍♀️', color: '#10b981' },
-      { id: 'sports', name: 'Sports', icon: '⚽', color: '#f59e0b' },
-      { id: 'other', name: 'Other', icon: '🎯', color: '#eab308' },
-    ];
-    
-    dispatch(Actions.importData({ categories, activityCategories }));
-  });
-  
-  localStorage.setItem('habitsAppFitnessMigrationV1', 'true');
-}
-
-/**
- * Clears only system-generated sample activities while preserving user-created activities
- */
-function clearExistingActivities() {
-  if (isCloudBackend()) return;
-  if (localStorage.getItem('habitsAppFitnessMigrationV1') === 'true') {
-    return;
-  }
-  
-  // List of known sample activity names that should be removed
-  const sampleActivityNames = ['Running', 'Push-ups', 'Squats', 'Yoga', 'Basketball', 'Swimming'];
-
-  dispatch((dispatch, getState) => {
-    const state = getState();
-    const activities = state.activities.filter((activity) => !sampleActivityNames.includes(activity.name));
-    dispatch(Actions.importData({ activities }));
-  });
-  
-  localStorage.setItem('habitsAppFitnessMigrationV1', 'true');
 }
 
 /**
@@ -285,6 +207,35 @@ export async function init() {
   await initializeFitness();
 }
 
+export function activate() {
+  _active = true;
+  if (!_initialized || _unsubscribe) return;
+  _unsubscribe = subscribe(
+    (state) => [
+      state.activities,
+      state.activityCategories,
+      state.recordedActivities,
+      state.routines,
+      state.programs,
+      state.restDays,
+      state.fitnessSelectedDate,
+    ],
+    () => {
+      if (_active) renderFitnessState();
+    },
+    { equalityFn: shallowArrayEqual }
+  );
+  renderFitnessState();
+}
+
+export function deactivate() {
+  _active = false;
+  _unsubscribe?.();
+  _unsubscribe = null;
+}
+
 export const FitnessModule = {
   init,
+  activate,
+  deactivate,
 };

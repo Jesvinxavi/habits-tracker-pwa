@@ -43,7 +43,7 @@ test('routine-added card accepts metrics and shows pills', async ({ page }) => {
   const updated = page.locator('#activities-list .activity-card').first();
   await expect(updated).toContainText('30');
   const stored = await page.evaluate(() =>
-    Object.values(window.appData.recordedActivities).flat().map((r) => ({ d: r.duration, u: r.durationUnit }))
+    Object.values(window.__APP_TEST__.getState().recordedActivities).flat().map((r) => ({ d: r.duration, u: r.durationUnit }))
   );
   expect(stored).toEqual([{ d: 30, u: 'minutes' }]);
 });

@@ -6,7 +6,11 @@
  * / new month / new year depending on the active group.
  */
 import { getState, dispatch, Actions } from '../core/state.js';
-import { isSamePeriod, getNextPeriodStart } from '../shared/datetime.js';
+import {
+  getLocalMidnightISOString,
+  getNextPeriodStart,
+  isSamePeriod,
+} from '../shared/datetime.js';
 import { invalidatePillsCache } from './home/components/HomeProgressPills.js';
 
 function alignSelectedAndScheduleNext() {
@@ -18,10 +22,8 @@ function alignSelectedAndScheduleNext() {
   // Align date if it's out of the current period
   if (!isSamePeriod(now, sel, group)) {
     // Use timezone-safe local midnight ISO to prevent timezone issues
-    import('../shared/datetime.js').then(({ getLocalMidnightISOString }) => {
-      dispatch(Actions.setSelectedDate(getLocalMidnightISOString(now)));
-      invalidatePillsCache();
-    });
+    dispatch(Actions.setSelectedDate(getLocalMidnightISOString(now)));
+    invalidatePillsCache();
   }
 
   // Schedule the next check

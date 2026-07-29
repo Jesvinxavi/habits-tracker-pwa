@@ -154,11 +154,11 @@ test.describe('record activity modal', () => {
       const { getLocalISODate } = await import('/src/shared/datetime.js');
       const today = getLocalISODate(new Date());
       return {
-        onToday: (window.appData.recordedActivities[today] || []).length,
-        otherDays: Object.entries(window.appData.recordedActivities)
+        onToday: (window.__APP_TEST__.getState().recordedActivities[today] || []).length,
+        otherDays: Object.entries(window.__APP_TEST__.getState().recordedActivities)
           .filter(([date, records]) => date !== today && records.length > 0)
           .map(([date]) => date),
-        selected: getLocalISODate(window.appData.fitnessSelectedDate),
+        selected: getLocalISODate(window.__APP_TEST__.getState().fitnessSelectedDate),
         today,
       };
     });
@@ -214,7 +214,7 @@ test.describe('record activity modal', () => {
     await expect
       .poll(() =>
         page.evaluate(() =>
-          Object.values(window.appData.recordedActivities)
+          Object.values(window.__APP_TEST__.getState().recordedActivities)
             .flat()
             .map((r) => r.sets?.[0]?.reps ?? null)
             .sort((a, b) => a - b)
@@ -360,7 +360,7 @@ test.describe('record activity modal', () => {
     await expect
       .poll(() =>
         page.evaluate(
-          () => window.appData.activities.find((a) => a.name === '5k Run')?.betterDirection
+          () => window.__APP_TEST__.getState().activities.find((a) => a.name === '5k Run')?.betterDirection
         )
       )
       .toBe('lower');

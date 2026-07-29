@@ -11,6 +11,7 @@ import { LapList } from './LapList.js';
 export const TimerModal = {
   // Timer modal update interval
   _updateInterval: null,
+  _eventsBound: false,
 
   /**
    * Opens the timer modal
@@ -37,15 +38,6 @@ export const TimerModal = {
   close() {
     // Stop update interval
     this._stopUpdateInterval();
-
-    // Remove escape key listener if it exists
-    const modal = document.getElementById('timer-modal');
-    if (modal && modal._escapeHandler) {
-      document.removeEventListener('keydown', modal._escapeHandler);
-      modal._escapeHandler = null;
-    }
-
-    // Update timer button state when closing modal
 
     // Close modal
     closeModal('timer-modal');
@@ -114,6 +106,9 @@ export const TimerModal = {
    * Binds all event handlers for the timer modal
    */
   bindEvents() {
+    if (this._eventsBound) return;
+    this._eventsBound = true;
+
     // Close button
     const closeBtn = document.getElementById('close-timer-modal');
     if (closeBtn) {
@@ -139,22 +134,6 @@ export const TimerModal = {
       });
     }
 
-    // Escape key to close modal
-    const handleEscapeKey = (e) => {
-      if (e.key === 'Escape') {
-        const timerModal = document.getElementById('timer-modal');
-        if (timerModal && !timerModal.classList.contains('hidden')) {
-          this.close();
-        }
-      }
-    };
-
-    // Add escape key listener (will be removed when modal closes)
-    document.addEventListener('keydown', handleEscapeKey);
-
-    // Store reference to remove listener later
-    if (modal) {
-      modal._escapeHandler = handleEscapeKey;
-    }
+    // Escape, focus containment and focus restoration are owned by Modal.js.
   },
 };

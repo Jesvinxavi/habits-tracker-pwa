@@ -58,7 +58,7 @@
     </div>
 
     <div class="app-container w-full h-screen bg-ios-bg dark:bg-ios-bg-dark overflow-hidden flex flex-col">
-        <main class="content-area pb-20 w-full flex flex-col flex-grow">
+        <main class="content-area pb-20 w-full min-h-0 flex flex-col flex-grow">
             <!-- Home View -->
             <div id="home-view" class="view active-view w-full h-full flex flex-col overflow-hidden">
                 <!-- App Header -->
@@ -153,7 +153,7 @@
             </div>
 
             <!-- Fitness View -->
-            <div id="fitness-view" class="view hidden w-full h-full flex flex-col overflow-hidden"></div>
+            <div id="fitness-view" class="view hidden w-full h-full min-h-0 flex flex-col overflow-hidden"></div>
 
             <!-- Stats View -->
             <div id="stats-view" class="view hidden w-full h-full flex flex-col overflow-hidden"></div>
@@ -751,7 +751,10 @@
       </div>
     </div>
 
-
+    <!-- Fitness modal shells are inert until the Fitness feature is first
+         activated. This keeps hundreds of hidden controls out of the startup
+         DOM while preserving the existing, reviewed markup. -->
+    <template id="fitness-modal-markup">
     <!-- Activity Library Modal -->
     <div id="activity-library-modal" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[1001] hidden flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div class="modal-content glass dark:glass-dark rounded-2xl w-full max-w-md mx-auto overflow-hidden max-h-[85vh] shadow-2xl border border-white/20 dark:border-gray-700/50 transform transition-all duration-300 scale-95 opacity-0 modal-animate flex flex-col">
@@ -1328,6 +1331,7 @@
         </div>
       </div>
     </div>
+    </template>
 
     <!-- Templates for startup-only view spinners -->
     <template id="home-loading-spinner">

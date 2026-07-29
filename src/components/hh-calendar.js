@@ -4,6 +4,7 @@
 
 import { mountCalendar } from '../features/home/calendar.js';
 import { getState, dispatch, Actions } from '../core/state.js';
+import { getLocalMidnightISOString } from '../shared/datetime.js';
 
 export class HHCalendar extends HTMLElement {
   constructor() {
@@ -315,7 +316,6 @@ export class HHCalendar extends HTMLElement {
   /* -------------- Override calendar API -------------- */
   async setDate(date, { smooth = false } = {}) {
     const stateKey = this.getAttribute('state-key') || 'currentDate';
-    const { getLocalMidnightISOString } = await import('../shared/datetime.js');
     if (stateKey === 'fitnessSelectedDate') {
       await dispatch(Actions.setFitnessSelectedDate(getLocalMidnightISOString(date)));
     } else {

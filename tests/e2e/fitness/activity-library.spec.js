@@ -124,9 +124,8 @@ test.describe('activity library modal', () => {
     const modalBox = page.locator('#activity-library-modal .modal-content');
 
     await expect(clear).toBeHidden();
-    // Let the shared modal open-animation settle before measuring, otherwise the
-    // comparison picks up the scale transition rather than any filter-driven growth.
-    await page.waitForTimeout(500);
+    // Wait for the shared modal animation rather than sleeping for its duration.
+    await expect(modalBox).toHaveCSS('opacity', '1');
     const boxBefore = await modalBox.boundingBox();
 
     await filter.fill('bench');
@@ -184,7 +183,6 @@ test.describe('activity library modal', () => {
 
     await section.locator('.search-expand-btn').click();
     await expect(section).toHaveClass(/collapsed/);
-    await page.waitForTimeout(450);
     await expect(contentDiv).toBeHidden();
   });
 
@@ -323,7 +321,7 @@ test.describe('activity library modal', () => {
     await expect
       .poll(() =>
         page.evaluate(
-          () => window.appData.activities.find((a) => a.name === 'Treadmill Run').notes
+          () => window.__APP_TEST__.getState().activities.find((a) => a.name === 'Treadmill Run').notes
         )
       )
       .toBe('Left knee twinges');

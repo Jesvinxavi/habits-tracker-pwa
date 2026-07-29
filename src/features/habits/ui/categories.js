@@ -108,7 +108,6 @@ async function addNewCategory() {
   window._preselectCategoryId = newCat.id;
   closeAddCategoryModal();
   populateCategoryDropdown();
-  import('../HabitsListModule.js').then((m) => m.renderHabitsList());
 }
 
 async function updateCategory() {
@@ -125,7 +124,6 @@ async function updateCategory() {
   if (!saved) return;
   closeEditCategoryModal();
   populateCategoryDropdown();
-  import('../HabitsListModule.js').then((m) => m.renderHabitsList());
 }
 
 function deleteCategory() {
@@ -143,7 +141,6 @@ function deleteCategory() {
       if (!saved) return;
       closeEditCategoryModal();
       populateCategoryDropdown();
-      import('../HabitsListModule.js').then((m) => m.renderHabitsList());
     },
   });
 }

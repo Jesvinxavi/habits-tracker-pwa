@@ -2,16 +2,38 @@ import { getState, dispatch, Actions } from '../../core/state.js';
 import { generateUniqueId } from '../../shared/common.js';
 import { showConfirm } from '../../components/ConfirmDialog.js';
 import { isRestDay } from './restDays.js';
+import { getLocalMidnightISOString } from '../../shared/datetime.js';
 
+let indexedActivities = null;
+let activitiesById = new Map();
+let indexedCategories = null;
+let categoriesById = new Map();
+let indexedSearchActivities = null;
+let searchableActivities = [];
+
+function ensureActivityIndex() {
+  const activities = getState().activities;
+  if (activities !== indexedActivities) {
+    indexedActivities = activities;
+    activitiesById = new Map(activities.map((activity) => [activity.id, activity]));
+  }
+  return activitiesById;
+}
+
+function ensureCategoryIndex() {
+  const categories = getState().activityCategories;
+  if (categories !== indexedCategories) {
+    indexedCategories = categories;
+    categoriesById = new Map(categories.map((category) => [category.id, category]));
+  }
+  return categoriesById;
+}
 
 
 /**
  * Add a new activity to the activities list
  */
 export async function addActivity(activityData) {
-  // Import timezone-safe date helper
-  const { getLocalMidnightISOString } = await import('../../shared/datetime.js');
-  
   const newActivity = {
     id: generateUniqueId(),
     name: activityData.name,
@@ -34,7 +56,7 @@ export async function addActivity(activityData) {
  * Record an activity for a specific date
  */
 export async function recordActivity(activityId, date, data = {}) {
-  const activity = getState().activities.find((a) => a.id === activityId);
+  const activity = ensureActivityIndex().get(activityId);
   if (!activity) return null;
 
   const isoDate = date.slice(0, 10); // Ensure YYYY-MM-DD format
@@ -82,19 +104,25 @@ export async function recordActivitiesForDate(activityIds, isoDate) {
     return { recorded: 0, failed: 0, blocked: true };
   }
 
-  // Drop ids whose activity has since been deleted rather than failing the batch.
-  const live = activityIds.filter((activityId) => Boolean(getActivity(activityId)));
-  let recorded = 0;
-  let failed = 0;
-
-  for (const activityId of live) {
-    // Sequential, not Promise.all: each call commits an operation to the
-    // IndexedDB outbox, and serialising keeps outbox ordering deterministic.
-    // eslint-disable-next-line no-await-in-loop
-    const saved = await recordActivity(activityId, dateKey, {});
-    if (saved) recorded += 1;
-    else failed += 1;
-  }
+  // Resolve one immutable batch before dispatching. The reducer applies all
+  // records in one state transition and the persistence router durably queues
+  // all corresponding operations before the UI is notified.
+  const live = activityIds.map((activityId) => getActivity(activityId)).filter(Boolean);
+  const timestamp = new Date().toISOString();
+  const records = live.map((activity) => ({
+    id: generateUniqueId(),
+    activityId: activity.id,
+    activityName: activity.name,
+    categoryId: activity.categoryId,
+    date: dateKey,
+    timestamp,
+    duration: null,
+    intensity: null,
+    notes: '',
+  }));
+  const saved = records.length > 0 && (await dispatch(Actions.recordActivities(dateKey, records)));
+  const recorded = saved ? records.length : 0;
+  const failed = saved ? 0 : records.length;
 
   if (failed > 0) {
     showConfirm({
@@ -104,10 +132,6 @@ export async function recordActivitiesForDate(activityIds, isoDate) {
       cancelText: '',
       onOK: () => {},
     });
-  }
-
-  if (recorded > 0 && typeof document !== 'undefined') {
-    document.dispatchEvent(new CustomEvent('ActivityRecorded', { detail: { dateKey, recorded } }));
   }
 
   return { recorded, failed, blocked: false };
@@ -130,8 +154,11 @@ export function getActivitiesByCategory() {
   getState().activityCategories.forEach((category) => {
     grouped[category.id] = {
       category,
-      activities: listActivities().filter((activity) => activity.categoryId === category.id),
+      activities: [],
     };
+  });
+  listActivities().forEach((activity) => {
+    grouped[activity.categoryId]?.activities.push(activity);
   });
 
   return grouped;
@@ -146,7 +173,16 @@ export function searchActivities(query) {
   }
 
   const searchTerm = query.toLowerCase().trim();
-  return listActivities().filter((activity) => activity.name.toLowerCase().includes(searchTerm));
+  const activities = getState().activities;
+  if (activities !== indexedSearchActivities) {
+    indexedSearchActivities = activities;
+    searchableActivities = activities
+      .filter((activity) => !isArchivedActivity(activity))
+      .map((activity) => ({ activity, normalizedName: activity.name.toLowerCase() }));
+  }
+  return searchableActivities
+    .filter(({ normalizedName }) => normalizedName.includes(searchTerm))
+    .map(({ activity }) => activity);
 }
 
 /**
@@ -177,14 +213,14 @@ export async function updateRecordedActivity(recordId, date, data = {}) {
  * Get activity category by ID
  */
 export function getActivityCategory(categoryId) {
-  return getState().activityCategories.find((cat) => cat.id === categoryId);
+  return ensureCategoryIndex().get(categoryId);
 }
 
 /**
  * Get activity by ID
  */
 export function getActivity(activityId) {
-  return getState().activities.find((activity) => activity.id === activityId);
+  return ensureActivityIndex().get(activityId);
 }
 
 /**
@@ -228,7 +264,7 @@ export function isArchivedActivity(activity) {
  * Lists the activities still in the library, newest definition order preserved.
  * @returns {object[]} Live activities.
  */
-export function listActivities() {
+function listActivities() {
   return getState().activities.filter((activity) => !isArchivedActivity(activity));
 }
 

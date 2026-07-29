@@ -5,6 +5,7 @@ import { initializeNavigation } from './core/navigation.js';
 import { initializeInstallPrompt } from './components/InstallPrompt.js';
 import { isCloudBackend } from './core/dataBackend.js';
 import { markStartup } from './core/startupMetrics.js';
+import { removeLoadingState } from './shared/loader.js';
 
 // Enable test mode if URL contains ?test=true
 if (
@@ -27,7 +28,6 @@ async function bootstrap() {
       : await loadDataFromLocalStorage();
     markStartup('persistenceReady');
     if (persistence?.access === 'blocked') {
-      const { removeLoadingState } = await import('./shared/loader.js');
       await removeLoadingState();
       return;
     }
@@ -57,7 +57,6 @@ async function bootstrap() {
     }
 
     // Remove loading state after all initializations are complete
-    const { removeLoadingState } = await import('./shared/loader.js');
     await removeLoadingState();
     markStartup('visible');
 

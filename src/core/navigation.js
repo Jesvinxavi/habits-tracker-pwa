@@ -1,6 +1,7 @@
 import { dispatch, Actions, getState } from '../core/state.js';
 import { isCloudBackend } from './dataBackend.js';
 import { nextPaint } from '../shared/nextPaint.js';
+import { getLocalMidnightISOString } from '../shared/datetime.js';
 
 export async function initializeNavigation() {
   const tabItems = document.querySelectorAll('.tab-item');
@@ -8,13 +9,14 @@ export async function initializeNavigation() {
 
   // Module loading state tracking
   const moduleStates = {
-    home: { loaded: false, loading: false, error: null, promise: null },
-    habits: { loaded: false, loading: false, error: null, promise: null },
-    fitness: { loaded: false, loading: false, error: null, promise: null },
-    stats: { loaded: false, loading: false, error: null, promise: null },
-    profile: { loaded: false, loading: false, error: null, promise: null },
+    home: { loaded: false, loading: false, error: null, promise: null, controller: null },
+    habits: { loaded: false, loading: false, error: null, promise: null, controller: null },
+    fitness: { loaded: false, loading: false, error: null, promise: null, controller: null },
+    stats: { loaded: false, loading: false, error: null, promise: null, controller: null },
+    profile: { loaded: false, loading: false, error: null, promise: null, controller: null },
   };
   let navigationRequest = 0;
+  let activeModuleName = null;
 
   function ensureView(viewId) {
     let el = document.getElementById(viewId);
@@ -40,26 +42,31 @@ export async function initializeNavigation() {
         case 'home': {
           const { HomeModule } = await import('../features/home/HomeModule.js');
           await HomeModule.init();
+          state.controller = HomeModule;
           break;
         }
         case 'habits': {
           const { HabitsModule } = await import('../features/habits/HabitsModule.js');
           await HabitsModule.init();
+          state.controller = HabitsModule;
           break;
         }
         case 'fitness': {
           const { FitnessModule } = await import('../features/fitness/FitnessModule.js');
           await FitnessModule.init();
+          state.controller = FitnessModule;
           break;
         }
         case 'stats': {
           const stats = await import('../features/stats/stats.js');
           await stats.initializeStats();
+          state.controller = stats;
           break;
         }
         case 'profile': {
           const { ProfileModule } = await import('../features/profile/ProfileModule.js');
           await ProfileModule.init();
+          state.controller = ProfileModule;
           break;
         }
         default:
@@ -161,7 +168,6 @@ export async function initializeNavigation() {
         // Update the state with the appropriate date for the current group
         dispatch(Actions.setSelectedDate(appropriateTodayISO));
       } else if (viewId === 'fitness-view') {
-        const { getLocalMidnightISOString } = await import('../shared/datetime.js');
         const localToday = getLocalMidnightISOString(today);
         dispatch(Actions.setFitnessSelectedDate(localToday));
       }
@@ -171,13 +177,17 @@ export async function initializeNavigation() {
     // stalled startup completely in a hidden tab: the view never switched, so
     // initializeNavigation never returned and the loading screen never lifted.
     await nextPaint();
+    if (activeModuleName && activeModuleName !== moduleName) {
+      moduleStates[activeModuleName]?.controller?.deactivate?.();
+    }
     updateViews();
+    moduleStates[moduleName]?.controller?.activate?.();
+    activeModuleName = moduleName;
     animateViewEntry(targetView);
     await nextPaint();
 
     // Calendars need one visible frame before their final centering pass.
     if (viewId === 'home-view') {
-      window.HomeModule?.refresh?.();
       document
         .querySelector('#home-view hh-calendar[state-key="selectedDate"]')
         ?.scrollToSelected?.({ instant: !wasLoaded });

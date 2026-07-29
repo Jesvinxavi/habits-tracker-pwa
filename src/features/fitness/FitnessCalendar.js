@@ -12,26 +12,16 @@ import '../../components/hh-calendar.js';
  * @prop {Promise<void>} ready            Resolves after DOM & fonts ready
  * @prop {(d:Date)=>void} setDate         Selects new date, re-renders
  * @prop {(o?:{instant?:boolean})=>void} scrollToSelected
- * @prop {()=>void} destroy
  */
-
-let _fitnessCalendarApi = null;
 
 export const FitnessCalendar = {
   ready: null,
   setDate: null,
   scrollToSelected: null,
-  destroy: () => {
-    if (_fitnessCalendarApi) {
-      _fitnessCalendarApi.destroy();
-      _fitnessCalendarApi = null;
-    }
-  },
 };
 
-// Store fitness calendar API reference
+/** @internal Exported for the calendar binding regression test. */
 export function setFitnessCalendarApi(api) {
-  _fitnessCalendarApi = api;
   FitnessCalendar.ready = api.ready;
   FitnessCalendar.setDate = api.setDate.bind(api);
   FitnessCalendar.scrollToSelected = api.scrollToSelected.bind(api);
@@ -49,12 +39,14 @@ export function mountFitnessCalendar(onDateChange) {
 
   // Create custom element
   const calendarWrapper = document.createElement('hh-calendar');
-  calendarWrapper.className = 'week-calendar overflow-x-auto no-scrollbar m-0 p-0';
+  // The date strip inside hh-calendar owns horizontal scrolling. Making the
+  // host scroll as well creates a second, always-visible scrollbar on mobile.
+  calendarWrapper.className = 'week-calendar m-0 p-0';
   calendarWrapper.id = 'fitness-calendar';
   calendarWrapper.setAttribute('state-key', 'fitnessSelectedDate');
   calendarWrapper.style.minHeight = '120px';
   calendarWrapper.style.overflowY = 'visible';
-  calendarWrapper.style.overflowX = 'auto';
+  calendarWrapper.style.overflowX = 'visible';
   calendarWrapper.style.width = '100%';
 
   // Forward selection event
@@ -63,8 +55,6 @@ export function mountFitnessCalendar(onDateChange) {
   });
 
   setFitnessCalendarApi(calendarWrapper);
-
-  window.fitnessCalendarApi = calendarWrapper;
 
   // Trigger initial refresh after element is ready
   if (typeof window !== 'undefined') {

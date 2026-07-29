@@ -1,15 +1,20 @@
 // HabitsModule.js - Main module orchestrator for the habits view
 import { HabitsView } from './HabitsView.js';
 import { subscribe } from '../../core/state.js';
+import { shallowArrayEqual } from '../../shared/equality.js';
 
 /**
  * Main HabitsModule that orchestrates the habits view
  */
 export const HabitsModule = {
+  _initialized: false,
+  _unsubscribe: null,
+
   /**
    * Initializes the habits module
    */
   async init() {
+    if (this._initialized) return;
     const habitsView = document.getElementById('habits-view');
     if (!habitsView) {
       console.error('Habits view container not found');
@@ -25,11 +30,6 @@ export const HabitsModule = {
       onHabitClick: this._handleHabitClick,
     });
 
-    // Subscribe to state changes for reactive updates
-    subscribe(() => {
-      this._handleStateChange();
-    });
-
     // Set up responsive behavior
     HabitsView.setupResponsiveBehavior();
 
@@ -38,6 +38,22 @@ export const HabitsModule = {
 
     // Initial render
     this._handleStateChange();
+    this._initialized = true;
+  },
+
+  activate() {
+    if (!this._initialized || this._unsubscribe) return;
+    this._unsubscribe = subscribe(
+      (state) => [state.categories, state.habits, state.settings],
+      () => this._handleStateChange(),
+      { equalityFn: shallowArrayEqual }
+    );
+    this._handleStateChange();
+  },
+
+  deactivate() {
+    this._unsubscribe?.();
+    this._unsubscribe = null;
   },
 
   /**

@@ -270,7 +270,7 @@ describe('Convex authenticated domain API', () => {
     expect(activeProfile.appFirstOpenDate).toBe('2020-02-03');
   });
 
-  it('creates, updates and tombstones a routine idempotently', async () => {
+  it('keeps the legacy routine removeCascade compatibility path idempotent', async () => {
     const testBackend = convexTest(schema, modules);
     const client = authenticated(testBackend, 'routine-user');
     await provision(client);

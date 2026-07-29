@@ -3,7 +3,6 @@ import { mountHeaderBar } from '../../shared/HeaderBar.js';
 import { mountActionButtons } from '../../shared/ActionButtons.js';
 import { mountFitnessCalendar } from './FitnessCalendar.js';
 import { mountActivitiesList as mountActivityList, renderActivitiesList as renderActivityList } from './ActivityList/ActivitiesList.js';
-import { adjustActivitiesContainerHeight } from './helpers/fitnessLayout.js';
 
 /**
  * Main FitnessView component that orchestrates all fitness sub-components
@@ -98,22 +97,4 @@ export const FitnessView = {
     return calendarWrapper;
   },
 
-  /**
-   * Sets up responsive behavior and event handlers
-   */
-  setupResponsiveBehavior() {
-    // Update container height on viewport resize and handle responsive behavior
-    if (typeof window !== 'undefined') {
-      window.addEventListener('resize', () => {
-        adjustActivitiesContainerHeight();
-      });
-
-      // Handle viewport meta for better mobile experience
-      window.addEventListener('orientationchange', () => {
-        setTimeout(() => {
-          adjustActivitiesContainerHeight();
-        }, 500); // Wait for orientation change to complete
-      });
-    }
-  },
 };

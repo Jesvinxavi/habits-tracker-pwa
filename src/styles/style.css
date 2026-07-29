@@ -99,12 +99,6 @@ body {
     color: var(--text-color-primary);
 }
 
-.status-icons {
-    display: flex;
-    gap: 6px;
-    font-size: 14px;
-}
-
 /* App Header */
 .app-header {
     display: flex;
@@ -123,8 +117,7 @@ body {
 
 .theme-toggle,
 .menu-toggle,
-.back-btn,
-.add-btn {
+.back-btn {
     background: none;
     border: none;
     color: var(--primary-color);
@@ -139,8 +132,7 @@ body {
 
 .theme-toggle:hover,
 .menu-toggle:hover,
-.back-btn:hover,
-.add-btn:hover {
+.back-btn:hover {
     background-color: rgba(0, 122, 255, 0.1);
 }
 
@@ -174,19 +166,6 @@ body {
 .dropdown-item:focus {
     background: none;
     outline: none;
-}
-
-.dropdown-icon {
-    margin-right: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.dropdown-icon svg {
-    width: 18px;
-    height: 18px;
-    display: block;
 }
 
 /* Home Content */
@@ -254,19 +233,6 @@ body {
     color: var(--text-color-secondary);
     margin-top: 7px;
     letter-spacing: 0.01em;
-}
-
-.weekly-progress {
-    margin: 0;
-}
-
-.weekly-label {
-    background-color: rgba(142, 142, 147, 0.12);
-    color: var(--text-color-secondary);
-    padding: 6px 16px;
-    border-radius: 20px;
-    font-size: 14px;
-    font-weight: 500;
 }
 
 
@@ -393,10 +359,6 @@ body {
     color: var(--text-color-primary);
 }
 
-.habits-icon {
-    font-size: 20px;
-}
-
 .expand-btn {
     background: none;
     border: none;
@@ -413,20 +375,6 @@ body {
 /* Habits Sections */
 .habits-section {
     padding: 0 0 20px 0;
-}
-
-.section-label {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text-color-primary);
-    margin-bottom: 12px;
-}
-
-.section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
 }
 
 .toggle-section {
@@ -487,26 +435,6 @@ body {
     border-color: var(--warning-color);
 }
 
-.habit-check {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background-color: var(--primary-color);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.habit-check.success {
-    background-color: var(--success-color);
-}
-
-.habit-check.skipped {
-    background-color: var(--text-color-secondary);
-}
-
 .habit-content {
     flex-grow: 1;
     display: flex;
@@ -520,98 +448,15 @@ body {
     color: inherit;
 }
 
-.habit-tag {
-    font-size: 12px;
-    background-color: rgba(0, 122, 255, 0.12);
-    color: var(--primary-color);
-    padding: 2px 8px;
-    border-radius: 6px;
-    display: inline-block;
-    width: fit-content;
-    font-weight: 500;
-}
-
-.habit-card.in-progress .habit-tag {
-    background-color: rgba(255, 255, 255, 0.2);
-    color: white;
-}
-
-.scheduled-tag {
-    background-color: rgba(255, 59, 48, 0.12);
-    color: var(--danger-color);
-}
-
 .habit-counter {
     text-align: center;
     font-weight: 600;
     color: white;
 }
 
-.counter-value {
-    display: block;
-    font-size: 16px;
-    line-height: 1.2;
-}
-
-.counter-unit {
-    font-size: 12px;
-    font-weight: 500;
-    opacity: 0.8;
-}
-
-.scheduled-time {
-    background-color: var(--danger-color);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.habit-status {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background-color: var(--primary-color);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.completed-status {
-    background-color: var(--primary-color);
-}
-
-.status-badge {
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.completed-badge {
-    background-color: var(--success-color);
-    color: white;
-}
-
-.skipped-badge {
-    background-color: var(--warning-color);
-    color: white;
-}
-
 /* Collapsible sections */
 .habits-section.collapsible.collapsed .habit-card {
     display: none;
-}
-
-/* Placeholder content */
-.placeholder-content {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--text-color-secondary);
-    font-size: 16px;
 }
 
 /* Bottom Tab Bar */
@@ -1106,4 +951,3 @@ body {
     font-size: 11px;
     font-weight: 800;
 }
-

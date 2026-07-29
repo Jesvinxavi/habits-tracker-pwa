@@ -4,6 +4,8 @@ import { showConfirm } from '../../../components/ConfirmDialog.js';
 import { subscribe } from '../../../core/state.js';
 import { getLocalISODate } from '../../../shared/datetime.js';
 import { hexToRgba } from '../../../shared/color.js';
+import { escapeHtml, normalizeHexColor } from '../../../shared/sanitize.js';
+import { shallowArrayEqual } from '../../../shared/equality.js';
 import { getRoutine, getRoutineActivities } from '../routines.js';
 import { getActivity, getActivityCategory } from '../activities.js';
 import { isRestDay } from '../restDays.js';
@@ -15,7 +17,7 @@ import {
 } from '../programs.js';
 import { programItemPresentation } from '../helpers/programItems.js';
 import { dateRangeLabel, weekLabel, dayLabel, shortDayLabel } from '../helpers/programLabels.js';
-import { ProgramBuilderModal } from './ProgramBuilderModal.js';
+import { ensureFitnessModalMarkup } from '../FitnessModalMarkup.js';
 
 const MODAL_ID = 'program-details-modal';
 const PILL_COLOR = '#0060C7';
@@ -71,6 +73,7 @@ export const ProgramDetailsModal = {
   open(programId) {
     const program = getProgram(programId);
     if (!program) return;
+    ensureFitnessModalMarkup(MODAL_ID);
 
     this._bindStaticHandlers();
     this._programId = programId;
@@ -82,9 +85,20 @@ export const ProgramDetailsModal = {
     // Adding the day's session from here changes the progress figures behind the
     // modal, so keep it live while open.
     if (!this._unsubscribe) {
-      this._unsubscribe = subscribe(() => {
-        if (isModalOpen(MODAL_ID)) this._render({ keepNotes: true });
-      });
+      this._unsubscribe = subscribe(
+        (state) => [
+          state.programs,
+          state.routines,
+          state.activities,
+          state.activityCategories,
+          state.recordedActivities,
+          state.restDays,
+        ],
+        () => {
+          if (isModalOpen(MODAL_ID)) this._render({ keepNotes: true });
+        },
+        { equalityFn: shallowArrayEqual }
+      );
     }
 
     openModal(MODAL_ID);
@@ -360,7 +374,7 @@ export const ProgramDetailsModal = {
     const dayHeading =
       target.date === todayISO
         ? ''
-        : `<p class="text-xs font-medium text-gray-500 dark:text-gray-400">${dayLabel(target.date)}</p>`;
+        : `<p class="text-xs font-medium text-gray-500 dark:text-gray-400">${escapeHtml(dayLabel(target.date))}</p>`;
 
     host.innerHTML = `
       <div class="space-y-2">
@@ -380,13 +394,13 @@ export const ProgramDetailsModal = {
       const activity = getActivity(item.id);
       if (!activity) return '';
       const category = getActivityCategory(activity.categoryId);
-      const color = category?.color || PILL_COLOR;
+      const color = normalizeHexColor(category?.color, PILL_COLOR);
       return `
         <div class="flex items-center px-3 py-2 rounded-xl" style="border:2px solid ${color}; background-color:${hexToRgba(color, 0.08)};">
-          <span class="w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center mr-3 text-xl" style="background-color:${color}20;" aria-hidden="true">${activity.icon || category?.icon || '🎯'}</span>
+          <span class="w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center mr-3 text-xl" style="background-color:${color}20;" aria-hidden="true">${escapeHtml(activity.icon || category?.icon || '🎯')}</span>
           <div class="min-w-0">
-            <div class="font-semibold leading-tight text-gray-900 dark:text-white truncate">${activity.name}</div>
-            <div class="text-xs text-gray-500 dark:text-gray-400">${category?.name || 'Activity'}</div>
+            <div class="font-semibold leading-tight text-gray-900 dark:text-white truncate">${escapeHtml(activity.name)}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400">${escapeHtml(category?.name || 'Activity')}</div>
           </div>
         </div>
       `;
@@ -401,7 +415,7 @@ export const ProgramDetailsModal = {
           <span class="material-icons text-ios-blue text-lg">repeat</span>
         </span>
         <div class="min-w-0">
-          <div class="font-semibold leading-tight text-gray-900 dark:text-white truncate">${routine.name}</div>
+          <div class="font-semibold leading-tight text-gray-900 dark:text-white truncate">${escapeHtml(routine.name)}</div>
           <div class="text-xs text-gray-500 dark:text-gray-400">${count} ${count === 1 ? 'activity' : 'activities'}</div>
         </div>
       </div>
@@ -503,11 +517,13 @@ export const ProgramDetailsModal = {
       this._flushNotes();
       // The builder opens on top; closing it drops back to these details, which
       // the state subscription has already refreshed.
-      ProgramBuilderModal.openEditMode(this._programId, {
-        onSaved: () => {
-          if (getProgram(this._programId)) this._render();
-          else this.close();
-        },
+      import('./ProgramBuilderModal.js').then(({ ProgramBuilderModal }) => {
+        ProgramBuilderModal.openEditMode(this._programId, {
+          onSaved: () => {
+            if (getProgram(this._programId)) this._render();
+            else this.close();
+          },
+        });
       });
     });
 

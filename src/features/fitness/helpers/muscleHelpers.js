@@ -3,13 +3,14 @@
  */
 
 import { capitalize } from '../../../shared/common.js';
+import { escapeHtml } from '../../../shared/sanitize.js';
 
 /**
  * Format muscle name for display
  * @param {string} muscleName - Raw muscle name
  * @returns {string} Formatted muscle name
  */
-export function formatMuscleName(muscleName) {
+function formatMuscleName(muscleName) {
   return muscleName
     .split('_')
     .map((word) => capitalize(word))
@@ -22,5 +23,5 @@ export function formatMuscleName(muscleName) {
  * @returns {string} HTML string for the muscle group header
  */
 export function buildMuscleGroupHeader(muscleGroupName) {
-  return `<div class="muscle-header pl-3 py-1 text-sm font-semibold text-gray-700 dark:text-gray-300">${formatMuscleName(muscleGroupName)}</div>`;
-} 
+  return `<div class="muscle-header pl-3 py-1 text-sm font-semibold text-gray-700 dark:text-gray-300">${escapeHtml(formatMuscleName(muscleGroupName))}</div>`;
+}

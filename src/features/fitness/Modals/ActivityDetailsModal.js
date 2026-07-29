@@ -11,6 +11,8 @@ import { isRestDay } from '../restDays.js';
 import { showConfirm } from '../../../components/ConfirmDialog.js';
 import { getLocalISODate } from '../../../shared/datetime.js';
 import { bestValue, extractProgressionSeries, shortDateLabel } from '../helpers/activityStats.js';
+import { normalizeHexColor } from '../../../shared/sanitize.js';
+import { ensureFitnessModalMarkup } from '../FitnessModalMarkup.js';
 
 // Kept in step with the sets-table header in index.html: set label, reps, value,
 // unit, remove.
@@ -37,6 +39,7 @@ export const ActivityDetailsModal = {
    * @param {string} activityId - The activity ID
    */
   open(activityId) {
+    ensureFitnessModalMarkup('activity-details-modal');
     const activity = getActivity(activityId);
     if (!activity) return;
 
@@ -87,6 +90,7 @@ export const ActivityDetailsModal = {
    * @param {Object} record - The existing activity record
    */
   openWithRecord(activityId, record) {
+    ensureFitnessModalMarkup('activity-details-modal');
     const activity = getActivity(activityId);
     if (!activity) return;
 
@@ -120,7 +124,7 @@ export const ActivityDetailsModal = {
 
     if (iconEl) {
       iconEl.textContent = activity.icon || category.icon;
-      iconEl.style.backgroundColor = `${category.color}20`;
+      iconEl.style.backgroundColor = `${normalizeHexColor(category.color)}20`;
     }
     if (nameEl) nameEl.textContent = activity.name;
     if (categoryEl) categoryEl.textContent = category.name;
@@ -385,7 +389,6 @@ export const ActivityDetailsModal = {
     }
 
     // Get the selected fitness date from state instead of using today
-    const { getLocalISODate } = await import('../../../shared/datetime.js');
     const selectedDate = getState().fitnessSelectedDate || new Date().toISOString();
     const dateString = getLocalISODate(selectedDate); // Use consistent date conversion
 
@@ -400,12 +403,6 @@ export const ActivityDetailsModal = {
     if (!saved) return;
 
     closeModal('activity-details-modal');
-
-    // Trigger activity list refresh
-    const event = new CustomEvent('ActivityRecorded', {
-      detail: { activityId, recordData },
-    });
-    document.dispatchEvent(event);
   },
 
   /**

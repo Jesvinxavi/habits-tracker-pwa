@@ -15,7 +15,7 @@
     "indent": "off",
     "quotes": ["error", "single"],
     "semi": ["error", "always"],
-    "no-unused-vars": ["warn", { "args": "none", "caughtErrors": "none" }],
+    "no-unused-vars": ["error", { "args": "none", "caughtErrors": "none" }],
     "no-console": ["error", { "allow": ["warn", "error"] }],
     "no-case-declarations": "off",
     "no-empty": "warn",

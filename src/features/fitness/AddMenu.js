@@ -23,7 +23,7 @@ const ITEM_CLASS =
  * Reports whether the menu is currently open.
  * @returns {boolean} True when the dropdown is visible.
  */
-export function isAddMenuOpen() {
+function isAddMenuOpen() {
   return Boolean(menuEl) && !menuEl.classList.contains('hidden');
 }
 
@@ -32,7 +32,7 @@ export function isAddMenuOpen() {
  * @param {boolean} [restoreFocus] - Whether to return focus to the anchor button
  * @returns {void}
  */
-export function closeAddMenu(restoreFocus = false) {
+function closeAddMenu(restoreFocus = false) {
   if (!menuEl) return;
   menuEl.classList.add('hidden');
   anchorEl?.setAttribute('aria-expanded', 'false');
@@ -43,7 +43,7 @@ export function closeAddMenu(restoreFocus = false) {
  * Toggles the dropdown open or closed.
  * @returns {void}
  */
-export function toggleAddMenu() {
+function toggleAddMenu() {
   if (!menuEl) return;
   if (isAddMenuOpen()) {
     closeAddMenu();
@@ -57,7 +57,7 @@ export function toggleAddMenu() {
  * Removes the menu and its document-level listeners.
  * @returns {void}
  */
-export function unmountAddMenu() {
+function unmountAddMenu() {
   if (documentClickHandler) {
     document.removeEventListener('click', documentClickHandler);
     documentClickHandler = null;

@@ -1,5 +1,6 @@
 // ActivityPickerModal.js - Multi-select activities to record for the selected day
 import { closeModal, openModal, topModalId } from '../../../components/Modal.js';
+import { ensureFitnessModalMarkup } from '../FitnessModalMarkup.js';
 import {
   buildSelectableCategorySection,
   bindSelectableTileEvents,
@@ -44,6 +45,7 @@ export const ActivityPickerModal = {
     allowEmpty = false,
     onConfirm = null,
   } = {}) {
+    ensureFitnessModalMarkup(MODAL_ID);
     this._bindStaticHandlers();
     // Filter out ids whose activity has been deleted so they never re-enter a selection.
     this._selectedIds = selectedIds.filter((id) => Boolean(getActivity(id)));

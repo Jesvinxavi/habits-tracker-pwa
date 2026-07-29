@@ -141,4 +141,35 @@ describe('SET_ACTIVE_PROGRAM operations', () => {
     expect(committed[1].confirmedBase.revision).toBe(7);
     expect(committed[2].optimisticEntity.deletedAt).toBeUndefined();
   });
+
+  it('queues every record from a multi-activity action in deterministic order', async () => {
+    const records = [
+      {
+        id: 'record-1',
+        activityId: 'activity-1',
+        date: '2026-07-29',
+        timestamp: '2026-07-29T10:00:00.000Z',
+      },
+      {
+        id: 'record-2',
+        activityId: 'activity-2',
+        date: '2026-07-29',
+        timestamp: '2026-07-29T10:00:00.000Z',
+      },
+    ];
+
+    await persistStateAction(
+      {
+        type: ActionTypes.RECORD_ACTIVITIES,
+        payload: { date: '2026-07-29', records },
+      },
+      {}
+    );
+
+    expect(committed).toHaveLength(2);
+    expect(committed.map((entry) => entry.operation.clientId)).toEqual(['record-1', 'record-2']);
+    expect(committed.every((entry) => entry.operation.mutationName === 'activityRecords:create')).toBe(
+      true
+    );
+  });
 });

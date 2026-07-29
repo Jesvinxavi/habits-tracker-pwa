@@ -187,5 +187,4 @@ async function persistOrderToState() {
     if (!saved) return;
   }
 
-  import('../HabitsListModule.js').then((m) => m.renderHabitsList());
 }

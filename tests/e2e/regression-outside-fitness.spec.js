@@ -69,10 +69,10 @@ test.describe('home page still works', () => {
   test('a habit can be completed and the progress ring reacts', async ({ page }) => {
     await open(page, 'Home view');
     const { habitId } = await seedHabit(page);
-    await page.waitForTimeout(500);
+    await expect(page.getByText('Drink water')).toBeVisible();
 
     const before = await page.evaluate(
-      (id) => Object.keys(window.appData.habits.find((h) => h.id === id).completed).length,
+      (id) => Object.keys(window.__APP_TEST__.getState().habits.find((h) => h.id === id).completed).length,
       habitId
     );
     expect(before).toBe(0);
@@ -83,7 +83,7 @@ test.describe('home page still works', () => {
     }, habitId);
 
     const after = await page.evaluate(
-      (id) => window.appData.habits.find((h) => h.id === id).completed,
+      (id) => window.__APP_TEST__.getState().habits.find((h) => h.id === id).completed,
       habitId
     );
     expect(Object.values(after)).toContain(true);
@@ -92,20 +92,21 @@ test.describe('home page still works', () => {
   test('a target habit still fills its card', async ({ page }) => {
     await open(page, 'Home view');
     const { habitId } = await seedHabit(page, { target: 10 });
-    await page.waitForTimeout(500);
+    await expect(page.getByText('Drink water')).toBeVisible();
 
     await page.evaluate(async (id) => {
       const { dispatch, Actions, getState } = await import('/src/core/state.js');
       await dispatch(Actions.setHabitProgress(id, getState().selectedDate.slice(0, 10), 5));
     }, habitId);
-    await page.waitForTimeout(400);
-
-    const filled = await page.evaluate(() =>
-      [...document.querySelectorAll('#home-view *')].some(
-        (el) => el.style?.background && el.style.background.includes('gradient')
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          [...document.querySelectorAll('#home-view *')].some(
+            (el) => el.style?.background && el.style.background.includes('gradient')
+          )
+        )
       )
-    );
-    expect(filled).toBe(true);
+      .toBe(true);
   });
 
   test('calendar navigation and holiday mode still dispatch', async ({ page }) => {
@@ -164,7 +165,7 @@ test('theme toggle still flips both themes', async ({ page }) => {
     const { toggleTheme } = await import('/src/core/theme.js');
     await toggleTheme();
   });
-  await page.waitForTimeout(300);
-  const after = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
-  expect(after).not.toBe(before);
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.getAttribute('data-theme')))
+    .not.toBe(before);
 });

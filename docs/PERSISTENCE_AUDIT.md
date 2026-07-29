@@ -56,9 +56,12 @@ cascades to habits and their embedded history.
 Activities and routines are **archived, not deleted**: removing one from the
 library or the list writes `archivedAt` and leaves the row, its recorded
 sessions and the days a program had already planned it on untouched. The
-`activities:removeCascade` mutation still exists for older clients but nothing
-calls it — it tombstoned every record of the activity, which is the only record
-that the training happened.
+`activities:removeCascade` and `routines:removeCascade` still exist only for
+pre-archive clients cached by an older service worker; current code calls
+neither. Remove both after 2026-10-29, once that stale-client window has closed.
+The activity mutation tombstones every record of the activity, which is the
+only record that the training happened, so it must not be reintroduced into a
+current client path.
 
 A program carries its own history in `schedulePhases`: the schedules it has been
 through, each closed off when the plan was edited mid-block. Dates before a

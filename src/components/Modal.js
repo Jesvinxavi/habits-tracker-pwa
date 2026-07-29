@@ -2,6 +2,62 @@
 // → Add Activity → Icon Picker) must not release the body scroll-lock until the
 // last one closes, or the page scrolls behind a modal that is still open.
 const openStack = [];
+const focusOrigins = new Map();
+const FOCUSABLE_SELECTOR = [
+  'button:not([disabled])',
+  '[href]',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+function focusableElements(modal) {
+  return [...modal.querySelectorAll(FOCUSABLE_SELECTOR)].filter(
+    (element) => !element.closest('[hidden]') && element.getAttribute('aria-hidden') !== 'true'
+  );
+}
+
+function focusModal(modal) {
+  const [first] = focusableElements(modal);
+  if (first) {
+    first.focus({ preventScroll: true });
+    return;
+  }
+  modal.tabIndex = -1;
+  modal.focus({ preventScroll: true });
+}
+
+function trapTopModalFocus(event) {
+  if (event.key !== 'Tab') return;
+  const id = topModalId();
+  if (!id) return;
+  const modal = document.getElementById(id);
+  if (!modal) return;
+  const focusable = focusableElements(modal);
+  if (focusable.length === 0) {
+    event.preventDefault();
+    focusModal(modal);
+    return;
+  }
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
+    event.preventDefault();
+    last.focus();
+  } else if (
+    !event.shiftKey &&
+    (document.activeElement === last || !modal.contains(document.activeElement))
+  ) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('keydown', trapTopModalFocus);
+}
 
 /**
  * Opens a modal by id and locks body scrolling.
@@ -9,11 +65,24 @@ const openStack = [];
  * @returns {void}
  */
 export function openModal(id) {
-  const all = document.querySelectorAll(`#${id}`);
-  const modal = all[all.length - 1];
+  const modal = document.getElementById(id);
   if (!modal) return;
-  if (!openStack.includes(id)) openStack.push(id);
+  if (!openStack.includes(id)) {
+    const origin = document.activeElement;
+    if (origin instanceof HTMLElement) focusOrigins.set(id, origin);
+    const currentTop = document.getElementById(topModalId());
+    currentTop?.setAttribute('aria-hidden', 'true');
+    openStack.push(id);
+  }
   document.body.style.overflow = 'hidden';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.removeAttribute('aria-hidden');
+  const heading = modal.querySelector('h1, h2, [data-modal-title]');
+  if (heading) {
+    if (!heading.id) heading.id = `${id}-title`;
+    modal.setAttribute('aria-labelledby', heading.id);
+  }
   modal.classList.remove('hidden');
   modal.classList.remove('animate-in', 'fade-in');
   // Guarantee element becomes visible even if other styles override Tailwind
@@ -23,10 +92,7 @@ export function openModal(id) {
   const scrollable = modal.querySelector('.overflow-y-auto');
   if (scrollable) scrollable.scrollTop = 0;
 
-  // Ensure modal is appended directly to <body>
-  if (modal.parentNode !== document.body) {
-    document.body.appendChild(modal);
-  }
+  focusModal(modal);
 }
 
 /**
@@ -41,13 +107,16 @@ export function closeModal(id) {
   if (index !== -1) openStack.splice(index, 1);
   modal.classList.add('hidden');
   modal.style.display = 'none';
+  modal.setAttribute('aria-hidden', 'true');
   if (openStack.length === 0) document.body.style.overflow = '';
 
-  // Dispatch custom event to notify that a modal was closed
-  const event = new CustomEvent('modalClosed', {
-    detail: { modalId: id },
-  });
-  document.dispatchEvent(event);
+  const newTop = document.getElementById(topModalId());
+  newTop?.removeAttribute('aria-hidden');
+  const origin = focusOrigins.get(id);
+  focusOrigins.delete(id);
+  if (origin?.isConnected) origin.focus({ preventScroll: true });
+  else if (newTop) focusModal(newTop);
+
 }
 
 /**

@@ -4,15 +4,20 @@ import { subscribe } from '../../core/state.js';
 import { bindControls } from './helpers/controlHelpers.js';
 import { setupMenuToggle, updateDropdownText, setSectionVisibility } from './helpers/uiHelpers.js';
 import { sectionVisibility } from './helpers/coreHelpers.js';
+import { shallowArrayEqual } from '../../shared/equality.js';
 
 /**
  * Main HomeModule that orchestrates the home view
  */
 export const HomeModule = {
+  _initialized: false,
+  _unsubscribe: null,
+
   /**
    * Initializes the home module
    */
   async init() {
+    if (this._initialized) return;
     const homeView = document.getElementById('home-view');
     if (!homeView) {
       console.error('Home view container not found');
@@ -41,18 +46,37 @@ export const HomeModule = {
     // Initialize dropdown text
     updateDropdownText();
 
-    // Subscribe to state changes for reactive updates
-    subscribe(() => {
-      this._handleStateChange();
-    });
-
     // Set up responsive behavior
     HomeView.setupResponsiveBehavior();
 
     // Initial render
     this._handleStateChange();
+    this._initialized = true;
+  },
 
+  activate() {
+    if (!this._initialized || this._unsubscribe) return;
+    this._unsubscribe = subscribe(
+      (state) => [
+        state.categories,
+        state.habits,
+        state.selectedDate,
+        state.selectedGroup,
+        state.settings,
+        state.holidayDates,
+        state.manualHolidayDates,
+        state.holidayPeriods,
+        state.homeSectionVisibility,
+      ],
+      () => this._handleStateChange(),
+      { equalityFn: shallowArrayEqual }
+    );
+    this._handleStateChange();
+  },
 
+  deactivate() {
+    this._unsubscribe?.();
+    this._unsubscribe = null;
   },
 
 
@@ -89,8 +113,7 @@ export const HomeModule = {
    * Handles holiday toggle
    */
   _handleHolidayToggle() {
-    // Immediately refresh UI like backup7 does
-    this._handleStateChange();
+    // The committed state change triggers the active-view subscription.
   },
 
   /**
@@ -122,10 +145,4 @@ export const HomeModule = {
  */
 export async function init() {
   await HomeModule.init();
-
-  // Make HomeModule available globally for component access
-  if (typeof window !== 'undefined') {
-    window.HomeModule = HomeModule;
-    window.HomeView = HomeView;
-  }
 }

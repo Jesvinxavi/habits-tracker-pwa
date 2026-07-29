@@ -1,22 +1,16 @@
 // TimerModule.js - Orchestrates all timer-related subcomponents for the fitness feature
 import { TimerModal } from './Timer/TimerModal.js';
-import { TimerControls } from './Timer/TimerControls.js';
-import { LapList } from './Timer/LapList.js';
+import { ensureFitnessModalMarkup } from './FitnessModalMarkup.js';
 
 /**
  * Main Timer component that orchestrates all timer functionality
  */
 export const Timer = {
   /**
-   * Updates the timer button state
-   */
-  updateButton() {
-  },
-
-  /**
    * Opens the timer modal
    */
   openModal() {
+    ensureFitnessModalMarkup('timer-modal');
     TimerModal.open();
   },
 
@@ -34,6 +28,3 @@ export const Timer = {
     TimerModal.bindEvents();
   },
 };
-
-
-export { TimerModal, TimerControls, LapList };

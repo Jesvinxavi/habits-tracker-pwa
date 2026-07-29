@@ -28,6 +28,7 @@ const PERSISTENT_ACTIONS = new Set([
   ActionTypes.ADD_ACTIVITY,
   ActionTypes.UPDATE_ACTIVITY,
   ActionTypes.RECORD_ACTIVITY,
+  ActionTypes.RECORD_ACTIVITIES,
   ActionTypes.DELETE_RECORDED_ACTIVITY,
   ActionTypes.UPDATE_RECORDED_ACTIVITY,
   ActionTypes.UPDATE_ACTIVITY_CATEGORY_COLOR,
@@ -546,6 +547,23 @@ export async function persistStateAction(action, state) {
           optimistic
         )
       );
+      break;
+    }
+    case ActionTypes.RECORD_ACTIVITIES: {
+      action.payload.records.forEach((record) => {
+        const optimistic = activityRecord(record);
+        operations.push(
+          sharedOperation(
+            runtime,
+            'activityRecords',
+            optimistic.clientId,
+            'activityRecords:create',
+            { ...optimistic, revision: undefined },
+            null,
+            optimistic
+          )
+        );
+      });
       break;
     }
     case ActionTypes.UPDATE_RECORDED_ACTIVITY:

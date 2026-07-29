@@ -65,8 +65,8 @@ test.describe('routines modal', () => {
     await seed(page);
     await page.evaluate(async () => {
       const { addRoutine } = await import('/src/features/fitness/routines.js');
-      const push = window.appData.activities.find((a) => a.name === 'Bench Press');
-      const run = window.appData.activities.find((a) => a.name === 'Treadmill Run');
+      const push = window.__APP_TEST__.getState().activities.find((a) => a.name === 'Bench Press');
+      const run = window.__APP_TEST__.getState().activities.find((a) => a.name === 'Treadmill Run');
       await addRoutine({ name: 'Push Day', activityIds: [push.id] });
       await addRoutine({ name: 'Cardio Day', activityIds: [run.id] });
     });
@@ -226,7 +226,7 @@ test.describe('routines modal', () => {
     await expect(page.locator('#routines-list')).toContainText('No routines saved');
     // Archived, not erased: the row survives so the days a program planned it
     // on can still resolve it.
-    const routines = await page.evaluate(() => window.appData.routines);
+    const routines = await page.evaluate(() => window.__APP_TEST__.getState().routines);
     expect(routines).toHaveLength(1);
     expect(routines[0].archivedAt).toBeGreaterThan(0);
   });
@@ -292,7 +292,7 @@ test.describe('renaming and removing activities', () => {
         '/src/features/fitness/activities.js'
       );
       const { getLocalISODate } = await import('/src/shared/datetime.js');
-      const target = window.appData.activities.find((a) => a.name === activityName);
+      const target = window.__APP_TEST__.getState().activities.find((a) => a.name === activityName);
       await recordActivitiesForDate([target.id], getLocalISODate(new Date()));
       return getActivity(target.id);
     }, name);
@@ -305,7 +305,7 @@ test.describe('renaming and removing activities', () => {
 
     await page.evaluate(async () => {
       const { updateActivity } = await import('/src/features/fitness/activities.js');
-      const target = window.appData.activities.find((a) => a.name === 'Cycling');
+      const target = window.__APP_TEST__.getState().activities.find((a) => a.name === 'Cycling');
       await updateActivity(target.id, { name: 'Indoor Bike' });
     });
 
@@ -316,7 +316,7 @@ test.describe('renaming and removing activities', () => {
     // The record's own snapshot is left alone — it is only a fallback — so the
     // client and the server cannot drift apart on a reload.
     const snapshot = await page.evaluate(
-      () => Object.values(window.appData.recordedActivities).flat()[0].activityName
+      () => Object.values(window.__APP_TEST__.getState().recordedActivities).flat()[0].activityName
     );
     expect(snapshot).toBe('Cycling');
   });
@@ -327,14 +327,14 @@ test.describe('renaming and removing activities', () => {
 
     await page.evaluate(async () => {
       const { archiveActivity } = await import('/src/features/fitness/activities.js');
-      const target = window.appData.activities.find((a) => a.name === 'Cycling');
+      const target = window.__APP_TEST__.getState().activities.find((a) => a.name === 'Cycling');
       await archiveActivity(target.id);
     });
 
     // The day still shows the session that happened.
     await expect(page.locator('#activities-list')).toContainText('Cycling');
     const records = await page.evaluate(() =>
-      Object.values(window.appData.recordedActivities).flat().length
+      Object.values(window.__APP_TEST__.getState().recordedActivities).flat().length
     );
     expect(records).toBe(1);
 
@@ -377,7 +377,7 @@ test.describe('deleting activities from the library', () => {
     await expect(page.locator('#add-activity-modal')).toBeHidden();
 
     const archived = await page.evaluate(() =>
-      window.appData.activities
+      window.__APP_TEST__.getState().activities
         .filter((activity) => activity.archivedAt)
         .map((activity) => activity.name)
         .sort()
@@ -390,7 +390,7 @@ test.describe('deleting activities from the library', () => {
     await page.evaluate(async () => {
       const { recordActivitiesForDate } = await import('/src/features/fitness/activities.js');
       const { getLocalISODate } = await import('/src/shared/datetime.js');
-      const run = window.appData.activities.find((a) => a.name === 'Treadmill Run');
+      const run = window.__APP_TEST__.getState().activities.find((a) => a.name === 'Treadmill Run');
       await recordActivitiesForDate([run.id], getLocalISODate(new Date()));
     });
 
@@ -400,7 +400,7 @@ test.describe('deleting activities from the library', () => {
 
     await page.evaluate(async () => {
       const { archiveActivity } = await import('/src/features/fitness/activities.js');
-      const run = window.appData.activities.find((a) => a.name === 'Treadmill Run');
+      const run = window.__APP_TEST__.getState().activities.find((a) => a.name === 'Treadmill Run');
       await archiveActivity(run.id);
     });
 

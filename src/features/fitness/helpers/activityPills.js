@@ -3,6 +3,7 @@
  *
  * Pure functions for generating activity pills display
  */
+import { escapeHtml, normalizeHexColor } from '../../../shared/sanitize.js';
 
 /**
  * Generates activity pills based on the record type and data
@@ -32,10 +33,11 @@ export function generateActivityPills(record, category, { archived = false } = {
  * @param {Object} category - The activity category, for the accent colour
  * @returns {string} HTML string for the prompt pill
  */
-export function generateAddDetailsPrompt(category) {
+function generateAddDetailsPrompt(category) {
+  const color = normalizeHexColor(category?.color);
   return `
     <span class="add-details-prompt inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium border border-dashed"
-          style="color:${category.color}; border-color:${category.color};">
+          style="color:${color}; border-color:${color};">
       <span class="material-icons text-sm" aria-hidden="true">add</span>Add sets &amp; details
     </span>
   `;
@@ -47,7 +49,8 @@ export function generateAddDetailsPrompt(category) {
  * @param {Object} category - The activity category
  * @returns {string} HTML string for the sets pills
  */
-export function generateSetsPills(record, category) {
+function generateSetsPills(record, category) {
+  const color = normalizeHexColor(category?.color);
   const n = record.sets.length;
   const col1Count = Math.ceil(n / 2);
 
@@ -80,7 +83,7 @@ export function generateSetsPills(record, category) {
       } else if (set.value) {
         setDisplay += ` × ${set.value}`;
       }
-      return `<span class="inline-block text-white text-xs px-2 py-1 rounded-lg mr-1 mb-1 font-medium" style="background-color: ${category.color};">${setDisplay}</span>`;
+      return `<span class="inline-block text-white text-xs px-2 py-1 rounded-lg mr-1 mb-1 font-medium" style="background-color: ${color};">${escapeHtml(setDisplay)}</span>`;
     })
     .join('');
 
@@ -94,8 +97,9 @@ export function generateSetsPills(record, category) {
  * @param {Object} category - The activity category
  * @returns {string} HTML string for the time pills
  */
-export function generateTimePills(record, category) {
-  let pills = [];
+function generateTimePills(record, category) {
+  const pills = [];
+  const color = normalizeHexColor(category?.color);
 
   if (record.duration) {
     const durationUnit = record.durationUnit || 'minutes';
@@ -108,7 +112,7 @@ export function generateTimePills(record, category) {
       unitShort = 's';
     }
     pills.push(
-      `<span class="inline-block text-white text-xs px-2 py-1 rounded-lg mr-1 mb-1 font-medium" style="background-color: ${category.color};">${record.duration} ${unitShort}</span>`
+      `<span class="inline-block text-white text-xs px-2 py-1 rounded-lg mr-1 mb-1 font-medium" style="background-color: ${color};">${escapeHtml(record.duration)} ${unitShort}</span>`
     );
   }
 
@@ -116,24 +120,9 @@ export function generateTimePills(record, category) {
     const capitalizedIntensity =
       record.intensity.charAt(0).toUpperCase() + record.intensity.slice(1);
     pills.push(
-      `<span class="inline-block text-white text-xs px-2 py-1 rounded-lg mr-1 mb-1 font-medium" style="background-color: ${category.color};">${capitalizedIntensity}</span>`
+      `<span class="inline-block text-white text-xs px-2 py-1 rounded-lg mr-1 mb-1 font-medium" style="background-color: ${color};">${escapeHtml(capitalizedIntensity)}</span>`
     );
   }
 
   return pills.join('');
-}
-
-/**
- * Builds set pills with specific layout ordering for display
- * @param {Array} sets - Array of set objects
- * @param {Object} category - The activity category
- * @returns {string} HTML string for the set pills with ordered layout
- */
-export function buildSetPills(sets, category) {
-  if (!sets || sets.length === 0) {
-    return '';
-  }
-
-  const record = { sets };
-  return generateSetsPills(record, category);
 }

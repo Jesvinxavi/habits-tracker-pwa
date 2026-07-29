@@ -11,16 +11,15 @@ let timerState = {
   pausedTime: 0,
 };
 
-// Timer interval and callbacks
-let timerInterval = null;
-let updateCallback = null;
-
 /**
  * Gets the current timer state
  * @returns {object} Timer state with isRunning and elapsedSeconds
  */
 export function getTimerState() {
-  return { ...timerState };
+  const elapsedSeconds = timerState.isRunning
+    ? Math.floor((Date.now() - timerState.startTime) / 1000)
+    : timerState.elapsedSeconds;
+  return { ...timerState, elapsedSeconds };
 }
 
 /**
@@ -33,17 +32,6 @@ export function startTimer(callback) {
   timerState.isRunning = true;
   timerState.startTime = Date.now() - timerState.elapsedSeconds * 1000;
 
-  // Start the timer interval
-  timerInterval = setInterval(() => {
-    const now = Date.now();
-    timerState.elapsedSeconds = Math.floor((now - timerState.startTime) / 1000);
-
-    // Call update callback if set
-    if (updateCallback) {
-      updateCallback();
-    }
-  }, 1000);
-
   if (callback) callback();
 }
 
@@ -54,13 +42,8 @@ export function startTimer(callback) {
 export function stopTimer(callback) {
   if (!timerState.isRunning) return;
 
+  timerState.elapsedSeconds = Math.floor((Date.now() - timerState.startTime) / 1000);
   timerState.isRunning = false;
-
-  // Clear the interval
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
-  }
 
   if (callback) callback();
 }
@@ -81,41 +64,4 @@ export function resetTimer(callback) {
   timerState.pausedTime = 0;
 
   if (callback) callback();
-}
-
-/**
- * Sets the update callback function
- * @param {function} callback - Function to call on timer updates
- */
-export function setTimerUpdateCallback(callback) {
-  updateCallback = callback;
-}
-
-/**
- * Initializes the timer system
- */
-export function initializeTimer() {
-  // Reset to clean state
-  timerState = {
-    isRunning: false,
-    elapsedSeconds: 0,
-    startTime: null,
-    pausedTime: 0,
-  };
-
-  // Clear any existing interval
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
-  }
-
-  updateCallback = null;
-}
-
-/**
- * Gets elapsed time for recording purposes
- * @returns {number} Current elapsed seconds
- */
-export function getElapsedForRecording() {
-  return timerState.elapsedSeconds;
 }
