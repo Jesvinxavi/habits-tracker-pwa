@@ -10,6 +10,7 @@
     "build:local": "BUILD_TARGET=local vite build",
     "preview:local": "npm run build:local && node scripts/preview.mjs",
     "preview:phone": "npm run build:local && node scripts/preview.mjs --phone",
+    "preview:pages": "npm run build:pages && node scripts/preview-pages.mjs",
     "deploy": "npm run build:pages && gh-pages -d dist",
     "test": "npm run test:unit && npm run test:migration",
     "test:unit": "vitest run tests/unit tests/convex",

@@ -11,7 +11,7 @@ export default defineConfig({
   },
   webServer: {
     command:
-      'VITE_DATA_BACKEND=legacy npm run build:pages && npx vite preview --host 127.0.0.1 --port 4190 --strictPort',
+      'VITE_DATA_BACKEND=legacy npm run build:pages && node scripts/preview-pages.mjs',
     url: 'http://127.0.0.1:4190/habits-tracker-pwa/',
     reuseExistingServer: false,
     timeout: 120000,
