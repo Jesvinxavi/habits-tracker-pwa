@@ -21,4 +21,7 @@ implementation decisions, and measured optimisation results.
 
 PR #2 tracked the earlier `claude/fitness-overhaul` head. The completed
 successor branch, `fitness-overhaul-optimisations`, was integrated directly into
-`develop`; PR #2 was therefore closed without merging its older head.
+`develop`. Because that made every commit from the PR head reachable from its
+base, GitHub automatically recorded PR #2 as merged at the older head commit;
+the later optimisation and polish commits are part of the same `develop`
+integration.

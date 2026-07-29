@@ -3,8 +3,10 @@
 **Branch:** `claude/fitness-overhaul`
 **Status:** **Implemented and integrated into `develop` on 2026-07-29.** All
 seven phases, the follow-on optimisation work, and final browser polish are
-complete. PR #2 tracked the older `claude/fitness-overhaul` head and was closed
-without merging after its completed successor branch was integrated directly.
+complete. PR #2 tracked the older `claude/fitness-overhaul` head. When its
+completed successor was fast-forwarded directly into `develop`, GitHub
+automatically recorded PR #2 as merged because the full PR head became
+reachable from the base.
 Nine checkboxes remain unticked on purpose: six standing rules in §0, the
 alternative that Task 2.6 did not take, and two
 verification items that need a human — a fresh-account pass and a
@@ -1377,8 +1379,9 @@ documentation that now describes a page that no longer exists, and run the full 
 - [x] **7.9** Integrate the completed Fitness work into `develop` with tests and
       documentation current. §8.1 correctly forbids feature integration into
       `main`. PR #2 targeted `develop` but tracked the earlier overhaul head, so
-      the completed successor branch was integrated directly and PR #2 closed
-      without merging its stale head.
+      the completed successor branch was integrated directly. GitHub then
+      automatically marked PR #2 merged because its head was part of that
+      history.
 
 ### Verification — Phase 7
 
@@ -1879,7 +1882,7 @@ Recorded so the reasoning is not lost.
 | Task 2.x: the day's pill reads *Activities* | Reads **Schedule** | Later request: it sat directly under an *Activities* button and read as a duplicate of it. |
 | No overlap rule between programs | Saving an overlapping block raises a replace / edit / dismiss dialog | Later request. Two blocks covering the same dates would both claim those days; making it a decision beats letting the user find out later. |
 | Task 7.1 greps | Scoped to fitness for `mountSearchPanel`; `new-activity-btn` matched as a substring | Habits legitimately owns its own `mountSearchPanel`, and `library-new-activity-btn` is a new id. |
-| Task 7.9: open a PR against `main` | The completed successor branch was integrated into `develop`; PR #2 was closed without merging its older head | §8.1 forbids feature integration into `main`, and closing the superseded PR avoids presenting an incomplete head as the final Fitness implementation. |
+| Task 7.9: open a PR against `main` | The completed successor branch was integrated into `develop`; GitHub automatically marked PR #2 merged when its older head became reachable from the base | §8.1 forbids feature integration into `main`. The PR records the overhaul head, while the same `develop` integration also contains every later optimisation and polish commit. |
 
 Two verification items in Phase 7 remain unticked because they need a human: a
 fresh-account end-to-end pass, and a legacy-localStorage migration pass. Everything
