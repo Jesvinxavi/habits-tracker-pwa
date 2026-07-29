@@ -24,11 +24,11 @@ export function buildCategorySection(
   const icon = escapeHtml(category.icon || '🎯');
   const name = escapeHtml(category.name || '');
 
-  // Build expand/collapse button. The chevron points right while collapsed, the
-  // same -90deg rotation toggleSearchCategory animates to.
+  // The chevron's state is class-driven so it follows the same transition clock
+  // as the expanding content.
   const expandBtn = `
     <button class="search-expand-btn h-5 w-5 flex items-center justify-center text-black" data-category-id="${safeCategoryId}" aria-expanded="${!collapsed}">
-      <span class="material-icons transition-transform leading-none"${collapsed ? ' style="transform: rotate(-90deg);"' : ''}>expand_more</span>
+      <span class="material-icons leading-none">expand_more</span>
     </button>
   `;
 
@@ -66,7 +66,7 @@ export function buildCategorySection(
   }
 
   return `
-    <div class="search-category-section mb-4${collapsed ? ' collapsed' : ''}" data-category-id="${safeCategoryId}" id="${safeSectionId}">
+    <div class="search-category-section is-collapsible mb-4${collapsed ? ' collapsed' : ''}" data-category-id="${safeCategoryId}" id="${safeSectionId}">
       <div class="flex items-center gap-2">
         <div class="search-category-header flex items-center justify-between px-4 py-2 rounded-xl cursor-pointer select-none flex-grow" style="background:${hexToRgba(color, 0.25)};">
           <div class="category-title flex items-center gap-2">
@@ -77,8 +77,10 @@ export function buildCategorySection(
         </div>
         ${editBtn}
       </div>
-      <div class="search-category-content mt-0.5${collapsed ? ' hidden' : ''}">
-        ${activitiesContent}
+      <div class="search-category-content mt-0.5" aria-hidden="${collapsed}"${collapsed ? ' inert' : ''}>
+        <div class="search-category-content-inner">
+          ${activitiesContent}
+        </div>
       </div>
     </div>
   `;
@@ -121,54 +123,15 @@ function toggleSearchCategory(categoryId) {
   if (!section) return;
 
   const contentDiv = section.querySelector('.search-category-content');
-  const iconEl = section.querySelector('.search-expand-btn .material-icons');
+  if (!contentDiv) return;
 
-  if (!contentDiv || !iconEl) return;
-
-  const isCollapsed = section.classList.contains('collapsed');
-  section.querySelector('.search-expand-btn')?.setAttribute('aria-expanded', String(isCollapsed));
-
-  if (isCollapsed) {
-    // Expanding
-    contentDiv.style.maxHeight = '0px';
-    contentDiv.style.overflow = 'hidden';
-    contentDiv.classList.remove('hidden');
-
-    // Force reflow
-    contentDiv.offsetHeight;
-
-    // Set max height to scroll height for smooth expansion
-    contentDiv.style.maxHeight = contentDiv.scrollHeight + 'px';
-    iconEl.style.transform = 'rotate(0deg)';
-    section.classList.remove('collapsed');
-
-    // Reset max-height after animation completes
-    setTimeout(() => {
-      if (!section.classList.contains('collapsed')) {
-        contentDiv.style.maxHeight = '';
-        contentDiv.style.overflow = '';
-      }
-    }, 300);
-  } else {
-    // Collapsing
-    contentDiv.style.maxHeight = contentDiv.scrollHeight + 'px';
-    contentDiv.style.overflow = 'hidden';
-
-    // Force reflow
-    contentDiv.offsetHeight;
-
-    // Collapse to 0
-    contentDiv.style.maxHeight = '0px';
-    iconEl.style.transform = 'rotate(-90deg)';
-    section.classList.add('collapsed');
-
-    // Hide after animation completes
-    setTimeout(() => {
-      if (section.classList.contains('collapsed')) {
-        contentDiv.classList.add('hidden');
-      }
-    }, 300);
-  }
+  const expanded = section.classList.contains('collapsed');
+  section.classList.toggle('collapsed', !expanded);
+  section
+    .querySelector('.search-expand-btn')
+    ?.setAttribute('aria-expanded', String(expanded));
+  contentDiv.setAttribute('aria-hidden', String(!expanded));
+  contentDiv.toggleAttribute('inert', !expanded);
 }
 
 /**

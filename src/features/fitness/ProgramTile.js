@@ -16,6 +16,7 @@ const PILL_COLOR = '#0060C7';
 // holding every label above 4.5:1 in both themes.
 const FILL_ALPHA = 0.45;
 const BASE_ALPHA = 0.07;
+const renderedSignatures = new WeakMap();
 
 /**
  * Builds the left-to-right fill for a given completion fraction.
@@ -40,7 +41,12 @@ export function renderProgramTile() {
 
   const program = getActiveProgram();
   if (!program) {
+    if (host.childElementCount === 0) {
+      renderedSignatures.set(host, null);
+      return;
+    }
     host.innerHTML = '';
+    renderedSignatures.set(host, null);
     return;
   }
 
@@ -50,6 +56,21 @@ export function renderProgramTile() {
   const programName = escapeHtml(program.name || '');
   const programNameAttribute = escapeAttribute(program.name || '');
   const programId = escapeAttribute(program.id);
+  const signature = JSON.stringify([
+    program.id,
+    program.name,
+    label,
+    range,
+    progress.completedWorkouts,
+    progress.plannedWorkouts,
+    progress.percent,
+  ]);
+
+  // initializeFitness() renders while the lazy page is still hidden, then
+  // activate() asks for the current state once the view is revealed. Preserve
+  // that already-correct DOM instead of replacing the tile during its first
+  // visible frame. The guard also suppresses later selector-equivalent renders.
+  if (renderedSignatures.get(host) === signature && host.querySelector('#program-tile')) return;
 
   // Laid out like a home target-habit card: icon, then name with a pill beneath
   // it, then a right-hand column holding the counter box and a unit pill, all
@@ -78,6 +99,7 @@ export function renderProgramTile() {
       </div>
     </button>
   `;
+  renderedSignatures.set(host, signature);
 
   const tile = host.querySelector('#program-tile');
   const openDetails = () =>

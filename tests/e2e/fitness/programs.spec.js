@@ -389,9 +389,36 @@ test.describe('program builder and tile', () => {
     });
 
     await page.reload();
+    await page.evaluate(() => {
+      window.__programTileAdditions = 0;
+      window.__programTileObserver = new MutationObserver((records) => {
+        records.forEach((record) => {
+          record.addedNodes.forEach((node) => {
+            if (!(node instanceof Element)) return;
+            if (node.id === 'program-tile' || node.querySelector?.('#program-tile')) {
+              window.__programTileAdditions += 1;
+            }
+          });
+        });
+      });
+      window.__programTileObserver.observe(document.getElementById('fitness-view'), {
+        childList: true,
+        subtree: true,
+      });
+    });
     await page.getByRole('tab', { name: 'Fitness view' }).click();
     await expect(page.locator('#program-tile')).toContainText('Persistent');
     await expect(page.locator('.program-workouts')).toHaveText('0/23');
+    const additions = await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => {
+            window.__programTileObserver.disconnect();
+            resolve(window.__programTileAdditions);
+          })
+        )
+    );
+    expect(additions).toBe(1);
   });
 
   test('tile renders without overflow at 375px', async ({ page }) => {

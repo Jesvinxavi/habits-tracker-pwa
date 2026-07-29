@@ -808,22 +808,47 @@ body {
 
 /* Category collapse animations.
    Not scoped to #fitness-view: the categorised list now renders inside the
-   Activity Library modal, which Modal.js appends to <body>. */
-.search-category-content {
+   Activity Library modal, which Modal.js appends to <body>. A 0fr/1fr grid
+   transition handles content of any height without measuring layout or
+   interrupting the animation with a timeout. */
+.search-category-section.is-collapsible .search-category-content {
+    display: grid;
+    grid-template-rows: 1fr;
     overflow: hidden;
-    transition: max-height 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    opacity: 1;
+    transition:
+        grid-template-rows 280ms cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 180ms ease-out,
+        visibility 0s linear;
 }
 
-.search-category-section.collapsed .search-category-content {
-    max-height: 0;
+.search-category-section.is-collapsible .search-category-content-inner {
+    min-height: 0;
 }
 
-.search-expand-btn {
-    transition: transform 0.4s ease;
+.search-category-section.is-collapsible.collapsed .search-category-content {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+        grid-template-rows 280ms cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 180ms ease-out,
+        visibility 0s linear 280ms;
 }
 
-.search-category-section.collapsed .search-expand-btn {
+.search-category-section.is-collapsible .search-expand-btn .material-icons {
+    transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.search-category-section.is-collapsible.collapsed .search-expand-btn .material-icons {
     transform: rotate(-90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .search-category-section.is-collapsible .search-category-content,
+    .search-category-section.is-collapsible .search-expand-btn .material-icons {
+        transition: none;
+    }
 }
 
 /* Activity tile hover states.

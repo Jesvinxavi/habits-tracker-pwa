@@ -164,7 +164,7 @@ test.describe('activity library modal', () => {
     await expect(page.locator('#library-new-activity-btn')).toContainText('New');
   });
 
-  test('collapse chevron still animates outside #fitness-view', async ({ page }) => {
+  test('category content and chevron animate on one uninterrupted clock', async ({ page }) => {
     await seed(page);
     await openLibrary(page);
 
@@ -172,18 +172,29 @@ test.describe('activity library modal', () => {
     const contentDiv = section.locator('.search-category-content');
 
     // The transition comes from CSS, which must still match now the list lives in <body>.
-    const transition = await contentDiv.evaluate(
-      (el) => getComputedStyle(el).transitionDuration
-    );
-    expect(transition).not.toBe('0s');
+    const transition = await contentDiv.evaluate((el) => ({
+      duration: getComputedStyle(el).transitionDuration,
+      property: getComputedStyle(el).transitionProperty,
+      inlineHeight: el.style.maxHeight,
+      inert: el.hasAttribute('inert'),
+    }));
+    expect(transition.duration).toContain('0.28s');
+    expect(transition.property).toContain('grid-template-rows');
+    expect(transition.inlineHeight).toBe('');
+    expect(transition.inert).toBe(true);
 
     await section.locator('.search-expand-btn').click();
     await expect(section).not.toHaveClass(/collapsed/);
     await expect(contentDiv).toBeVisible();
+    await expect(contentDiv).toHaveAttribute('aria-hidden', 'false');
+    await expect(contentDiv).not.toHaveAttribute('inert', '');
+    expect(await contentDiv.evaluate((el) => el.style.maxHeight)).toBe('');
 
     await section.locator('.search-expand-btn').click();
     await expect(section).toHaveClass(/collapsed/);
     await expect(contentDiv).toBeHidden();
+    await expect(contentDiv).toHaveAttribute('aria-hidden', 'true');
+    await expect(contentDiv).toHaveAttribute('inert', '');
   });
 
   test('tile tap opens the details view over the library, which stays open', async ({ page }) => {
