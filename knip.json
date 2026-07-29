@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/knip/schema.json",
+  "entry": [
+    "src/main.js",
+    "src/styles/*.css",
+    "playwright*.config.js",
+    "vitest.config.js",
+    "scripts/*.mjs",
+    "convex/**/*.ts",
+    "tests/**/*.test.js",
+    "tests/e2e/**/*.spec.js",
+    "tests/pwa/**/*.spec.js"
+  ],
+  "project": [
+    "src/**/*.{js,css}",
+    "scripts/*.mjs",
+    "convex/**/*.ts",
+    "*.config.js"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "ignoreIssues": {
+    "src/components/**": ["exports"],
+    "src/core/**": ["exports"],
+    "src/features/habits/**": ["exports"],
+    "src/features/home/**": ["exports"],
+    "src/features/profile/**": ["exports"],
+    "src/features/stats/**": ["exports"],
+    "src/selectors/**": ["exports"],
+    "src/shared/**": ["exports"]
+  },
+  "playwright": false,
+  "vite": false
+}

@@ -16,6 +16,7 @@
     "test:unit": "vitest run tests/unit tests/convex",
     "test:migration": "vitest run tests/migration",
     "test:e2e": "playwright test",
+    "test:fitness:perf": "FITNESS_PERF=1 playwright test tests/e2e/fitness/optimisation-invariants.spec.js --grep \"large-account\" --workers=1",
     "test:pwa": "playwright test --config=playwright.pwa.config.js",
     "test:convex": "tsc -p convex/tsconfig.json --noEmit",
     "test:watch": "vitest",
@@ -23,6 +24,7 @@
     "analyze": "BUILD_TARGET=local vite build --mode analyze",
     "check:bundle": "npm run build:local && node scripts/check-bundle-budgets.mjs",
     "check:bundle:pages": "npm run build:pages && node scripts/check-bundle-budgets.mjs",
+    "check:dead-code": "knip --include files,exports,dependencies,unlisted --no-config-hints --max-issues 0",
     "clean": "rm -rf dist node_modules/.vite",
     "audit": "npm audit && npm run lint && npm run build:local"
   },
@@ -38,6 +40,7 @@
     "fake-indexeddb": "^6.2.5",
     "gh-pages": "^6.3.0",
     "jsdom": "^29.1.1",
+    "knip": "^6.29.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "^7.0.2",

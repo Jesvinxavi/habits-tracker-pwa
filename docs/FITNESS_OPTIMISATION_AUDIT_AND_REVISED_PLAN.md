@@ -1511,3 +1511,175 @@ cycles to one.
 - **No performance claim based solely on source bytes or listener count.** D3,
   D5 and G3 are justified mainly by ownership, correctness or maintainability;
   user-visible speed claims require a browser measurement.
+
+---
+
+## 13. Implementation record — 2026-07-29
+
+### Outcome
+
+The required phases of this revised plan have now been implemented. The two
+benchmark-gated options, B5 keyed DOM reconciliation and G3 inherited colour
+properties, deliberately did not land: the post-change browser measurements do
+not justify their complexity. The separately scoped auth/vendor audit remains
+separate exactly as section 12 specifies.
+
+This implementation was checkpointed in small recoverable stages:
+
+1. `608559a3` — state/render architecture, atomic batches, lazy modal boundary,
+   sanitisation, bundle budgets and the initial regression harness;
+2. `19340116` — data-boundary validation, modal/lifecycle hardening and
+   optimisation-invariant browser tests;
+3. `728099fc` — Pages-faithful PWA preview and offline lazy-chunk verification;
+4. final verification/documentation checkpoint — browser-discovered title
+   semantics, Knip gate and recorded measurements.
+
+The source `docs/FITNESS_OPTIMISATION_PLAN.md` was kept untouched throughout.
+
+### Implementation disposition
+
+| Item | Result | Agreement or change from the plan |
+| --- | --- | --- |
+| A1/A2 | Implemented | Full agreement. `getState()` returns the stable canonical snapshot and dispatch no longer clones the account for ordinary actions. Ownership-boundary imports/hydration are still cloned. |
+| A3/A4/A5 | Implemented | Selector subscriptions, equality functions, isolated listener failure and no-op root suppression landed together because they share one notification contract. |
+| A6 | Implemented | Activity, category, routine and program indexes are cached by collection identity. Search normalisation is also identity-cached. |
+| B1 | Implemented | Multi-activity recording creates one reducer transition and one notification while retaining one durable operation per record. |
+| B2 | Implemented | Manual post-dispatch Fitness renders and the redundant custom record/delete events were removed. Active state subscriptions now own rendering. |
+| B3 | Implemented and strengthened | Navigation activates/subscribes only the visible page. Small Home/Habits control subscriptions were also lifecycle-bound after the browser invariant exposed them. |
+| B4 | Implemented | The Fitness view is a CSS flex/min-height scroll layout. The forced `getBoundingClientRect`/`getComputedStyle` height path and its resize listeners were deleted. |
+| B5 | Measured and not implemented | One atomic dispatch produces one activity-list mutation delivery; mobile layout has no overflow. A keyed reconciler has no evidenced benefit yet. |
+| B6 | Implemented | Activity grouping is one pass; searchable names are normalised only when activity identity changes. |
+| C1/C2 | Implemented | Program progress is memoised by the program object, exact state collections and local day, and all inputs come from one snapshot. |
+| C3 | Implemented | One recorded-history index is shared by Fitness statistics and the Stats page and invalidates only when `recordedActivities` identity changes. |
+| C4 | Preserved | `plannedSlots` was not micro-optimised. |
+| D1 | Implemented | One modal manager owns stack order, scroll lock, dialog semantics, focus entry, Tab containment, Escape ownership and focus restoration. |
+| D2 | Implemented | Thirteen Fitness shells remain inert in one `<template>` at startup. A modal module materialises only its own shell on first open. |
+| D3 | Implemented with a lower-risk form | The shared manager and markup materialiser standardise layering and semantics without a pixel-risk rewrite of every shell. A hands-on browser pass found styled title `<span>` elements; they are now real `<h2>` labels. |
+| D4 | Implemented | Lazy opens expose busy state, coalesce repeated opens, recover from import failure, restore the opener and prefetch on intent while respecting Save-Data/2G. |
+| D5 | Implemented | Redundant custom modal events and feature-owned DOM moves were removed. One central body-level repair remains for malformed legacy nesting. |
+| E1 | Implemented | User-controlled Fitness text/attributes are escaped or assigned through DOM text APIs. Confirmation-dialog copy is never interpolated as HTML. |
+| E2 | Implemented | Colours, icons, tracking type, units, direction, duration, intensity, reps and set values are validated at create/update/import/hydration boundaries with legacy-safe fallbacks. |
+| E3 | Implemented | Activity and program cards use native buttons. Routine cards have complete button semantics and Enter/Space handling. Archived activity cards are inert. |
+| E4 | Implemented | Production state globals were removed. Development legacy mode exposes only the narrow getter/dispatch `__APP_TEST__` hook. |
+| F1/F2 | Implemented | Named chunks follow real dynamic boundaries. All ineffective-import warnings were eliminated. |
+| F3 | Implemented | Local/Pages bundle budgets and an offline production-PWA lazy-modal test are committed. |
+| F4 | Deferred by design | The 588 KB gzip auth/vendor chunk remains outside this Fitness branch. |
+| G1 | Implemented | Dead Fitness APIs, two unreachable repository/update-prompt files, stale lint ignores and 26 unused CSS selectors were removed. `no-unused-vars` is an error and Knip now gates unused files, Fitness exports and dependencies. |
+| G2 | Implemented | Legacy Convex remove-cascade mutations are explicitly compatibility-only and dated for removal after 2026-10-29. |
+| G3 | Not implemented | B5 did not earn a keyed DOM path, so the companion custom-property rewrite also remains deferred. |
+| H1 | Implemented | Playwright uses `Europe/London`; program-date tests freeze local time and use the app’s local weekday convention. |
+| H2 | Implemented | A deterministic 0.9 MB work-count fixture and a 4× CPU-throttled browser action-to-second-paint test are committed. The throttle runs in a dedicated one-worker gate so it cannot slow functional pages that share a Chromium process. |
+| H3 | Implemented | The independent 700-line program schedule cases run in parallel across existing Playwright workers; the PWA uses a small production-preview project rather than duplicating the suite. |
+| H4 | Implemented with a deliberate limit | All fixed sleeps were replaced with web-first conditions. Domain-specific seed helpers remain local because merging unrelated program, routine and record setup into one giant fixture made tests less explicit. |
+| H5 | Implemented | Focus stack depth, keyboard cards, injection, inactive lifecycle, single render, atomic notification, cache invalidation, failed lazy import and offline lazy open all have regressions. |
+
+### Measured before and after
+
+The build measurements below are directly comparable local production builds.
+The “before” figures are the independently reproduced baseline in section 1;
+the “after” figures are the final build with the budget script enabled.
+
+| Metric | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| Fitness core JavaScript, raw | 136.62 KB | 70.25 KB | −48.6% |
+| Fitness core JavaScript, gzip | 32.55 KB | 19.59 KB | −39.8% |
+| CSS, raw | 83.2 KB | 79.36 KB | −4.6% |
+| CSS, gzip | 15.1 KB | 14.40 KB | −4.6% |
+| Live Fitness modal shells before first open | 13 | 0 | −100% |
+| Total lazy Fitness modal/timer gzip | not split | 24.58 KB | separately cached/on demand |
+| Pages precache | no enforced budget | 2,205,774 bytes | below 2.5 MB gate |
+| Ineffective dynamic-import warnings | several | 0 | eliminated |
+
+The committed 4× CPU-throttled browser benchmark used a 965,109-byte account
+with 100 activities and 3,500 recorded sessions. One observed local run measured:
+
+- 1,000 `getState()` reads: **0.10 ms**;
+- one atomic 20-activity dispatch through the second animation frame:
+  **42.4 ms**;
+- rendered cards: **20**;
+- state snapshot identity changes during the 1,000 reads: **0**.
+
+Those wall-clock numbers are recorded as observations, not universal promises.
+The CI limits are intentionally generous (50 ms for 1,000 reads and 500 ms for
+batch-to-second-paint under 4× throttle); the strict guarantees are snapshot
+identity, one notification, one render delivery and 20 resulting cards.
+
+### Browser audit findings
+
+The app was inspected in the in-app Chromium browser at 1280×900 and 375×812,
+in addition to Playwright’s mobile/tablet/desktop projects.
+
+**Confirmed.**
+
+- Desktop Fitness keeps its authored width and empty-state hierarchy.
+- Mobile `documentElement.scrollWidth` equals the 375 px viewport; the duplicate
+  calendar scrollbar found during implementation is gone.
+- The Add Activity modal is 343 px wide with 16 px gutters in a 375 px viewport.
+- Before any modal opens, all 13 Fitness shells are inert and there are zero
+  live Fitness modal shells.
+- Opening Activity Library creates only `activity-library-modal`.
+- Opening Add Activity above the library yields stack layers 1001/1002,
+  `aria-hidden="true"` on the lower layer and focus on
+  `cancel-add-activity`.
+- Body scroll remains locked until the last stacked modal closes.
+- The add menu remains fully on-screen at 375 px and the mobile empty state is
+  not clipped.
+
+**Found and fixed during the browser pass.**
+
+1. The calendar host and its inner strip both owned horizontal overflow,
+   producing a thick redundant mobile scrollbar. The host now delegates
+   scrolling to the strip.
+2. Several modal titles were styled spans. They now use `<h2>`, giving the
+   dialog manager a deterministic `aria-labelledby` target.
+3. Vite preview served a Pages build at `/` while its assets lived under
+   `/habits-tracker-pwa/`; every app asset and `registerSW.js` returned 404.
+   `preview-pages.mjs` now reproduces the real Pages subpath, allowing the
+   service worker and offline test to exercise the actual build.
+
+### Final verification record
+
+| Gate | Result |
+| --- | --- |
+| ESLint, including unused variables as errors | pass |
+| Knip unused files/Fitness exports/dependencies | pass |
+| Unit + Convex-behaviour tests | 152/152 pass |
+| Migration tests | 19/19 pass |
+| Convex TypeScript validation | pass |
+| Full Chromium suite, first run | 132/132 pass |
+| Full Chromium suite, second run | 132/132 pass |
+| Isolated 4× CPU Fitness performance gate | pass |
+| Picker title/ARIA regression | 10/10 pass |
+| Offline Pages PWA lazy-modal test | pass |
+| Local bundle budgets | pass |
+| Pages bundle/precache budgets | pass |
+| Local production build | pass; zero ineffective-import warnings |
+
+The only remaining build warning is the intentionally deferred auth/vendor
+chunk over Vite’s generic 1 MB raw warning threshold. Its measured gzip size is
+about 588 KB and remains below the explicit 650 KB guardrail.
+
+### Complications and boundaries
+
+**Knip/TypeScript.** Knip 5 could not be installed because its peer range stops
+below this repository’s TypeScript 7. npm correctly rejected it. Knip 6.29.0
+supports the repository’s Node/TypeScript toolchain and is the version used by
+the final gate; no peer dependency was forced.
+
+**Benchmark isolation.** An initial combined run placed the 4× CPU-throttled
+benchmark alongside functional pages. Five otherwise unrelated tests remained
+on Home beyond their five-second navigation assertion while the machine was
+loaded. The benchmark now has the explicit `test:fitness:perf` single-worker
+gate, restores the throttle and detaches its CDP session in `finally`; ordinary
+`test:e2e` skips only that diagnostic. This preserves strict functional
+timeouts instead of concealing interference by increasing them.
+
+**Dependency audit.** `npm audit --omit=dev` reports 12 moderate transitive
+issues through Clerk’s Solana wallet dependency chain. npm offers only a forced
+breaking downgrade to Clerk 5, so this Fitness change does not apply it. This is
+part of the separate vendor/auth audit, not evidence of a Fitness regression.
+
+**No Convex schema change.** Atomic multi-record UI work still emits the existing
+validated `activityRecords:create` operations. The optimisation therefore
+needed no new table, index or public Convex mutation, and the full Convex
+type/behaviour gates remain green.

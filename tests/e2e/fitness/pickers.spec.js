@@ -41,6 +41,11 @@ test.describe('add-activity picker', () => {
     await openMenu(page, 'add-activity');
 
     await expect(page.locator('#activity-picker-modal')).toBeVisible();
+    await expect(page.locator('#activity-picker-modal')).toHaveAttribute(
+      'aria-labelledby',
+      'activity-picker-title'
+    );
+    await expect(page.getByRole('heading', { name: 'Add Activities' })).toBeVisible();
     // Not the library.
     await expect(page.locator('#activity-library-modal')).toBeHidden();
     await expect(page.locator('#activity-picker-list .stats-btn')).toHaveCount(0);
@@ -162,6 +167,11 @@ test.describe('add-routine picker', () => {
     await openMenu(page, 'add-routine');
 
     await expect(page.locator('#routine-picker-modal')).toBeVisible();
+    await expect(page.locator('#routine-picker-modal')).toHaveAttribute(
+      'aria-labelledby',
+      'routine-picker-title'
+    );
+    await expect(page.getByRole('heading', { name: 'Add Routines' })).toBeVisible();
     const cards = page.locator('#routine-picker-list .selectable-routine-item');
     await expect(cards).toHaveCount(2);
     await expect(page.locator('#routine-picker-list .selection-indicator')).toHaveCount(2);
