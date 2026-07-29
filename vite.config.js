@@ -48,7 +48,7 @@ function resolveTarget(command) {
         '  npm run preview:local builds local and serves it on http://localhost:4180',
         '  npm run preview:phone same, reachable from your phone on this Wi-Fi',
         '',
-        '  See docs/BUILD_AND_DEPLOY.md.',
+        '  See docs/operations/BUILD_AND_DEPLOY.md.',
         '',
       ].join('\n')
     );

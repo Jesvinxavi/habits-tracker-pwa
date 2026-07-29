@@ -200,7 +200,7 @@ feature ← one branch per feature/fix, branched from develop.
 - [ ] Added JSDoc?
 - [ ] Followed naming, lint & style rules?
 - [ ] No direct DOM access in utils?
-- [ ] Updated `CACHE_NAME` & manifest if static asset added?
+- [ ] Updated the manifest/PWA configuration if a static asset was added?
 - [ ] Updated docs/tests & this guide if behaviour changed?
 
 ---
@@ -211,7 +211,7 @@ ESLint, Vitest, Convex type-checking, production build, and Playwright smoke tes
 
 ---
 
-## 12. Future Improvements (track in GitHub Issues)
+## 11.1 Future Improvements (track in GitHub Issues)
 
 • Expand authenticated browser coverage for reconnect and conflict flows
 • Add self-service export, reset, rollback, and account deletion UI
@@ -361,9 +361,17 @@ The two pickers sit at `1003` because they open **over** the routine and program
 builders at `1002`. They never coexist with Activity Details, which shares that
 level.
 
-New modal markup lives in `index.html` in ascending z-order, and every modal
-module binds its permanent handlers once behind a `modal.dataset.listenerAttached`
-guard.
+Fitness modal shells live under the inert
+`<template id="fitness-modal-markup">` in `index.html`. A lazy modal module calls
+`ensureFitnessModalMarkup(id)` from `FitnessModalMarkup.js` to materialise only
+its own shell on first use. Do not move those shells back into the live startup
+DOM. The stack in `Modal.js`, not an authored Tailwind z-index, is the runtime
+source of truth for layer order.
+
+Every modal module binds its permanent handlers once behind a
+`modal.dataset.listenerAttached` guard. Feature Escape handlers still check
+`topModalId()`; the shared manager owns focus entry, Tab containment, restoration,
+dialog semantics, stack visibility, and body scroll locking.
 
 ### 12.2 Archiving, not deleting
 

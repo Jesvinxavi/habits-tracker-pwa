@@ -33,7 +33,9 @@ All notable user-facing and operational changes are documented here.
   outbox, state and hydration
 - Separate build targets for GitHub Pages and a local server, with
   `npm run preview:phone` for testing on a phone over the local network; see
-  `docs/BUILD_AND_DEPLOY.md`
+  `docs/operations/BUILD_AND_DEPLOY.md`
+- Regression gates for Fitness render delivery, large-account state reads,
+  lazy modal recovery, offline modal chunks, and bundle budgets
 
 ### Changed
 
@@ -52,6 +54,12 @@ All notable user-facing and operational changes are documented here.
   timer has its own button beside the `+`
 - The routine builder lists only the activities chosen for the routine, with
   browsing delegated to the activity picker
+- Activity Library and Add Activities categories now share a smooth,
+  reduced-motion-aware collapsible disclosure
+- Fitness state reads use a stable snapshot, activity batches notify once, and
+  inactive top-level pages stop rendering until revisited
+- Fitness modal shells and code load on demand rather than living in the startup
+  DOM and entry chunk
 - The fitness empty state points at the `+` rather than a "Record Activity"
   control that never existed
 
@@ -74,6 +82,11 @@ All notable user-facing and operational changes are documented here.
   was expected, so its `onToggle` had never fired
 - The performance workflow built for GitHub Pages and served the result from the
   root, so Lighthouse was scoring a page whose assets all 404'd
+- The first Fitness visit after a hard reload no longer exposes the calendar at
+  its first date or animates it to Today; returning from another page after
+  selecting a different date still performs the intended Today sweep
+- The program tile no longer briefly replaces an identical first-load DOM tree,
+  and activity-category expansion now uses one uninterrupted animation clock
 
 ### Removed
 

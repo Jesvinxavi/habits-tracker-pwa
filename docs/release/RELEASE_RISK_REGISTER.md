@@ -4,7 +4,7 @@ Status: pre-release review
 
 Target: Healthy Habits Tracker 1.0.0
 
-Last reviewed: 26 July 2026
+Last reviewed: 29 July 2026
 
 This register records work that must be completed or explicitly accepted before
 general availability. The release branch and draft pull request are suitable
@@ -24,13 +24,14 @@ production approval by themselves.
 
 ## Dependency audit
 
-The 26 July 2026 review reported:
+The 29 July 2026 review reported:
 
 - No critical vulnerabilities.
-- 12 moderate production dependency advisories, currently inherited through the
-  Clerk browser dependency chain.
-- 15 additional high-severity development/tooling advisories in ESLint and
-  Workbox/Vite PWA dependency chains.
+- `npm audit --omit=dev`: 12 moderate production dependency advisories,
+  inherited through Clerk's Solana wallet dependency chain.
+- Full `npm audit`: the same 12 moderate advisories plus 15 high-severity
+  development/tooling advisories in the ESLint and Workbox/Vite PWA dependency
+  chains.
 - Suggested automatic remediations require major or compatibility-changing
   dependency moves and were therefore not applied without regression testing.
 

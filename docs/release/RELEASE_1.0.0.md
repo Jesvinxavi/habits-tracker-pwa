@@ -51,7 +51,7 @@ environment.
 - Timers and laps are session-only by design.
 - Statistics are derived from source records.
 - The current account-deletion flow is operator-assisted and documented in
-  `SUPPORT.md`.
+  [`SUPPORT.md`](../policies/SUPPORT.md).
 
 ## Privacy disclosure summary
 

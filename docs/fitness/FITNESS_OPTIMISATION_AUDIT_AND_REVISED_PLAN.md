@@ -2,10 +2,13 @@
 
 **Branch:** `fitness-overhaul-optimisations` (from `claude/fitness-overhaul`, from `develop`)
 **Author:** Independent audit pass, 2026-07-29
-**Scope:** A line-by-line review of `docs/FITNESS_OPTIMISATION_PLAN.md`, followed
+**Scope:** A line-by-line review of `docs/fitness/FITNESS_OPTIMISATION_PLAN.md`, followed
 by an independent audit of the fitness page, shared state, navigation lifecycle,
 modal system, persistence path, build output, CSS, accessibility and tests.
-**Status:** Proposal. Nothing in here has been implemented.
+**Status:** **Implemented and integrated into `develop` on 2026-07-29.**
+Section 13 is the final disposition and verification record. B5 and G3 were
+measured and deliberately declined; F4 remains a separately scoped auth/vendor
+audit.
 
 ---
 
@@ -32,11 +35,11 @@ refactor that loses focus is an accessibility regression.
 
 ### Sources used
 
-- `docs/FITNESS_OPTIMISATION_PLAN.md` — all 1,498 lines, including all 45
+- `docs/fitness/FITNESS_OPTIMISATION_PLAN.md` — all 1,498 lines, including all 45
   recommendations and the sequencing section
-- `docs/FITNESS_OVERHAUL_PLAN.md` — the implementation plan and deviation log
-- `docs/PROJECT_RULES.md`, `docs/CODING_GUIDELINES.md`,
-  `docs/LOADING_PERFORMANCE_AUDIT.md`, `docs/PERSISTENCE_AUDIT.md`
+- `docs/fitness/FITNESS_OVERHAUL_PLAN.md` — the implementation plan and deviation log
+- `docs/development/PROJECT_RULES.md`, `docs/development/CODING_GUIDELINES.md`,
+  `docs/architecture/LOADING_PERFORMANCE_AUDIT.md`, `docs/architecture/PERSISTENCE_AUDIT.md`
 - All 41 files under `src/features/fitness/`
 - `src/core/state.js`, `src/core/persistenceRouter.js`,
   `src/core/navigation.js`, `src/core/storage.js`,
@@ -1531,10 +1534,14 @@ This implementation was checkpointed in small recoverable stages:
 2. `19340116` — data-boundary validation, modal/lifecycle hardening and
    optimisation-invariant browser tests;
 3. `728099fc` — Pages-faithful PWA preview and offline lazy-chunk verification;
-4. final verification/documentation checkpoint — browser-discovered title
-   semantics, Knip gate and recorded measurements.
+4. `8a697db1` — browser-discovered title semantics, Knip gate, measurements and
+   the completed implementation record;
+5. `e3540d55` — stable first-load program-tile rendering and a single smooth
+   category-disclosure clock;
+6. `e4b8ee0b` — cold-calendar pre-centring, return-navigation sweep coverage,
+   collapsible Add Activities categories, and final mobile/browser polish.
 
-The source `docs/FITNESS_OPTIMISATION_PLAN.md` was kept untouched throughout.
+The source `docs/fitness/FITNESS_OPTIMISATION_PLAN.md` was kept untouched throughout.
 
 ### Implementation disposition
 
@@ -1581,13 +1588,13 @@ the “after” figures are the final build with the budget script enabled.
 
 | Metric | Before | After | Change |
 | --- | ---: | ---: | ---: |
-| Fitness core JavaScript, raw | 136.62 KB | 70.25 KB | −48.6% |
-| Fitness core JavaScript, gzip | 32.55 KB | 19.59 KB | −39.8% |
-| CSS, raw | 83.2 KB | 79.36 KB | −4.6% |
-| CSS, gzip | 15.1 KB | 14.40 KB | −4.6% |
+| Fitness core JavaScript, raw | 136.62 KB | 70.81 KB | −48.2% |
+| Fitness core JavaScript, gzip | 32.55 KB | 19.76 KB | −39.3% |
+| CSS, raw | 83.2 KB | 80.10 KB | −3.7% |
+| CSS, gzip | 15.1 KB | 14.48 KB | −4.1% |
 | Live Fitness modal shells before first open | 13 | 0 | −100% |
-| Total lazy Fitness modal/timer gzip | not split | 24.58 KB | separately cached/on demand |
-| Pages precache | no enforced budget | 2,205,774 bytes | below 2.5 MB gate |
+| Total lazy Fitness modal/timer gzip | not split | 24.68 KB | separately cached/on demand |
+| Pages precache | no enforced budget | 2,207,280 bytes | below 2.5 MB gate |
 | Ineffective dynamic-import warnings | several | 0 | eliminated |
 
 The committed 4× CPU-throttled browser benchmark used a 965,109-byte account
@@ -1624,6 +1631,15 @@ in addition to Playwright’s mobile/tablet/desktop projects.
 - Body scroll remains locked until the last stacked modal closes.
 - The add menu remains fully on-screen at 375 px and the mobile empty state is
   not clipped.
+- A cold Fitness visit exposes Today already centred, without a first-date
+  sweep; after selecting another day and leaving the page, returning still
+  requests the intended smooth sweep back to Today.
+- The program tile is stable across the first visible frame after a hard reload.
+- Add Activities categories start collapsed, expand independently on the same
+  280 ms grid/chevron clock as the library, and retain selection state.
+- The program tile and Add Activities modal stay inside the 375 px viewport,
+  `documentElement.scrollWidth` remains 375 px, and the final browser pass
+  reported no console errors or warnings.
 
 **Found and fixed during the browser pass.**
 
@@ -1636,6 +1652,15 @@ in addition to Playwright’s mobile/tablet/desktop projects.
    `/habits-tracker-pwa/`; every app asset and `registerSW.js` returned 404.
    `preview-pages.mjs` now reproduces the real Pages subpath, allowing the
    service worker and offline test to exercise the actual build.
+4. The first-load program tile rebuilt an identical DOM tree on a second render,
+   producing a brief visual replacement. Render signatures now suppress the
+   redundant write.
+5. The Activity Library category animation mixed JavaScript height timers with
+   a shorter CSS chevron transition. Both category surfaces now use the same
+   CSS-grid disclosure and accessibility state.
+6. The Add Activities disclosure label briefly included the decorative emoji
+   after expansion. The shared handler now preserves a clean category-only
+   accessible name.
 
 ### Final verification record
 
@@ -1646,10 +1671,9 @@ in addition to Playwright’s mobile/tablet/desktop projects.
 | Unit + Convex-behaviour tests | 152/152 pass |
 | Migration tests | 19/19 pass |
 | Convex TypeScript validation | pass |
-| Full Chromium suite, first run | 132/132 pass |
-| Full Chromium suite, second run | 132/132 pass |
+| Full Chromium suite after final polish | 133 pass, 1 dedicated performance diagnostic skipped |
 | Isolated 4× CPU Fitness performance gate | pass |
-| Picker title/ARIA regression | 10/10 pass |
+| Final focused calendar/category/ARIA regression | 32/32 pass |
 | Offline Pages PWA lazy-modal test | pass |
 | Local bundle budgets | pass |
 | Pages bundle/precache budgets | pass |

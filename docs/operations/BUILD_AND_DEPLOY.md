@@ -99,7 +99,12 @@ If a device has already cached an older build:
 | `npm run lint` | ESLint over `src` and `tests` |
 | `npm test` | Unit and migration tests (Vitest) |
 | `npm run test:e2e` | Playwright browser tests |
+| `npm run test:fitness:perf` | Isolated one-worker, 4× CPU large-account Fitness diagnostic |
+| `npm run test:pwa` | Production Pages build and offline lazy-Fitness smoke test |
 | `npm run test:convex` | Type-check the Convex functions |
+| `npm run check:dead-code` | Knip gate for unused files, Fitness exports, and dependencies |
+| `npm run check:bundle` | Local build plus HTML, Fitness, modal, and JavaScript budgets |
+| `npm run check:bundle:pages` | Pages build plus the same budgets and the PWA precache budget |
 | `npm run analyze` | Local build with the `analyze` mode bundle report |
 | `npm run clean` | Remove `dist/` and Vite's cache |
 

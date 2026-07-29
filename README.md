@@ -80,11 +80,14 @@ secret keys or Convex deploy keys in a `VITE_*` variable.
 
 ```bash
 npm run lint
+npm run check:dead-code
 npm run test:unit
 npm run test:migration
 npm run test:convex
 npm run build:local
+npm run check:bundle
 npm run test:e2e
+npm run test:pwa
 ```
 
 ## Building and deploying
@@ -101,8 +104,8 @@ npm run preview:phone   # the same, reachable from a phone on the same Wi-Fi
 npm run deploy          # build:pages, then publish to the gh-pages branch
 ```
 
-`docs/BUILD_AND_DEPLOY.md` explains what goes wrong when the two are mixed up,
-and how to clear a stale service worker.
+`docs/operations/BUILD_AND_DEPLOY.md` explains what goes wrong when the two are
+mixed up, and how to clear a stale service worker.
 
 GitHub Actions verifies the application, deploys Convex functions when
 `CONVEX_DEPLOY_KEY` is configured, builds the PWA with protected environment
@@ -113,15 +116,16 @@ Review the release checklist before promoting a build.
 
 ## Documentation
 
-- [Release notes](docs/RELEASE_1.0.0.md)
-- [Privacy notice](docs/PRIVACY.md)
-- [Support and account-data requests](docs/SUPPORT.md)
-- [Release checklist](docs/RELEASE_CHECKLIST.md)
-- [Release risk register](docs/RELEASE_RISK_REGISTER.md)
-- [Convex migration and recovery runbook](docs/CONVEX_MIGRATION_RUNBOOK.md)
-- [Persistence audit](docs/PERSISTENCE_AUDIT.md)
-- [Loading performance audit](docs/LOADING_PERFORMANCE_AUDIT.md)
-- [Coding guidelines](docs/CODING_GUIDELINES.md)
+The [documentation index](docs/README.md) groups current engineering guidance,
+operations, policies, release material, architecture evidence, and historical
+Fitness implementation records.
+
+- [Build and deployment guide](docs/operations/BUILD_AND_DEPLOY.md)
+- [Coding guidelines](docs/development/CODING_GUIDELINES.md)
+- [Fitness documentation](docs/fitness/README.md)
+- [Release notes](docs/release/RELEASE_1.0.0.md)
+- [Privacy notice](docs/policies/PRIVACY.md)
+- [Support and account-data requests](docs/policies/SUPPORT.md)
 
 ## Data safety
 

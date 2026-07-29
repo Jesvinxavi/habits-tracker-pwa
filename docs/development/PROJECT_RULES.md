@@ -10,13 +10,15 @@
 
 ### ✅ **PHASE 3 – Robust State & Persistence Layer** (COMPLETE)
 - ✅ Enhanced state management with action-based system
-- ✅ Storage abstraction with localStorage + IndexedDB fallback
-- ✅ State helpers and documentation
+- ✅ Authenticated Convex authority with normalized records
+- ✅ Per-account IndexedDB confirmed cache and durable offline outbox
+- ✅ Generation-based legacy migration, backups, checksums, and recovery
 
-### ✅ **PHASE 4 – UI Architecture & Accessibility** (PARTIALLY COMPLETE)
+### ✅ **PHASE 4 – UI Architecture & Accessibility** (COMPLETE)
 - ✅ Component organization and modular structure
 - ✅ Tailwind CSS with iOS-style design system
-- ⚠️ Accessibility audit (optional - only if critical issues found)
+- ✅ Dialog focus management, keyboard operation, reduced motion, and
+  screen-reader state covered by automated and browser checks
 
 ### ✅ **PHASE 5 – Progressive-Web-App Hardening** (COMPLETE)
 - ✅ Service Worker configuration
@@ -42,7 +44,8 @@
 - CI must run lint, unit/migration tests, Convex type-checking, build, and browser smoke tests.
 - Builds state their destination: `npm run build:pages` for GitHub Pages,
   `npm run build:local` for anything served from the root. `vite build` fails
-  without `BUILD_TARGET` rather than guessing. See `docs/BUILD_AND_DEPLOY.md`.
+  without `BUILD_TARGET` rather than guessing. See
+  `docs/operations/BUILD_AND_DEPLOY.md`.
 
 ## Current Focus Areas
 
@@ -51,15 +54,15 @@
 2. ✅ Fix ESLint/Prettier issues
 3. ✅ Re-enable lint in husky pre-commit hook
 
-### 🟡 **HIGH PRIORITY** (Optional)
-1. Accessibility audit (only if critical issues found)
-2. Performance optimization (only if bundle size > 150KB)
-3. Code quality improvements (unused variables, console statements)
+### 🟡 **HIGH PRIORITY**
+1. Production identity, release, retention, and account-lifecycle gates
+2. Auth/vendor bundle audit as a separately scoped project
+3. Continued reconnect, conflict, migration, and installed-PWA verification
 
 ### 🟢 **MEDIUM PRIORITY** (Optional)
-1. Bundle size optimization
+1. Restore archived activities and routines from the UI
 2. Enhanced CI/CD pipeline
-3. Documentation updates
+3. Further performance work only when browser measurements justify it
 
 ## Project Status
 
@@ -69,6 +72,8 @@
 - **Authentication**: Clerk with a 30-day device-local offline lease
 - **Testing**: Vitest, fake-indexeddb, Convex type-checking, and Playwright
 - **Deployment**: Convex functions followed by GitHub Pages artifact
+- **Fitness**: Overhaul and optimisation complete; routines, programs, lazy
+  modals, lifecycle-bound rendering, and browser performance gates are integrated
 
 ## Decision Rationale
 

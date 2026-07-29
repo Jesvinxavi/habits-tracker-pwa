@@ -1,20 +1,41 @@
 # Healthy Habits Tracker Documentation
 
-## Release and operations
+This directory is organised by the job each document serves. Documents marked
+as historical remain authoritative records of decisions and measurements, but
+are not active implementation checklists.
 
-- [Version 1.0.0 release notes](RELEASE_1.0.0.md)
-- [Production release checklist](RELEASE_CHECKLIST.md)
-- [Release risk register](RELEASE_RISK_REGISTER.md)
-- [Privacy notice](PRIVACY.md)
-- [Support and account-data requests](SUPPORT.md)
-- [Convex migration and recovery runbook](CONVEX_MIGRATION_RUNBOOK.md)
+## Development
 
-## Engineering evidence
+- [Coding and contribution guidelines](development/CODING_GUIDELINES.md)
+- [Project rules and constraints](development/PROJECT_RULES.md)
 
-- [Persistence audit](PERSISTENCE_AUDIT.md)
-- [Loading performance audit](LOADING_PERFORMANCE_AUDIT.md)
-- [Coding guidelines](CODING_GUIDELINES.md)
-- [Project rules](PROJECT_RULES.md)
+## Architecture and audits
+
+- [Persistence audit](architecture/PERSISTENCE_AUDIT.md)
+- [Loading performance audit](architecture/LOADING_PERFORMANCE_AUDIT.md)
+
+## Fitness
+
+- [Fitness documentation index](fitness/README.md)
+- [Fitness overhaul implementation record](fitness/FITNESS_OVERHAUL_PLAN.md)
+- [Original optimisation audit](fitness/FITNESS_OPTIMISATION_PLAN.md)
+- [Independent audit, revised plan, and implementation record](fitness/FITNESS_OPTIMISATION_AUDIT_AND_REVISED_PLAN.md)
+
+## Operations
+
+- [Build and deploy](operations/BUILD_AND_DEPLOY.md)
+- [Convex migration and recovery runbook](operations/CONVEX_MIGRATION_RUNBOOK.md)
+
+## Policies and support
+
+- [Privacy notice](policies/PRIVACY.md)
+- [Support and account-data requests](policies/SUPPORT.md)
+
+## Release
+
+- [Version 1.0.0 release notes](release/RELEASE_1.0.0.md)
+- [Production release checklist](release/RELEASE_CHECKLIST.md)
+- [Release risk register](release/RELEASE_RISK_REGISTER.md)
 
 The repository-level [README](../README.md) contains product capabilities,
 architecture, local setup, validation, and deployment instructions.

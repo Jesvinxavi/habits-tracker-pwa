@@ -1,11 +1,12 @@
 # Fitness Overhaul — Implementation Plan
 
 **Branch:** `claude/fitness-overhaul`
-**Status:** **Implemented.** All seven phases are complete and pushed to
-`claude/fitness-overhaul` (PR #2, targeting `develop`). Deliberately **not
-merged** — the branch is being kept open for further fitness work.
-Ten checkboxes remain unticked on purpose: six standing rules in §0, the
-alternative that Task 2.6 did not take, Task 7.9 (see its note), and two
+**Status:** **Implemented and integrated into `develop` on 2026-07-29.** All
+seven phases, the follow-on optimisation work, and final browser polish are
+complete. PR #2 tracked the older `claude/fitness-overhaul` head and was closed
+without merging after its completed successor branch was integrated directly.
+Nine checkboxes remain unticked on purpose: six standing rules in §0, the
+alternative that Task 2.6 did not take, and two
 verification items that need a human — a fresh-account pass and a
 legacy-localStorage migration pass. See **Appendix D** for every place the
 implementation deviated from this plan and why.
@@ -30,7 +31,7 @@ would misrepresent them. They were honoured throughout: `npm run lint` and
 `npm run test:unit` ran after every phase, and each phase landed as a single
 Conventional Commit.
 
-- [ ] Follow `docs/CODING_GUIDELINES.md` strictly (vanilla ES2020 modules, `.js` extensions in
+- [ ] Follow `docs/development/CODING_GUIDELINES.md` strictly (vanilla ES2020 modules, `.js` extensions in
       imports, 2-space indent, single quotes, semicolons, JSDoc on every exported function).
 - [ ] Never mutate `appData` directly — always `dispatch(Actions.x(...))`.
 - [ ] Never write whole-state blobs to `localStorage`. Convex is authoritative; IndexedDB holds
@@ -1346,11 +1347,11 @@ documentation that now describes a page that no longer exists, and run the full 
       opens a menu with five items.
 
 - [x] **7.6** Documentation:
-  - `docs/CODING_GUIDELINES.md` — the "Fitness Activities Card Design Specification" section is
+  - `docs/development/CODING_GUIDELINES.md` — the "Fitness Activities Card Design Specification" section is
     still accurate for the recorded-activities list; **add** a short subsection documenting the
     fitness modal stack, the z-index ladder from §1.3 of this plan, and the read-time referential
     integrity rule for routines and programs.
-  - `docs/PERSISTENCE_AUDIT.md` — add `routines` and `programs` to the entity inventory.
+  - `docs/architecture/PERSISTENCE_AUDIT.md` — add `routines` and `programs` to the entity inventory.
   - `README.md` — update the feature list to mention routines and programs.
   - `CHANGELOG.md` — add an entry under a new Unreleased heading.
 
@@ -1373,11 +1374,11 @@ documentation that now describes a page that no longer exists, and run the full 
   - Profile view: export/import data (the export now includes two new tables)
   - Theme toggle, sync status pill, offline banner
 
-- [ ] **7.9** Open the PR against `main` with the guidelines' required checklist:
-      `- [ ] Added/updated tests` and `- [ ] Updated docs`.
-      **Deliberately left open.** Two corrections: §8.1 forbids feature PRs against
-      `main`, so PR #2 targets `develop`; and the branch is being kept open for
-      further fitness work, so nothing is merged. Tests and docs are both done.
+- [x] **7.9** Integrate the completed Fitness work into `develop` with tests and
+      documentation current. §8.1 correctly forbids feature integration into
+      `main`. PR #2 targeted `develop` but tracked the earlier overhaul head, so
+      the completed successor branch was integrated directly and PR #2 closed
+      without merging its stale head.
 
 ### Verification — Phase 7
 
@@ -1596,7 +1597,7 @@ another day of the same week rather than vanishing from the plan.
       silently produced a Pages build, whose assets all 404 when served from a
       local server. `npm run preview:local` / `preview:phone` build and serve in
       one step, and refuse to serve a Pages build from the root.
-- [x] **10.14** `docs/BUILD_AND_DEPLOY.md` documents the three destinations and
+- [x] **10.14** `docs/operations/BUILD_AND_DEPLOY.md` documents the three destinations and
       how to clear a stale service worker; README and the CI workflows point at
       the explicit targets. `performance.yml` was previously building for Pages
       and serving it from the root, so Lighthouse was scoring an unstyled page.
@@ -1764,7 +1765,7 @@ src/features/fitness/helpers/programLabels.js          (not in the plan)
 src/features/fitness/helpers/programItems.js           (not in the plan)
 src/shared/nextPaint.js                                (not in the plan)
 scripts/preview.mjs                                    (not in the plan)
-docs/BUILD_AND_DEPLOY.md                               (not in the plan)
+docs/operations/BUILD_AND_DEPLOY.md                               (not in the plan)
 convex/routines.ts
 convex/programs.ts
 tests/unit/routines.test.js
@@ -1838,7 +1839,7 @@ convex/schema.ts                        (2 tables, program scheduling fields,
 convex/sync.ts, bootstrap.ts, migration.ts, dataTransfer.ts   (table lists)
 tests/convex/domain.test.js, tests/unit/persistenceRecords.test.js,
 tests/unit/stateHydration.test.js, tests/migration/*.test.js   (coverage)
-docs/CODING_GUIDELINES.md (§12), docs/PERSISTENCE_AUDIT.md, README.md, CHANGELOG.md
+docs/development/CODING_GUIDELINES.md (§12), docs/architecture/PERSISTENCE_AUDIT.md, README.md, CHANGELOG.md
 ```
 
 ## Appendix D — Deviations from this plan
@@ -1878,7 +1879,7 @@ Recorded so the reasoning is not lost.
 | Task 2.x: the day's pill reads *Activities* | Reads **Schedule** | Later request: it sat directly under an *Activities* button and read as a duplicate of it. |
 | No overlap rule between programs | Saving an overlapping block raises a replace / edit / dismiss dialog | Later request. Two blocks covering the same dates would both claim those days; making it a decision beats letting the user find out later. |
 | Task 7.1 greps | Scoped to fitness for `mountSearchPanel`; `new-activity-btn` matched as a substring | Habits legitimately owns its own `mountSearchPanel`, and `library-new-activity-btn` is a new id. |
-| Task 7.9: open a PR against `main` | PR #2 targets `develop` and is intentionally left unmerged | §8.1 forbids feature PRs against `main`; the branch is being kept open for further fitness work. |
+| Task 7.9: open a PR against `main` | The completed successor branch was integrated into `develop`; PR #2 was closed without merging its older head | §8.1 forbids feature integration into `main`, and closing the superseded PR avoids presenting an incomplete head as the final Fitness implementation. |
 
 Two verification items in Phase 7 remain unticked because they need a human: a
 fresh-account end-to-end pass, and a legacy-localStorage migration pass. Everything
