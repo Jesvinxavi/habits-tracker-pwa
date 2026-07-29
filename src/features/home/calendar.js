@@ -387,9 +387,9 @@ export function mountCalendar({ container, stateKey = 'currentDate', onDateChang
 
     // e. Perform centering after layout settles
     if (stateKey === 'fitnessSelectedDate') {
-      // Ensure we don't visually center the first tile; jump to today immediately, then refine once
+      // Fitness stays hidden until its wrapper has completed instant centering.
+      // A delayed smooth refinement here used to become visible after navigation.
       scrollToSelected({ instant: true });
-      scheduleSmoothCenter(80);
     } else {
       // Keep robust sequence for home
       scrollToSelected({ instant: true });

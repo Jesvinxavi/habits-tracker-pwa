@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { expandAllActivityPickerCategories } from './helpers/activityPicker.js';
 
 async function seed(page) {
   await page.goto('/?test=true');
@@ -25,6 +26,7 @@ async function openRoutines(page) {
 async function tileByName(page, name) {
   // The builder no longer embeds a picker; open it, pick, and confirm.
   await page.locator('#routine-add-activities-btn').click();
+  await expandAllActivityPickerCategories(page);
   await page
     .locator('#activity-picker-list .selectable-activity-item')
     .filter({ hasText: name })

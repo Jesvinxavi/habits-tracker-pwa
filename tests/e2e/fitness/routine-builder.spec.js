@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { expandAllActivityPickerCategories } from './helpers/activityPicker.js';
 
 async function seed(page) {
   await page.goto('/?test=true');
@@ -40,6 +41,7 @@ test('builder shows only selected activities and delegates picking', async ({ pa
     picker: Number(getComputedStyle(document.querySelector('#activity-picker-modal')).zIndex),
   }));
   expect(z.picker).toBeGreaterThan(z.builder);
+  await expandAllActivityPickerCategories(page);
 
   await page
     .locator('#activity-picker-list .selectable-activity-item')
@@ -70,6 +72,7 @@ test('rows can be removed and the picker reopens with the current selection', as
   await page.locator('#fitness-routines-btn').click();
   await page.locator('#new-routine-btn').click();
   await page.locator('#routine-add-activities-btn').click();
+  await expandAllActivityPickerCategories(page);
   await page
     .locator('#activity-picker-list .selectable-activity-item')
     .filter({ hasText: 'Treadmill Run' })

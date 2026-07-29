@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { expandAllActivityPickerCategories } from './helpers/activityPicker.js';
 
 async function openFitness(page) {
   await page.goto('/?test=true');
@@ -18,6 +19,7 @@ async function makeRoutine(page, name) {
   await page.locator('#new-routine-btn').click();
   await page.locator('#routine-name-input').fill(name);
   await page.locator('#routine-add-activities-btn').click();
+  await expandAllActivityPickerCategories(page);
   await page.locator('#activity-picker-list .selectable-activity-item').first().click();
   await page.locator('#confirm-activity-picker').click();
   await page.locator('#save-routine-builder').click();

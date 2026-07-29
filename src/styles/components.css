@@ -245,6 +245,12 @@ body {
   pointer-events: none;
 }
 
+/* A newly mounted Fitness strip begins at scrollLeft 0. Keep it out of the
+   first paint until FitnessCalendar has positioned Today without animation. */
+#fitness-calendar.calendar-initializing {
+  visibility: hidden;
+}
+
 @keyframes view-enter {
   from {
     opacity: 0.82;

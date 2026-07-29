@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { expandAllActivityPickerCategories } from './helpers/activityPicker.js';
 
 test('routine-added card accepts metrics and shows pills', async ({ page }) => {
   await page.goto('/?test=true');
@@ -14,6 +15,7 @@ test('routine-added card accepts metrics and shows pills', async ({ page }) => {
   await page.locator('#new-routine-btn').click();
   await page.locator('#routine-name-input').fill('Cardio');
   await page.locator('#routine-add-activities-btn').click();
+  await expandAllActivityPickerCategories(page);
   await page.locator('#activity-picker-list .selectable-activity-item').first().click();
   await page.locator('#confirm-activity-picker').click();
   await page.locator('#save-routine-builder').click();

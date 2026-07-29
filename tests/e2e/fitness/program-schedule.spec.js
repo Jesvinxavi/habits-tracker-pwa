@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { expandAllActivityPickerCategories } from './helpers/activityPicker.js';
 
 // Every case provisions its own browser context and deterministic data, so the
 // formerly 700-line serial tail can safely spread across Playwright workers.
@@ -47,6 +48,7 @@ async function pinRoutines(page, day, names) {
 async function pinActivities(page, day, names) {
   await chooseForDay(page, day, 'activity');
   await expect(page.locator('#activity-picker-modal')).toBeVisible();
+  await expandAllActivityPickerCategories(page);
   for (const n of names) {
     await page.locator('#activity-picker-list .selectable-activity-item').filter({ hasText: n }).click();
   }

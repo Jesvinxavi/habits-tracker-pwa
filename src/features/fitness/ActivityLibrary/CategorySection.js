@@ -2,6 +2,7 @@
 import { buildMuscleGroupHeader } from '../helpers/muscleHelpers.js';
 import { hexToRgba } from '../../../shared/color.js';
 import { escapeAttribute, escapeHtml, normalizeHexColor } from '../../../shared/sanitize.js';
+import { bindCategoryDisclosureEvents } from './CategoryDisclosure.js';
 
 /**
  * Builds a category section with collapsible header and activities
@@ -23,11 +24,12 @@ export function buildCategorySection(
   const color = normalizeHexColor(category.color);
   const icon = escapeHtml(category.icon || '🎯');
   const name = escapeHtml(category.name || '');
+  const nameAttribute = escapeAttribute(category.name || 'category');
 
   // The chevron's state is class-driven so it follows the same transition clock
   // as the expanding content.
   const expandBtn = `
-    <button class="search-expand-btn h-5 w-5 flex items-center justify-center text-black" data-category-id="${safeCategoryId}" aria-expanded="${!collapsed}">
+    <button type="button" class="search-expand-btn h-5 w-5 flex items-center justify-center text-black" data-category-id="${safeCategoryId}" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${nameAttribute}">
       <span class="material-icons leading-none">expand_more</span>
     </button>
   `;
@@ -115,26 +117,6 @@ function buildActivityTile(activity, category) {
 }
 
 /**
- * Toggles category collapse/expand in search section
- * @param {string} categoryId - The category ID to toggle
- */
-function toggleSearchCategory(categoryId) {
-  const section = document.getElementById(`search-category-${categoryId}`);
-  if (!section) return;
-
-  const contentDiv = section.querySelector('.search-category-content');
-  if (!contentDiv) return;
-
-  const expanded = section.classList.contains('collapsed');
-  section.classList.toggle('collapsed', !expanded);
-  section
-    .querySelector('.search-expand-btn')
-    ?.setAttribute('aria-expanded', String(expanded));
-  contentDiv.setAttribute('aria-hidden', String(!expanded));
-  contentDiv.toggleAttribute('inert', !expanded);
-}
-
-/**
  * Binds event handlers for category sections
  * @param {HTMLElement} content - The search results content container
  * @param {Function} onColorChange - Callback when category color changes
@@ -145,33 +127,7 @@ function toggleSearchCategory(categoryId) {
 export function bindCategorySectionEvents(content, onColorChange, onToggle = null) {
   if (!content) return;
 
-  /**
-   * Toggles a section and reports the resulting state.
-   * @param {string} categoryId - The category to toggle
-   * @returns {void}
-   */
-  const toggle = (categoryId) => {
-    toggleSearchCategory(categoryId);
-    if (!onToggle) return;
-    const section = document.getElementById(`search-category-${categoryId}`);
-    onToggle(categoryId, !section?.classList.contains('collapsed'));
-  };
-
-  // Category collapse/expand functionality
-  content.querySelectorAll('.search-expand-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggle(btn.dataset.categoryId);
-    });
-  });
-
-  content.querySelectorAll('.search-category-header').forEach((header) => {
-    header.addEventListener('click', (e) => {
-      if (e.target.closest('.search-expand-btn') || e.target.closest('.search-edit-category-btn'))
-        return;
-      toggle(header.closest('.search-category-section').dataset.categoryId);
-    });
-  });
+  bindCategoryDisclosureEvents(content, onToggle);
 
   // Category edit buttons
   content.querySelectorAll('.search-edit-category-btn').forEach((btn) => {

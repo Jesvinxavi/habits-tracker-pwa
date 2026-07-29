@@ -5,6 +5,7 @@ import {
   buildSelectableCategorySection,
   bindSelectableTileEvents,
 } from '../ActivityLibrary/SelectableActivityTile.js';
+import { bindCategoryDisclosureEvents } from '../ActivityLibrary/CategoryDisclosure.js';
 import {
   getActivitiesByCategory,
   searchActivities,
@@ -26,6 +27,7 @@ export const ActivityPickerModal = {
   _selectedIds: [],
   _onConfirm: null,
   _allowEmpty: false,
+  _expandedCategories: new Set(),
 
   /**
    * Opens the picker.
@@ -51,6 +53,7 @@ export const ActivityPickerModal = {
     this._selectedIds = selectedIds.filter((id) => Boolean(getActivity(id)));
     this._onConfirm = onConfirm;
     this._allowEmpty = allowEmpty;
+    this._expandedCategories.clear();
 
     const titleEl = document.getElementById('activity-picker-title');
     if (titleEl) titleEl.textContent = title;
@@ -82,6 +85,7 @@ export const ActivityPickerModal = {
     if (!list) return;
 
     let html = '';
+    const filtering = query.trim() !== '';
     const section = (category, activities) =>
       category.id === 'strength'
         ? buildSelectableCategorySection(
@@ -89,14 +93,16 @@ export const ActivityPickerModal = {
             null,
             this._selectedIds,
             groupActivitiesByMuscleGroup(activities),
-            'pick-category'
+            'pick-category',
+            !filtering && !this._expandedCategories.has(category.id)
           )
         : buildSelectableCategorySection(
             category,
             activities,
             this._selectedIds,
             null,
-            'pick-category'
+            'pick-category',
+            !filtering && !this._expandedCategories.has(category.id)
           );
 
     if (query.trim() === '') {
@@ -136,6 +142,10 @@ export const ActivityPickerModal = {
     }
 
     list.innerHTML = html;
+    bindCategoryDisclosureEvents(list, (categoryId, expanded) => {
+      if (expanded) this._expandedCategories.add(categoryId);
+      else this._expandedCategories.delete(categoryId);
+    });
     bindSelectableTileEvents(list, (activityId) => this._toggle(activityId));
   },
 

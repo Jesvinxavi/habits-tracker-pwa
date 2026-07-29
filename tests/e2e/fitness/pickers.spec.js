@@ -1,4 +1,8 @@
 import { expect, test } from '@playwright/test';
+import {
+  expandActivityPickerCategory,
+  expandAllActivityPickerCategories,
+} from './helpers/activityPicker.js';
 
 async function seed(page) {
   await page.goto('/?test=true');
@@ -17,6 +21,7 @@ async function makeRoutine(page, name, activityNames) {
   await page.locator('#new-routine-btn').click();
   await page.locator('#routine-name-input').fill(name);
   await page.locator('#routine-add-activities-btn').click();
+  await expandAllActivityPickerCategories(page);
   for (const n of activityNames) {
     await page.locator('#activity-picker-list .selectable-activity-item').filter({ hasText: n }).first().click();
   }
@@ -51,6 +56,20 @@ test.describe('add-activity picker', () => {
     await expect(page.locator('#activity-picker-list .stats-btn')).toHaveCount(0);
     await expect(page.locator('#activity-picker-list .edit-activity-btn')).toHaveCount(0);
     await expect(page.locator('#activity-picker-list .selection-indicator')).toHaveCount(3);
+    const categories = page.locator('#activity-picker-list .search-category-section');
+    await expect(categories).toHaveCount(2);
+    await expect(categories.nth(0)).toHaveClass(/collapsed/);
+    await expect(categories.nth(1)).toHaveClass(/collapsed/);
+    await expect(page.locator('#activity-picker-list .selectable-activity-item').first()).toBeHidden();
+
+    const cardio = await expandActivityPickerCategory(page, 'cardio');
+    await expect(cardio.locator('.selectable-activity-item')).toHaveCount(2);
+    await expect(cardio.locator('.selectable-activity-item').first()).toBeVisible();
+    await expect(cardio.locator('.search-expand-btn')).toHaveAttribute(
+      'aria-label',
+      'Collapse Cardio'
+    );
+    await expect(page.locator('#pick-category-strength')).toHaveClass(/collapsed/);
 
     const add = page.locator('#confirm-activity-picker');
     await expect(add).toBeDisabled();
@@ -60,6 +79,7 @@ test.describe('add-activity picker', () => {
   test('tapping a tile selects it instead of recording', async ({ page }) => {
     await seed(page);
     await openMenu(page, 'add-activity');
+    const cardio = await expandActivityPickerCategory(page, 'cardio');
 
     const cycling = tile(page, 'Cycling');
     await expect(cycling).toHaveAttribute('aria-checked', 'false');
@@ -85,6 +105,13 @@ test.describe('add-activity picker', () => {
     await expect(page.locator('#activity-picker-count')).toHaveText('1 selected');
     await expect(page.locator('#confirm-activity-picker')).toBeEnabled();
 
+    // Collapsing is presentation only; reopening preserves the selection.
+    await cardio.locator('.search-expand-btn').click();
+    await expect(cardio).toHaveClass(/collapsed/);
+    await cardio.locator('.search-expand-btn').click();
+    await expect(cardio).not.toHaveClass(/collapsed/);
+    await expect(tile(page, 'Cycling')).toHaveAttribute('aria-checked', 'true');
+
     await selected.click();
     await expect(tile(page, 'Cycling')).toHaveAttribute('aria-checked', 'false');
     await expect(page.locator('#activity-picker-count')).toHaveText('0 selected');
@@ -94,6 +121,7 @@ test.describe('add-activity picker', () => {
   test('adds several activities at once with no metric pills', async ({ page }) => {
     await seed(page);
     await openMenu(page, 'add-activity');
+    await expandAllActivityPickerCategories(page);
 
     await tile(page, 'Treadmill Run').click();
     await tile(page, 'Cycling').click();
@@ -122,6 +150,7 @@ test.describe('add-activity picker', () => {
   test('filtering keeps selections', async ({ page }) => {
     await seed(page);
     await openMenu(page, 'add-activity');
+    await expandActivityPickerCategory(page, 'cardio');
     await tile(page, 'Cycling').click();
     await page.locator('#activity-picker-filter').fill('bench');
     await expect(page.locator('#activity-picker-list')).not.toContainText('Cycling');
@@ -139,6 +168,7 @@ test.describe('add-activity picker', () => {
       await toggleRestDay(getLocalISODate(getState().fitnessSelectedDate));
     });
     await openMenu(page, 'add-activity');
+    await expandActivityPickerCategory(page, 'cardio');
     await tile(page, 'Cycling').click();
     await page.locator('#confirm-activity-picker').click();
 

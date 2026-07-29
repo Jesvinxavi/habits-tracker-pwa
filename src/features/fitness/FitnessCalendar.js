@@ -21,8 +21,8 @@ export const FitnessCalendar = {
 };
 
 /** @internal Exported for the calendar binding regression test. */
-export function setFitnessCalendarApi(api) {
-  FitnessCalendar.ready = api.ready;
+export function setFitnessCalendarApi(api, ready = api.ready) {
+  FitnessCalendar.ready = ready;
   FitnessCalendar.setDate = api.setDate.bind(api);
   FitnessCalendar.scrollToSelected = api.scrollToSelected.bind(api);
 }
@@ -42,6 +42,7 @@ export function mountFitnessCalendar(onDateChange) {
   // The date strip inside hh-calendar owns horizontal scrolling. Making the
   // host scroll as well creates a second, always-visible scrollbar on mobile.
   calendarWrapper.className = 'week-calendar m-0 p-0';
+  calendarWrapper.classList.add('calendar-initializing');
   calendarWrapper.id = 'fitness-calendar';
   calendarWrapper.setAttribute('state-key', 'fitnessSelectedDate');
   calendarWrapper.style.minHeight = '120px';
@@ -54,12 +55,23 @@ export function mountFitnessCalendar(onDateChange) {
     if (typeof onDateChange === 'function') onDateChange(e.detail.date);
   });
 
-  setFitnessCalendarApi(calendarWrapper);
-
-  // Trigger initial refresh after element is ready
-  if (typeof window !== 'undefined') {
-    calendarWrapper.ready?.then?.(() => calendarWrapper.refresh?.());
-  }
+  // Do not expose the strip at scrollLeft 0. Resolve FitnessCalendar.ready only
+  // after Today has been positioned on two layout frames, so navigation cannot
+  // reveal an anchor-to-Today movement on the first visit after a hard reload.
+  const positionedReady = calendarWrapper.ready.then(
+    () =>
+      new Promise((resolve) => {
+        calendarWrapper.refresh?.();
+        calendarWrapper.scrollToSelected?.({ instant: true });
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            calendarWrapper.classList.remove('calendar-initializing');
+            resolve();
+          });
+        });
+      })
+  );
+  setFitnessCalendarApi(calendarWrapper, positionedReady);
 
   return calendarWrapper;
 }

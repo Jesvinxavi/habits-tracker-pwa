@@ -11,6 +11,7 @@ import { escapeAttribute, escapeHtml, normalizeHexColor } from '../../../shared/
  * @param {string[]} selectedIds - Currently selected activity ids
  * @param {Object|null} muscleGroups - Activities grouped by muscle group (strength only)
  * @param {string} [idPrefix] - Section id prefix, so two pickers can be in the DOM at once
+ * @param {boolean} [collapsed] - Whether the category starts collapsed
  * @returns {string} HTML string for the selectable category section
  */
 export function buildSelectableCategorySection(
@@ -18,7 +19,8 @@ export function buildSelectableCategorySection(
   activities = null,
   selectedIds = [],
   muscleGroups = null,
-  idPrefix = 'select-category'
+  idPrefix = 'select-category',
+  collapsed = false
 ) {
   const categoryId = `${idPrefix}-${category.id}`;
   const safeCategoryId = escapeAttribute(category.id);
@@ -26,6 +28,7 @@ export function buildSelectableCategorySection(
   const color = normalizeHexColor(category.color);
   const icon = escapeHtml(category.icon || '🎯');
   const name = escapeHtml(category.name || '');
+  const nameAttribute = escapeAttribute(category.name || 'category');
 
   let activitiesContent = '';
 
@@ -51,17 +54,22 @@ export function buildSelectableCategorySection(
   }
 
   return `
-    <div class="search-category-section mb-4" data-category-id="${safeCategoryId}" id="${safeSectionId}">
+    <div class="search-category-section is-collapsible mb-4${collapsed ? ' collapsed' : ''}" data-category-id="${safeCategoryId}" id="${safeSectionId}">
       <div class="flex items-center gap-2">
-        <div class="search-category-header flex items-center justify-between px-4 py-2 rounded-xl select-none flex-grow" style="background:${hexToRgba(color, 0.25)};">
+        <div class="search-category-header flex items-center justify-between px-4 py-2 rounded-xl cursor-pointer select-none flex-grow" style="background:${hexToRgba(color, 0.25)};">
           <div class="category-title flex items-center gap-2">
             <span class="text-base" aria-hidden="true">${icon}</span>
             <span class="font-semibold text-base leading-none text-gray-900 dark:text-white">${name}</span>
           </div>
+          <button type="button" class="search-expand-btn h-5 w-5 flex items-center justify-center text-black" data-category-id="${safeCategoryId}" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${nameAttribute}">
+            <span class="material-icons leading-none">expand_more</span>
+          </button>
         </div>
       </div>
-      <div class="search-category-content mt-0.5">
-        ${activitiesContent}
+      <div class="search-category-content mt-0.5" aria-hidden="${collapsed}"${collapsed ? ' inert' : ''}>
+        <div class="search-category-content-inner">
+          ${activitiesContent}
+        </div>
       </div>
     </div>
   `;

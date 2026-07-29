@@ -82,6 +82,79 @@ test.describe('fitness page shell', () => {
     await expect(plus).toHaveAttribute('aria-expanded', 'true');
   });
 
+  test('first Fitness visit is pre-centred, but a later return still sweeps to today', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'healthyHabitsData',
+        JSON.stringify({ appFirstOpenDate: '2025-01-01T00:00:00.000Z' })
+      );
+    });
+    await page.goto('/?test=true');
+    await page.reload();
+
+    await page.evaluate(() => {
+      window.__fitnessScrollBehaviors = [];
+      window.__originalElementScrollTo = HTMLElement.prototype.scrollTo;
+      HTMLElement.prototype.scrollTo = function scrollTo(options, y) {
+        if (this.closest?.('#fitness-calendar')) {
+          window.__fitnessScrollBehaviors.push(
+            typeof options === 'object' ? options.behavior : 'legacy'
+          );
+        }
+        if (typeof options === 'object') {
+          return window.__originalElementScrollTo.call(this, options);
+        }
+        return window.__originalElementScrollTo.call(this, options, y);
+      };
+    });
+
+    await page.getByRole('tab', { name: 'Fitness view' }).click();
+    const calendar = page.locator('#fitness-calendar');
+    await expect(calendar).toBeVisible();
+    await expect(calendar).not.toHaveClass(/calendar-initializing/);
+
+    // The initial position must remain still for longer than the removed 80 ms
+    // refinement. Every first-mount centring call is instant/auto.
+    await page.waitForTimeout(250);
+    const firstVisit = await page.evaluate(() => {
+      const strip = document.querySelector('#fitness-calendar .week-days');
+      const today = strip.querySelector('.day-item.current-day');
+      const stripBox = strip.getBoundingClientRect();
+      const todayBox = today.getBoundingClientRect();
+      return {
+        behaviors: [...window.__fitnessScrollBehaviors],
+        centerDelta: Math.abs(
+          todayBox.left + todayBox.width / 2 - (stripBox.left + stripBox.width / 2)
+        ),
+      };
+    });
+    expect(firstVisit.behaviors).not.toContain('smooth');
+    expect(firstVisit.centerDelta).toBeLessThan(2);
+
+    // Selecting another date, leaving Fitness, then returning is intentionally
+    // different: navigation resets Today with the established smooth sweep.
+    await page.locator('#fitness-calendar .prev-day').click();
+    await page.getByRole('tab', { name: 'Home view' }).click();
+    await expect(page.locator('#home-view')).toBeVisible();
+    await page.evaluate(() => {
+      window.__fitnessScrollBehaviors.length = 0;
+    });
+    await page.getByRole('tab', { name: 'Fitness view' }).click();
+    await expect(calendar).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => window.__fitnessScrollBehaviors))
+      .toContain('smooth');
+
+    await page.evaluate(() => {
+      HTMLElement.prototype.scrollTo = window.__originalElementScrollTo;
+      delete window.__originalElementScrollTo;
+      delete window.__fitnessScrollBehaviors;
+    });
+  });
+
   test('dark mode uses the dark variants for the new controls', async ({ page }) => {
     await openFitness(page);
     const before = await page.evaluate(
