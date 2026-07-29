@@ -658,7 +658,7 @@ export const HomeHabitsList = {
   _createSwipeToRestoreContainer(card, habit) {
     const swipeContainer = document.createElement('div');
     swipeContainer.className =
-      'swipe-container home-swipe-container home-swipe-container--restore relative overflow-hidden home-inset-reduced';
+      'swipe-container home-swipe-container home-swipe-container--restore relative overflow-visible home-inset-reduced';
 
     const restoreBtn = document.createElement('button');
     restoreBtn.className = 'restore-btn home-swipe-action absolute';
@@ -687,6 +687,7 @@ export const HomeHabitsList = {
     if (isCompleted) {
       // For completed habits: set completion to false and clear progress
       makeCardSwipable(swipeContainer, slideEl, habit, {
+        revealMode: 'resize',
         onRestore: async () => {
           const key = getPeriodKey(habit, new Date(getState().selectedDate));
           // Mark as not completed
@@ -705,6 +706,7 @@ export const HomeHabitsList = {
     } else if (isSkipped) {
       // For skipped habits: set up swipe-to-restore action
       makeCardSwipable(swipeContainer, slideEl, habit, {
+        revealMode: 'resize',
         onRestore: async () => {
           const currentHabit = getState().habits.find((item) => item.id === habit.id);
           if (!currentHabit) return;
@@ -728,7 +730,7 @@ export const HomeHabitsList = {
   _createSwipeToSkipContainer(card, habit) {
     const swipeContainer = document.createElement('div');
     swipeContainer.className =
-      'swipe-container home-swipe-container home-swipe-container--skip relative overflow-hidden home-inset-reduced';
+      'swipe-container home-swipe-container home-swipe-container--skip relative overflow-visible home-inset-reduced';
 
     const skipBtn = document.createElement('button');
     skipBtn.className = 'skip-btn home-swipe-action absolute';
@@ -749,7 +751,7 @@ export const HomeHabitsList = {
     // Add the card to the slide element
     slideEl.appendChild(card);
 
-    makeCardSwipable(swipeContainer, slideEl, habit);
+    makeCardSwipable(swipeContainer, slideEl, habit, { revealMode: 'resize' });
 
     // Skip action
     skipBtn.addEventListener('click', async () => {

@@ -63,6 +63,7 @@ test.describe('Home updates', () => {
   test('complete, restore, skip, and restore move a habit between the correct sections', async ({
     page,
   }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await openHome(page);
     const { habitId } = await seedHabit(page);
     const card = page.locator(`[data-habit-id="${habitId}"]`);
@@ -73,6 +74,35 @@ test.describe('Home updates', () => {
     await expect(card).toContainText('Completed');
 
     await revealAction(page, habitId);
+    const swipeGeometry = await actionButton(page, habitId, '.restore-btn').evaluate((button) => {
+      const wrapper = button.parentElement;
+      const slide = wrapper.querySelector('.swipe-slide');
+      const cardNode = slide.querySelector('.habit-card');
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const cardRect = cardNode.getBoundingClientRect();
+      const buttonRect = button.getBoundingClientRect();
+      const wrapperStyle = getComputedStyle(wrapper);
+      const buttonStyle = getComputedStyle(button);
+      return {
+        wrapperHeight: wrapperRect.height,
+        cardHeight: cardRect.height,
+        cardLeft: cardRect.left,
+        wrapperLeft: wrapperRect.left,
+        buttonHeight: buttonRect.height,
+        wrapperBackground: wrapperStyle.backgroundColor,
+        wrapperOverflow: wrapperStyle.overflow,
+        buttonBorderWidth: buttonStyle.borderTopWidth,
+        buttonTopLeftRadius: buttonStyle.borderTopLeftRadius,
+      };
+    });
+    expect(Math.abs(swipeGeometry.wrapperHeight - swipeGeometry.cardHeight)).toBeLessThan(1);
+    expect(Math.abs(swipeGeometry.buttonHeight - swipeGeometry.cardHeight)).toBeLessThan(1);
+    expect(swipeGeometry.cardLeft).toBeGreaterThanOrEqual(swipeGeometry.wrapperLeft);
+    expect(swipeGeometry.cardLeft).toBeGreaterThanOrEqual(0);
+    expect(swipeGeometry.wrapperBackground).toBe('rgba(0, 0, 0, 0)');
+    expect(swipeGeometry.wrapperOverflow).toBe('visible');
+    expect(swipeGeometry.buttonBorderWidth).toBe('2px');
+    expect(swipeGeometry.buttonTopLeftRadius).toBe('0px');
     await page.locator('.restore-btn').click();
     await expect(page.locator('.section-pill-btn.selected')).toContainText('Anytime');
     await expect(card.locator('.complete-toggle')).toBeVisible();
@@ -115,6 +145,21 @@ test.describe('Home updates', () => {
     expect(metrics.add.x).toBeGreaterThan(metrics.pill.right);
     expect(metrics.add.x - metrics.pill.right).toBeLessThan(12);
     expect(Math.abs(metrics.add.centerY - metrics.pill.centerY)).toBeLessThan(2);
+    const addStyle = await page.locator('#menu-toggle').evaluate((node) => {
+      const style = getComputedStyle(node);
+      return {
+        width: node.getBoundingClientRect().width,
+        height: node.getBoundingClientRect().height,
+        backgroundColor: style.backgroundColor,
+        borderRadius: style.borderRadius,
+      };
+    });
+    expect(addStyle).toEqual({
+      width: 36,
+      height: 36,
+      backgroundColor: 'rgb(239, 246, 255)',
+      borderRadius: '50%',
+    });
     await expect(page.locator('#theme-toggle')).toHaveCount(0);
     const titleLayout = await page
       .getByRole('heading', { name: 'Healthy Habits Tracker' })

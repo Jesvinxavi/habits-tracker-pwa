@@ -3,7 +3,12 @@
 // The caller is responsible for providing a container that wraps the list item
 // and includes a `.restore-btn` element that triggers the restore action.
 
-export function makeCardSwipable(swipeContainer, slideEl, habit, { onRestore = () => {} } = {}) {
+export function makeCardSwipable(
+  swipeContainer,
+  slideEl,
+  habit,
+  { onRestore = () => {}, revealMode = 'translate' } = {}
+) {
   let startX = 0;
   let startY = 0;
   let currentX = 0;
@@ -14,6 +19,11 @@ export function makeCardSwipable(swipeContainer, slideEl, habit, { onRestore = (
   let activePointerId = null;
 
   function setTranslate(x) {
+    if (revealMode === 'resize') {
+      slideEl.style.width = `calc(100% + ${x}px)`;
+      slideEl.style.transform = 'translateX(0)';
+      return;
+    }
     slideEl.style.transform = `translateX(${x}px)`;
   }
 
@@ -64,7 +74,7 @@ export function makeCardSwipable(swipeContainer, slideEl, habit, { onRestore = (
     }
 
     isSwiping = false;
-    slideEl.style.transition = 'transform 0.2s';
+    slideEl.style.transition = revealMode === 'resize' ? 'width 0.2s' : 'transform 0.2s';
     if (Math.abs(currentX) > btnWidth / 2) {
       setTranslate(-btnWidth);
     } else {
