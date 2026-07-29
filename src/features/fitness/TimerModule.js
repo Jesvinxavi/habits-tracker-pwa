@@ -11,6 +11,7 @@ export const Timer = {
    */
   openModal() {
     ensureFitnessModalMarkup('timer-modal');
+    TimerModal.bindEvents();
     TimerModal.open();
   },
 
@@ -25,6 +26,7 @@ export const Timer = {
    * Binds all timer event handlers
    */
   bindEvents() {
+    ensureFitnessModalMarkup('timer-modal');
     TimerModal.bindEvents();
   },
 };

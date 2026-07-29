@@ -1,4 +1,4 @@
-import { getState, dispatch, Actions } from '../../../core/state.js';
+import { getState, dispatch, Actions, subscribe } from '../../../core/state.js';
 import { getPeriodKey } from '../schedule.js';
 import { makeCardSwipable } from '../../../components/swipeableCard.js';
 import { updateSectionVisibility, sectionVisibility as visObj } from './coreHelpers.js';
@@ -54,6 +54,23 @@ export function updateDropdownText(sectionVisibility = visObj) {
 /*  MENU TOGGLE HELPERS                                                        */
 /* -------------------------------------------------------------------------- */
 
+let menuCategoryUpdater = null;
+let menuCategoryUnsubscribe = null;
+
+export function activateMenuToggleState() {
+  if (!menuCategoryUpdater || menuCategoryUnsubscribe) return;
+  menuCategoryUnsubscribe = subscribe(
+    (state) => state.categories,
+    () => menuCategoryUpdater()
+  );
+  menuCategoryUpdater();
+}
+
+export function deactivateMenuToggleState() {
+  menuCategoryUnsubscribe?.();
+  menuCategoryUnsubscribe = null;
+}
+
 export function setupMenuToggle() {
   const menuBtn = document.getElementById('menu-toggle');
   const menuDropdown = document.getElementById('dropdown-menu');
@@ -61,11 +78,9 @@ export function setupMenuToggle() {
     menuDropdown.classList.add('hidden');
 
     // Function to update the "Add New Habit" menu item state
-    const updateAddHabitMenuItem = async () => {
+    const updateAddHabitMenuItem = () => {
       const addHabitItem = menuDropdown.querySelector('[data-action="add-habit"]');
       if (!addHabitItem) return;
-      
-      const { getState } = await import('../../../core/state.js');
       const hasCategories = getState().categories.length > 0;
       
       if (hasCategories) {
@@ -79,13 +94,7 @@ export function setupMenuToggle() {
 
     // Initial state update
     updateAddHabitMenuItem();
-
-    // Subscribe to state changes to update menu item when categories change
-    import('../../../core/state.js').then((m) => {
-      m.subscribe(() => {
-        updateAddHabitMenuItem();
-      });
-    });
+    menuCategoryUpdater = updateAddHabitMenuItem;
 
     menuBtn.addEventListener('click', (ev) => {
       ev.stopPropagation();

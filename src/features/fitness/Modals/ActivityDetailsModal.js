@@ -509,7 +509,7 @@ export const ActivityDetailsModal = {
     setElement.innerHTML = `
       <span class="set-label text-sm font-medium text-gray-700 dark:text-gray-300">Set ${setNumber}</span>
       <input type="number" name="reps-${setId}" min="1" max="999" placeholder="12" aria-label="Set ${setNumber} reps" class="${field}">
-      <input type="number" name="value-${setId}" min="0" step="0.1" placeholder="50" aria-label="Set ${setNumber} value" class="${field}">
+      <input type="number" name="value-${setId}" min="0" max="999999" step="0.1" placeholder="50" aria-label="Set ${setNumber} value" class="${field}">
       <select name="unit-${setId}" aria-label="Set ${setNumber} unit" class="${field} px-1" style="text-align: center; text-align-last: center;">
         <option value="none" ${defaultUnit === 'none' ? 'selected' : ''}>None</option>
         <option value="kg" ${defaultUnit === 'kg' ? 'selected' : ''}>Kg</option>

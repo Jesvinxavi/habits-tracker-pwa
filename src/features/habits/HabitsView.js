@@ -42,6 +42,7 @@ export const HabitsView = {
         onNewHabit: callbacks.onNewHabit,
       },
     });
+    this.actionButtons = actionButtons;
     container.appendChild(actionButtons);
 
     // Mount search panel
@@ -66,6 +67,14 @@ export const HabitsView = {
    */
   renderHabits(onHabitClick) {
     renderHabitsList(onHabitClick);
+  },
+
+  activate() {
+    this.actionButtons?.activateState?.();
+  },
+
+  deactivate() {
+    this.actionButtons?.deactivateState?.();
   },
 
   /**

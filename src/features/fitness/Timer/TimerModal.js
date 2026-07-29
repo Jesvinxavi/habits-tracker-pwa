@@ -107,10 +107,11 @@ export const TimerModal = {
    */
   bindEvents() {
     if (this._eventsBound) return;
-    this._eventsBound = true;
 
     // Close button
     const closeBtn = document.getElementById('close-timer-modal');
+    if (!closeBtn) return;
+    this._eventsBound = true;
     if (closeBtn) {
       closeBtn.addEventListener('click', () => this.close());
     }

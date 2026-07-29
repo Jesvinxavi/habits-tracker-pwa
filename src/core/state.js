@@ -3,6 +3,11 @@
 import { deepClone, generateUniqueId } from '../shared/common.js';
 import { getLocalMidnightISOString } from '../shared/datetime.js';
 import { normalizeHexColor } from '../shared/sanitize.js';
+import {
+  normalizeActivityPresentation,
+  normalizeFitnessPayload,
+  normalizeRecordedActivity,
+} from '../shared/fitnessValidation.js';
 import { isCloudBackend } from './dataBackend.js';
 
 // Helper to get local date without timezone issues
@@ -692,7 +697,10 @@ function reducer(state, action) {
     case ActionTypes.ADD_ACTIVITY:
       return {
         ...state,
-        activities: [...state.activities, deepClone(action.payload)],
+        activities: [
+          ...state.activities,
+          normalizeActivityPresentation(deepClone(action.payload)),
+        ],
       };
 
     case ActionTypes.UPDATE_ACTIVITY:
@@ -701,7 +709,11 @@ function reducer(state, action) {
       // Update the activities array
       const updatedActivities = state.activities.map((activity) =>
         activity.id === updId
-          ? { ...activity, ...updates, updatedAt: new Date().toISOString() }
+          ? normalizeActivityPresentation({
+              ...activity,
+              ...updates,
+              updatedAt: new Date().toISOString(),
+            })
           : activity
       );
 
@@ -719,7 +731,7 @@ function reducer(state, action) {
       
       if (!activity) return state;
       
-      const record = {
+      const record = normalizeRecordedActivity({
         id: generateUniqueId(),
         activityId: recordActivityId,
         activityName: activity.name,
@@ -730,7 +742,7 @@ function reducer(state, action) {
         intensity: data.intensity || null,
         notes: data.notes || '',
         ...data,
-      };
+      });
       
       const currentRecordedActivities = state.recordedActivities || {};
       const dateRecords = currentRecordedActivities[isoDate] || [];
@@ -748,7 +760,7 @@ function reducer(state, action) {
       const activityIds = new Set(state.activities.map((item) => item.id));
       const batchRecords = action.payload.records
         .filter((item) => activityIds.has(item.activityId))
-        .map((item) => ({ ...deepClone(item), date: batchDate }));
+        .map((item) => normalizeRecordedActivity({ ...deepClone(item), date: batchDate }));
       if (batchRecords.length === 0) return state;
       const currentRecordedActivities = state.recordedActivities || {};
       return {
@@ -775,7 +787,7 @@ function reducer(state, action) {
         recordedActivities: {
           ...state.recordedActivities,
           [date]: (state.recordedActivities[date] || []).map((item) =>
-            item.id === recordId ? { ...item, ...data } : item
+            item.id === recordId ? normalizeRecordedActivity({ ...item, ...data }) : item
           ),
         },
       };
@@ -896,10 +908,10 @@ function reducer(state, action) {
       return { ...state, homeSectionVisibility: { ...action.payload } };
 
     case ActionTypes.IMPORT_DATA:
-      return { ...state, ...deepClone(action.payload) };
+      return { ...state, ...normalizeFitnessPayload(deepClone(action.payload)) };
 
     case ActionTypes.HYDRATE_CACHE:
-      return { ...state, ...deepClone(action.payload) };
+      return { ...state, ...normalizeFitnessPayload(deepClone(action.payload)) };
 
     case ActionTypes.SET_SYNC_STATUS:
       if (state.syncStatus === action.payload) return state;

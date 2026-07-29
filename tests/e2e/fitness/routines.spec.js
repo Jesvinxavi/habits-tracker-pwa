@@ -95,6 +95,26 @@ test.describe('routines modal', () => {
     await expect(search).toBeFocused();
   });
 
+  test('routine cards open from both Enter and Space', async ({ page }) => {
+    await seed(page);
+    await page.evaluate(async () => {
+      const { addRoutine } = await import('/src/features/fitness/routines.js');
+      const activity = window.__APP_TEST__.getState().activities[0];
+      await addRoutine({ name: 'Keyboard Routine', activityIds: [activity.id] });
+    });
+    await openRoutines(page);
+
+    const card = page.locator('#routines-list .routine-card');
+    await card.focus();
+    await card.press('Enter');
+    await expect(page.locator('#routine-builder-modal')).toBeVisible();
+    await page.locator('#cancel-routine-builder').click();
+
+    await card.focus();
+    await card.press('Space');
+    await expect(page.locator('#routine-builder-modal')).toBeVisible();
+  });
+
   test('builder opens over the routines modal with Save disabled', async ({ page }) => {
     await seed(page);
     await openRoutines(page);

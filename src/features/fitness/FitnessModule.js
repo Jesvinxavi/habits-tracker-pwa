@@ -124,7 +124,6 @@ function buildAddMenuActions() {
     onNewProgram: () => Modals.openProgramBuilder({ onSaved: () => renderProgramTile() }),
     onTimer: () =>
       import('./TimerModule.js').then(({ Timer }) => {
-        Timer.bindEvents();
         Timer.openModal();
       }),
   };

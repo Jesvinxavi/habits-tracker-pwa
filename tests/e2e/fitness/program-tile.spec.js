@@ -123,3 +123,17 @@ test('fill tracks the percentage and there is no separate bar', async ({ page })
   const valueText = await progress.getAttribute('aria-valuetext');
   expect(valueText).toMatch(/\d+ of \d+ workouts completed/);
 });
+
+test('program tile opens from both Enter and Space', async ({ page }) => {
+  await setup(page, 20);
+  const tile = page.locator('#program-tile');
+
+  await tile.focus();
+  await tile.press('Enter');
+  await expect(page.locator('#program-details-modal')).toBeVisible();
+  await page.locator('#close-program-details').click();
+
+  await tile.focus();
+  await tile.press('Space');
+  await expect(page.locator('#program-details-modal')).toBeVisible();
+});

@@ -2,7 +2,13 @@
 import { HomeView } from './HomeView.js';
 import { subscribe } from '../../core/state.js';
 import { bindControls } from './helpers/controlHelpers.js';
-import { setupMenuToggle, updateDropdownText, setSectionVisibility } from './helpers/uiHelpers.js';
+import {
+  activateMenuToggleState,
+  deactivateMenuToggleState,
+  setupMenuToggle,
+  updateDropdownText,
+  setSectionVisibility,
+} from './helpers/uiHelpers.js';
 import { sectionVisibility } from './helpers/coreHelpers.js';
 import { shallowArrayEqual } from '../../shared/equality.js';
 
@@ -56,6 +62,7 @@ export const HomeModule = {
 
   activate() {
     if (!this._initialized || this._unsubscribe) return;
+    activateMenuToggleState();
     this._unsubscribe = subscribe(
       (state) => [
         state.categories,
@@ -77,6 +84,7 @@ export const HomeModule = {
   deactivate() {
     this._unsubscribe?.();
     this._unsubscribe = null;
+    deactivateMenuToggleState();
   },
 
 

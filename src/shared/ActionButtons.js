@@ -76,10 +76,19 @@ export function mountActionButtons(options = {}) {
     // Initial state update
     updateNewHabitButtonState();
 
-    // Subscribe to state changes to update button when categories change
-    subscribe(() => {
+    let unsubscribeCategories = null;
+    actionButtons.activateState = () => {
+      if (unsubscribeCategories) return;
+      unsubscribeCategories = subscribe(
+        (state) => state.categories,
+        updateNewHabitButtonState
+      );
       updateNewHabitButtonState();
-    });
+    };
+    actionButtons.deactivateState = () => {
+      unsubscribeCategories?.();
+      unsubscribeCategories = null;
+    };
   } else if (type === 'fitness') {
     actionButtons.innerHTML = `
       <button id="fitness-activity-btn" class="flex-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 py-1.5 px-4 rounded-xl font-medium flex items-center justify-center gap-2" aria-label="Open activities">

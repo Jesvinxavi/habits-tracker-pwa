@@ -43,6 +43,7 @@ export const HabitsModule = {
 
   activate() {
     if (!this._initialized || this._unsubscribe) return;
+    HabitsView.activate();
     this._unsubscribe = subscribe(
       (state) => [state.categories, state.habits, state.settings],
       () => this._handleStateChange(),
@@ -54,6 +55,7 @@ export const HabitsModule = {
   deactivate() {
     this._unsubscribe?.();
     this._unsubscribe = null;
+    HabitsView.deactivate();
   },
 
   /**

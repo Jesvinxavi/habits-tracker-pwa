@@ -67,6 +67,10 @@ if (typeof document !== 'undefined') {
 export function openModal(id) {
   const modal = document.getElementById(id);
   if (!modal) return;
+  // Some legacy shells are nested by the browser's recovery of old modal
+  // markup. A modal must be a body-level layer or a hidden ancestor can keep it
+  // invisible. Centralise the one-time repair here rather than in each feature.
+  if (modal.parentElement !== document.body) document.body.appendChild(modal);
   if (!openStack.includes(id)) {
     const origin = document.activeElement;
     if (origin instanceof HTMLElement) focusOrigins.set(id, origin);
@@ -74,6 +78,9 @@ export function openModal(id) {
     currentTop?.setAttribute('aria-hidden', 'true');
     openStack.push(id);
   }
+  // The stack, not scattered feature-specific classes, is the source of truth
+  // for layer order. This also keeps confirm dialogs above any modal depth.
+  modal.style.zIndex = String(1000 + openStack.indexOf(id) + 1);
   document.body.style.overflow = 'hidden';
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');

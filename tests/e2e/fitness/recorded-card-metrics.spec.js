@@ -30,7 +30,8 @@ test('routine-added card accepts metrics and shows pills', async ({ page }) => {
   // No metric pills before the user fills anything in.
   const pillsBefore = await card.locator('.metric-pill, [class*="pill"]').count();
 
-  await card.click();
+  await card.focus();
+  await card.press('Enter');
   await expect(page.locator('#activity-details-modal')).toBeVisible();
   expect(pillsBefore).toBe(0);
 
@@ -46,4 +47,10 @@ test('routine-added card accepts metrics and shows pills', async ({ page }) => {
     Object.values(window.__APP_TEST__.getState().recordedActivities).flat().map((r) => ({ d: r.duration, u: r.durationUnit }))
   );
   expect(stored).toEqual([{ d: 30, u: 'minutes' }]);
+
+  // Native button semantics cover Space as well as Enter.
+  await updated.focus();
+  await updated.press('Space');
+  await expect(page.locator('#activity-details-modal')).toBeVisible();
+  await page.locator('#cancel-activity-details').click();
 });

@@ -20,6 +20,7 @@ function addModal() {
 }
 
 afterEach(() => {
+  closeModal('focus-test-modal-2');
   closeModal('focus-test-modal');
   document.body.replaceChildren();
 });
@@ -49,5 +50,30 @@ describe('modal focus lifecycle', () => {
       new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true })
     );
     expect(document.activeElement.id).toBe('last-focus');
+  });
+
+  it('keeps focus and aria ownership on the top of a stacked dialog', () => {
+    const { modal, opener } = addModal();
+    openModal('focus-test-modal');
+    const firstModalFocus = document.getElementById('first-focus');
+
+    const second = document.createElement('div');
+    second.id = 'focus-test-modal-2';
+    second.className = 'hidden';
+    second.innerHTML = '<h2>Second</h2><button id="second-focus">Second action</button>';
+    document.body.appendChild(second);
+    firstModalFocus.focus();
+    openModal('focus-test-modal-2');
+
+    expect(modal.getAttribute('aria-hidden')).toBe('true');
+    expect(document.activeElement.id).toBe('second-focus');
+    expect(Number(second.style.zIndex)).toBeGreaterThan(Number(modal.style.zIndex));
+
+    closeModal('focus-test-modal-2');
+    expect(modal.hasAttribute('aria-hidden')).toBe(false);
+    expect(document.activeElement).toBe(firstModalFocus);
+
+    closeModal('focus-test-modal');
+    expect(document.activeElement).toBe(opener);
   });
 });

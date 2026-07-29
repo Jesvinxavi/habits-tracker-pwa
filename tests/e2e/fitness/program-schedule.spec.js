@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
 
+// Every case provisions its own browser context and deterministic data, so the
+// formerly 700-line serial tail can safely spread across Playwright workers.
+test.describe.configure({ mode: 'parallel' });
+
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-07-29T12:00:00+01:00'));
 });
