@@ -1,9 +1,20 @@
 import { expect, test } from '@playwright/test';
 
 test('loads the PWA application shell', async ({ page }) => {
-  await page.goto('/?test=true');
+  await page.goto('/');
   await expect(page).toHaveTitle(/Healthy Habits/i);
   await expect(page.locator('body')).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => Boolean(window.__APP_TEST__?.seed)))
+    .toBe(true);
+  expect(
+    await page.evaluate(async () => ({
+      legacySnapshot: localStorage.getItem('healthyHabitsData'),
+      legacyDatabase: indexedDB.databases
+        ? (await indexedDB.databases()).some((database) => database.name === 'healthyHabitsDB')
+        : false,
+    }))
+  ).toEqual({ legacySnapshot: null, legacyDatabase: false });
 });
 
 test('keeps the current page visible until a lazy page is ready', async ({ page }) => {
@@ -13,7 +24,7 @@ test('keeps the current page visible until a lazy page is ready', async ({ page 
     await route.continue();
   });
 
-  await page.goto('/?test=true');
+  await page.goto('/');
   const homeView = page.locator('#home-view');
   const fitnessView = page.locator('#fitness-view');
   const fitnessTab = page.getByRole('tab', { name: 'Fitness view' });

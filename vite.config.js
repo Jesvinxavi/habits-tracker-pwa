@@ -57,6 +57,11 @@ function resolveTarget(command) {
 }
 
 export default defineConfig(({ command }) => {
+  if (command === 'build' && process.env.VITE_TEST_HARNESS === '1') {
+    throw new Error(
+      'Refusing to build with VITE_TEST_HARNESS=1; the in-memory harness is development-only.'
+    );
+  }
   const target = resolveTarget(command);
   const isPages = target === 'pages';
   const base = isPages ? `/${REPO_NAME}/` : '/';

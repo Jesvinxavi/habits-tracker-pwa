@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { expandAllActivityPickerCategories } from './helpers/activityPicker.js';
+import { seedTestHarness } from '../../helpers/storageSeed.js';
 
 async function openFitness(page) {
-  await page.goto('/?test=true');
+  await page.goto('/');
   await page.getByRole('tab', { name: 'Fitness view' }).click();
   await expect(page.locator('#fitness-add-menu-btn')).toBeVisible();
 }
@@ -367,7 +368,7 @@ test.describe('program builder and tile', () => {
     expect(host).toEqual({ height: 0, children: 0 });
   });
 
-  test('the tile survives a reload', async ({ page }) => {
+  test('the tile mounts once from an explicit in-memory seed', async ({ page }) => {
     await openFitness(page);
     await seedActivity(page);
     await makeRoutine(page, 'Push');
@@ -379,18 +380,9 @@ test.describe('program builder and tile', () => {
     });
     await expect(page.locator('#program-tile')).toContainText('Persistent');
 
-    // Legacy-mode saves are debounced by 300ms; wait for the write to land so the
-    // reload reads a persisted program rather than racing the debounce.
-    await page.waitForFunction(() => {
-      try {
-        const raw = localStorage.getItem('healthyHabitsData');
-        return (JSON.parse(raw || '{}').programs || []).length > 0;
-      } catch {
-        return false;
-      }
-    });
-
+    const state = await page.evaluate(() => window.__APP_TEST__.getState());
     await page.reload();
+    await seedTestHarness(page, state);
     await page.evaluate(() => {
       window.__programTileAdditions = 0;
       window.__programTileObserver = new MutationObserver((records) => {

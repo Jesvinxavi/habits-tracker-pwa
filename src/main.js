@@ -1,31 +1,36 @@
 // Main entry – bootstraps the PWA
-import { loadDataFromLocalStorage } from './core/storage.js';
 import { initializeTheme } from './core/theme.js';
 import { initializeNavigation } from './core/navigation.js';
 import { initializeInstallPrompt } from './components/InstallPrompt.js';
 import { isCloudBackend } from './core/dataBackend.js';
 import { markStartup } from './core/startupMetrics.js';
 import { removeLoadingState } from './shared/loader.js';
-
-// Enable test mode if URL contains ?test=true
-if (
-  typeof window !== 'undefined' &&
-  new URLSearchParams(window.location.search).get('test') === 'true'
-) {
-  window.process = window.process || {};
-  window.process.env = window.process.env || {};
-  window.process.env.NODE_ENV = 'test';
-}
+import {
+  assertTestHarnessConfiguration,
+  isTestHarnessEnabled,
+} from './core/testHarness.js';
 
 async function bootstrap() {
   markStartup('bootstrapStart');
   try {
-    // Load data first, then initialize UI components
-    const persistence = isCloudBackend()
-      ? await import('./core/cloudBootstrap.js').then((module) =>
-          module.bootstrapCloudPersistence()
-        )
-      : await loadDataFromLocalStorage();
+    assertTestHarnessConfiguration();
+    const testHarness = isTestHarnessEnabled();
+
+    // The test harness deliberately starts with reducer-owned in-memory state.
+    // It must stay before the backend check so a cloud-configured test server
+    // never initializes Clerk, Convex, IndexedDB, or legacy browser storage.
+    let persistence;
+    if (testHarness) {
+      persistence = { mode: 'test_harness' };
+    } else if (isCloudBackend()) {
+      persistence = await import('./core/cloudBootstrap.js').then((module) =>
+        module.bootstrapCloudPersistence()
+      );
+    } else {
+      persistence = await import('./core/storage.js').then((module) =>
+        module.loadDataFromLocalStorage()
+      );
+    }
     markStartup('persistenceReady');
     if (persistence?.access === 'blocked') {
       await removeLoadingState();
@@ -33,7 +38,7 @@ async function bootstrap() {
     }
 
     // Proactively clear any persisted last-active tab so app always opens to Home
-    if (!isCloudBackend()) {
+    if (!isCloudBackend() && !testHarness) {
       try {
         localStorage.removeItem('activeHabitTrackerTab');
       } catch (error) {
@@ -58,7 +63,7 @@ async function bootstrap() {
     // the loading path. Navigation loads Fitness and Statistics on demand.
     const initializeDeferredFeatures = async () => {
       await import('./features/autoToday.js');
-      if (isCloudBackend()) {
+      if (isCloudBackend() && !testHarness) {
         const { initializeSyncStatusUi } = await import('./core/syncStatusUi.js');
         initializeSyncStatusUi();
       }

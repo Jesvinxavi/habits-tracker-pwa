@@ -9,6 +9,8 @@ import {
   normalizeRecordedActivity,
 } from '../shared/fitnessValidation.js';
 import { isCloudBackend } from './dataBackend.js';
+import { installTestHarnessApi, isTestHarnessEnabled } from './testHarness.js';
+import { getCloudRuntime } from './cloudRuntime.js';
 
 // Helper to get local date without timezone issues
 function getLocalDateISO() {
@@ -79,15 +81,6 @@ ensureHolidayIntegrity(initialAppData);
 // Application state - private for immutability. The root reference is replaced
 // after every committed action, allowing cheap identity-based subscriptions.
 let _appData = freezeForDevelopment(initialAppData);
-
-// A deliberately narrow hook for the legacy Playwright harness. Production and
-// cloud-authenticated builds expose no mutable application-state global.
-if (typeof window !== 'undefined' && import.meta.env.DEV && !isCloudBackend()) {
-  window.__APP_TEST__ = Object.freeze({
-    getState,
-    dispatch,
-  });
-}
 
 // Public immutable state access. The development freeze protects this shared
 // snapshot; callers must dispatch actions rather than mutating it.
@@ -433,6 +426,10 @@ export const Actions = {
   // }),
 };
 
+// A deliberately narrow, explicitly enabled hook for browser UI tests.
+// Production and ordinary development builds expose no mutable state global.
+installTestHarnessApi({ getState, dispatch, actionTypes: ActionTypes });
+
 // Enhanced dispatch function with immutable updates
 export function dispatch(action) {
   if (typeof action === 'function') {
@@ -444,6 +441,7 @@ export function dispatch(action) {
 
   if (
     isCloudBackend() &&
+    !isTestHarnessEnabled() &&
     !action.meta?.source &&
     typeof action.type === 'string'
   ) {
@@ -451,6 +449,20 @@ export function dispatch(action) {
       if (!isPersistentAction(action)) {
         dispatch({ ...action, meta: { source: 'device' } });
         return true;
+      }
+      // A cloud write may only proceed after bootstrap has supplied an
+      // authenticated, generation-bound runtime. Do not fall back to a direct
+      // reducer commit: that would make a visible user change disappear after
+      // reload when IndexedDB/outbox setup failed.
+      if (!getCloudRuntime()) {
+        const error = new Error('Cloud persistence is not ready');
+        console.error('[persistence] Local durable write failed:', error);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('persistence-storage-error', { detail: { message: error.message } })
+          );
+        }
+        return false;
       }
       return persistStateAction(action, prevState)
         .then(() => {

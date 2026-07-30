@@ -5,6 +5,7 @@ import {
   dispatch,
   getState,
 } from '../../src/core/state.js';
+import { clearCloudRuntime } from '../../src/core/cloudRuntime.js';
 
 afterEach(() => {
   dispatch({ type: ActionTypes.RESET_STATE, meta: { source: 'test' } });
@@ -31,5 +32,28 @@ describe('device-only state actions', () => {
 
     expect(result).toBe(true);
     expect(getState().fitnessSelectedDate).toBe(selectedDate);
+  });
+
+  it('fails closed for a cloud domain write before persistence is ready', async () => {
+    vi.stubEnv('VITE_DATA_BACKEND', 'cloud');
+    clearCloudRuntime();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const before = getState().activities;
+
+    await expect(
+      dispatch(
+        Actions.addActivity({
+          id: 'blocked-until-runtime-ready',
+          name: 'Blocked',
+          categoryId: 'cardio',
+        })
+      )
+    ).resolves.toBe(false);
+    expect(getState().activities).toBe(before);
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[persistence] Local durable write failed:',
+      expect.objectContaining({ message: 'Cloud persistence is not ready' })
+    );
+    errorSpy.mockRestore();
   });
 });
