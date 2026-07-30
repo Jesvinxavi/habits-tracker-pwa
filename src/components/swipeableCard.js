@@ -67,6 +67,13 @@ export function makeCardSwipable(
         // 12px spent deciding the gesture was horizontal would otherwise be
         // applied in one step and the card would start its travel with a jump.
         startX = pt.clientX;
+        // Stop treating the card as revealed for the duration of the drag. The
+        // revealed state lifts the action button above the sliding card, so a
+        // card closing from a previously released reveal travelled behind the
+        // button and only jumped in front when the class came off at release.
+        // Dragging open and closed in one motion never hit this, because the
+        // class is only ever applied on release.
+        swipeContainer.classList.remove('swipe-revealed');
         slideEl.style.transition = 'none';
         // Capture only after a real horizontal swipe starts. Capturing on
         // pointerdown retargets ordinary taps away from buttons inside the card.
