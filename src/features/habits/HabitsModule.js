@@ -2,6 +2,9 @@
 import { HabitsView } from './HabitsView.js';
 import { subscribe } from '../../core/state.js';
 import { shallowArrayEqual } from '../../shared/equality.js';
+// New/Edit Habit must already be available when this page is mounted; see the
+// matching phone-preview rationale in Home's uiHelpers.
+import { openAddHabitModal } from './modals/HabitFormModal.js';
 
 /**
  * Main HabitsModule that orchestrates the habits view
@@ -72,7 +75,7 @@ export const HabitsModule = {
    * Handles new habit button click
    */
   _handleNewHabit() {
-    import('./modals/HabitFormModal.js').then((m) => m.openAddHabitModal());
+    openAddHabitModal();
   },
 
   /**

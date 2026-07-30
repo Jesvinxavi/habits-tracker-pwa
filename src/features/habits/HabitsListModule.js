@@ -9,6 +9,7 @@ import {
   isHabitSkippedToday,
 } from '../home/schedule.js';
 import { handleHabitStatsClick } from './modals/HabitStatsModal.js';
+import { openEditHabitModal } from './modals/HabitFormModal.js';
 
 
 
@@ -207,7 +208,7 @@ export function renderHabitsList(onHabitClick) {
   const map = new Map();
   getState().categories.forEach((cat) => map.set(cat.id, []));
   getState().habits.forEach((h) => {
-    if (map.has(h.categoryId)) map.get(h.categoryId).push(h);
+    if (!h.archivedAt && map.has(h.categoryId)) map.get(h.categoryId).push(h);
   });
 
   getState().categories.forEach((cat) => {
@@ -247,7 +248,7 @@ export function renderHabitsList(onHabitClick) {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.dataset.habitId;
-      if (id) import('./modals/HabitFormModal.js').then((m) => m.openEditHabitModal(id));
+      if (id) openEditHabitModal(id);
     });
   });
 

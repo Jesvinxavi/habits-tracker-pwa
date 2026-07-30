@@ -89,6 +89,7 @@ function normalizeHabit(habit, sortOrder, warnings) {
     targetUnit: habit.targetUnit,
     defaultIncrement:
       habit.defaultIncrement == null ? undefined : finiteNumber(habit.defaultIncrement),
+    archivedAt: habit.archivedAt == null ? undefined : finiteNumber(habit.archivedAt),
     sortOrder,
   };
 

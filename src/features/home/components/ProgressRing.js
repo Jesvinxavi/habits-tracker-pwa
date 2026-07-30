@@ -1,15 +1,17 @@
 import { getState } from '../../../core/state.js';
-import { isHabitCompleted } from '../schedule.js';
+import { isHabitCompleted, isHabitScheduledOnDate } from '../schedule.js';
 
 export function calculateDailyProgress() {
   // Consider all habits that are not paused. A future refactor will
   // take schedule-specific filtering into account (see features/home/schedule.js).
-  const activeHabits = getState().habits.filter((h) => !h.paused);
+  const today = new Date(getState().selectedDate);
+  const activeHabits = getState().habits.filter(
+    (habit) => !habit.paused && isHabitScheduledOnDate(habit, today)
+  );
 
   // A habit is treated as completed when its `completed` flag is true.
   // For target-based habits we still rely on that flag being toggled once
   // the target is reached (the existing Home controller already does this).
-  const today = new Date(getState().selectedDate);
   const completed = activeHabits.filter((h) => isHabitCompleted(h, today));
 
   return activeHabits.length ? (completed.length / activeHabits.length) * 100 : 0;

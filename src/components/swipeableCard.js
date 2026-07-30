@@ -3,17 +3,36 @@
 // The caller is responsible for providing a container that wraps the list item
 // and includes a `.restore-btn` element that triggers the restore action.
 
-export function makeCardSwipable(swipeContainer, slideEl, habit, { onRestore = () => {} } = {}) {
+export function makeCardSwipable(
+  swipeContainer,
+  slideEl,
+  habit,
+  { onRestore = () => {}, revealMode = 'translate' } = {}
+) {
   let startX = 0;
   let startY = 0;
   let currentX = 0;
   let isSwiping = false;
 
   let btnWidth = 0; // lazy-computed
+  let availableLeftShift = 0;
 
   let activePointerId = null;
 
   function setTranslate(x) {
+    if (revealMode === 'translate-within-viewport') {
+      const revealWidth = Math.max(0, -x);
+      const translateWidth = Math.min(revealWidth, availableLeftShift);
+      const resizeWidth = revealWidth - translateWidth;
+      slideEl.style.width = `calc(100% - ${resizeWidth}px)`;
+      slideEl.style.transform = `translateX(${-translateWidth}px)`;
+      return;
+    }
+    if (revealMode === 'resize') {
+      slideEl.style.width = `calc(100% + ${x}px)`;
+      slideEl.style.transform = 'translateX(0)';
+      return;
+    }
     slideEl.style.transform = `translateX(${x}px)`;
   }
 
@@ -24,6 +43,7 @@ export function makeCardSwipable(swipeContainer, slideEl, habit, { onRestore = (
     currentX = 0;
     isSwiping = false; // we determine later
     btnWidth = swipeContainer.offsetWidth * 0.2;
+    availableLeftShift = Math.max(0, swipeContainer.getBoundingClientRect().left);
     activePointerId = e.pointerId !== undefined ? e.pointerId : null;
   }
 
@@ -64,12 +84,19 @@ export function makeCardSwipable(swipeContainer, slideEl, habit, { onRestore = (
     }
 
     isSwiping = false;
-    slideEl.style.transition = 'transform 0.2s';
-    if (Math.abs(currentX) > btnWidth / 2) {
+    slideEl.style.transition =
+      revealMode === 'translate-within-viewport'
+        ? 'width 0.2s, transform 0.2s'
+        : revealMode === 'resize'
+          ? 'width 0.2s'
+          : 'transform 0.2s';
+    const shouldReveal = Math.abs(currentX) > btnWidth / 2;
+    if (shouldReveal) {
       setTranslate(-btnWidth);
     } else {
       setTranslate(0);
     }
+    swipeContainer.classList.toggle('swipe-revealed', shouldReveal);
     if (e.pointerId !== undefined && slideEl.releasePointerCapture) {
       slideEl.releasePointerCapture(e.pointerId);
     }
@@ -97,9 +124,15 @@ export function makeCardSwipable(swipeContainer, slideEl, habit, { onRestore = (
   );
 
   // Restore button handler
-  swipeContainer.querySelector('.restore-btn')?.addEventListener('click', () => {
-    onRestore();
-    // auto-close swipe position
-    setTranslate(0);
+  swipeContainer.querySelector('.restore-btn')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    if (button.disabled) return;
+    button.disabled = true;
+    const restored = await onRestore();
+    if (restored !== false) {
+      setTranslate(0);
+      swipeContainer.classList.remove('swipe-revealed');
+    }
+    if (button.isConnected) button.disabled = false;
   });
 }

@@ -101,6 +101,7 @@ export function habitRecord(habit, sortOrder) {
     'targetFrequency',
     'targetUnit',
     'defaultIncrement',
+    'archivedAt',
   ];
   optionalFields.forEach((field) => {
     if (habit[field] !== undefined && habit[field] !== null) {
@@ -144,16 +145,29 @@ function entryOperation(runtime, state, action) {
     habitClientId: habit.id,
     periodKey,
     periodSortDate: periodSortDate(periodKey, habit.createdAt),
-    completed:
-      action.type === ActionTypes.TOGGLE_HABIT_COMPLETED
-        ? !existingCompleted
-        : existingCompleted,
-    progress:
-      action.type === ActionTypes.SET_HABIT_PROGRESS
-        ? Number(action.payload.progress)
-        : existingProgress,
-    skipped: action.type === ActionTypes.SKIP_HABIT ? !existingSkipped : existingSkipped,
+    completed: existingCompleted,
+    progress: existingProgress,
+    skipped: existingSkipped,
   };
+  if (action.type === ActionTypes.TOGGLE_HABIT_COMPLETED) {
+    desired.completed = !existingCompleted;
+    if (desired.completed) desired.skipped = false;
+    if (!desired.completed && habit.target > 0) desired.progress = 0;
+  }
+  if (action.type === ActionTypes.SET_HABIT_PROGRESS) {
+    desired.progress = Number(action.payload.progress);
+    if (habit.target > 0 && desired.progress >= habit.target) {
+      desired.completed = true;
+      desired.skipped = false;
+    }
+  }
+  if (action.type === ActionTypes.SKIP_HABIT) {
+    desired.skipped = !existingSkipped;
+    if (desired.skipped) {
+      desired.completed = false;
+      desired.progress = 0;
+    }
+  }
   const clientId = `habit-entry:${habit.id}:${periodKey}`;
   const baseRecord = {
     clientId,
@@ -371,17 +385,27 @@ export async function persistStateAction(action, state) {
       break;
     }
     case ActionTypes.DELETE_HABIT: {
-      const current = findHabit(action.payload);
+      // Archive instead of cascading so habitEntries remain available to
+      // historical Home dates and Stats, matching Fitness activity semantics.
+      const id = action.payload?.habitId || action.payload;
+      const current = findHabit(id);
       const base = habitRecord(current, state.habits.indexOf(current));
+      const optimistic = habitRecord(
+        {
+          ...current,
+          archivedAt: action.payload?.archivedAt || Date.now(),
+        },
+        state.habits.indexOf(current)
+      );
       operations.push(
         sharedOperation(
           runtime,
           'habits',
-          current.id,
-          'habits:removeCascade',
-          { clientId: current.id },
+          id,
+          'habits:update',
+          optimistic,
           base,
-          { ...base, deletedAt: Date.now() }
+          optimistic
         )
       );
       break;

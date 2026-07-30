@@ -5,6 +5,11 @@ import { updateSectionVisibility, sectionVisibility as visObj } from './coreHelp
 import { HomeHabitsList } from '../components/HomeHabitsList.js';
 import { HomeSectionPills } from '../components/HomeSectionPills.js';
 import { isCloudBackend } from '../../../core/dataBackend.js';
+// Keep first-class management surfaces with Home. The phone preview can be
+// rebuilt while a page remains open; deferring these until click would leave
+// that page pointing at removed hashed chunks.
+import { openAddHabitModal } from '../../habits/modals/HabitFormModal.js';
+import { openHolidayModal } from '../../holidays/manage.js';
 
 /* -------------------------------------------------------------------------- */
 /*  SECTION VISIBILITY HELPERS                                                */
@@ -101,11 +106,13 @@ export function setupMenuToggle() {
       // Update menu item state before showing dropdown
       updateAddHabitMenuItem();
       menuDropdown.classList.toggle('hidden');
+      menuBtn.setAttribute('aria-expanded', String(!menuDropdown.classList.contains('hidden')));
     });
 
     document.addEventListener('click', (ev) => {
       if (!menuDropdown.contains(ev.target) && !menuBtn.contains(ev.target)) {
         menuDropdown.classList.add('hidden');
+        menuBtn.setAttribute('aria-expanded', 'false');
       }
     });
 
@@ -124,16 +131,15 @@ export function setupMenuToggle() {
 
       // Hide the dropdown after clicking
       menuDropdown.classList.add('hidden');
+      menuBtn.setAttribute('aria-expanded', 'false');
 
       // Handle different actions
       switch (action) {
         case 'add-habit':
-          import('../../../features/habits/modals/HabitFormModal.js').then((m) =>
-            m.openAddHabitModal()
-          );
+          openAddHabitModal();
           break;
         case 'manage-holidays':
-          import('../../../features/holidays/manage.js').then((m) => m.openHolidayModal());
+          openHolidayModal();
           break;
         case 'toggle-completed': {
           const previous = { ...visObj };

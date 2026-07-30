@@ -29,6 +29,7 @@ describe('persistent entity records', () => {
         paused: false,
         activeOnHolidays: true,
         icon: '🚶',
+        archivedAt: 1785412800000,
         revision: 3,
       },
       2
@@ -45,6 +46,7 @@ describe('persistent entity records', () => {
       paused: false,
       activeOnHolidays: true,
       icon: '🚶',
+      archivedAt: 1785412800000,
       sortOrder: 2,
       revision: 3,
     });

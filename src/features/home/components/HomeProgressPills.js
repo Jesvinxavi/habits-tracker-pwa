@@ -54,9 +54,13 @@ export function updateProgressPills() {
     const hasRelevantHabits = groupHabits.some((habit) => {
       const isTarget = typeof habit.target === 'number' && habit.target > 0;
       
-      // Target-based habits are always relevant for their group
+      // Target-based habits still respect pause/archive boundaries.
       if (isTarget) {
-        return !habit.paused && !isHabitSkippedToday(habit, groupTodayDate);
+        return (
+          !habit.paused &&
+          isHabitScheduledOnDate(habit, groupTodayDate) &&
+          !isHabitSkippedToday(habit, groupTodayDate)
+        );
       }
       
       // Schedule-only habits must be scheduled on this group's today date and not skipped
@@ -113,5 +117,4 @@ export function invalidatePillsCache() {
   // we just need to call it to refresh the display
   updateProgressPills();
 }
-
 

@@ -38,4 +38,6 @@ const crud = createCrudMutations({
 
 export const create = crud.create;
 export const update = crud.update;
+// Compatibility for stale pre-archive clients only. Current clients archive
+// through habits:update so historical entries are not tombstoned.
 export const removeCascade = crud.remove;

@@ -142,9 +142,59 @@ export async function commitOptimisticOperation({
   }
   const db = await openOfflineDb();
   const transaction = db.transaction(['entities', 'outbox'], 'readwrite');
-  transaction.objectStore('outbox').add({
+  const outbox = transaction.objectStore('outbox');
+  const related = await requestResult(
+    outbox
+      .index('by_owner_entity')
+      .getAll([operation.ownerKey, operation.entityType, operation.clientId])
+  );
+  const activeRelated = related
+    .filter((candidate) =>
+      ['pending', 'retry', 'syncing', 'conflict'].includes(candidate.status)
+    )
+    .sort((left, right) => left.createdAt - right.createdAt);
+  let predecessor = activeRelated[activeRelated.length - 1];
+  let effectiveBase = confirmedBase ?? null;
+
+  if (operation.mutationName === 'habitEntries:setDesiredState' && activeRelated.length) {
+    const syncingOperations = activeRelated.filter(
+      (candidate) => candidate.status === 'syncing'
+    );
+    const syncingPredecessor = syncingOperations[syncingOperations.length - 1];
+
+    if (syncingPredecessor) {
+      predecessor = syncingPredecessor;
+      activeRelated
+        .filter((candidate) => candidate.operationId !== syncingPredecessor.operationId)
+        .forEach((candidate) =>
+          outbox.put({
+            ...candidate,
+            status: 'superseded',
+            supersededBy: operation.operationId,
+          })
+        );
+    } else {
+      const conflicted = [...activeRelated]
+        .reverse()
+        .find((candidate) => candidate.status === 'conflict');
+      effectiveBase = conflicted
+        ? (conflicted.conflict?.serverRecord ?? null)
+        : (activeRelated[0].baseRecord ?? effectiveBase);
+      activeRelated.forEach((candidate) =>
+        outbox.put({
+          ...candidate,
+          status: 'superseded',
+          supersededBy: operation.operationId,
+        })
+      );
+      predecessor = null;
+    }
+  }
+
+  outbox.add({
     ...operation,
-    baseRecord: confirmedBase ?? null,
+    ...(predecessor ? { dependsOnOperationId: predecessor.operationId } : {}),
+    baseRecord: effectiveBase,
     attemptedRecord: optimisticEntity ?? null,
     status: 'pending',
     createdAt: operation.createdAt || Date.now(),
@@ -236,8 +286,18 @@ export async function confirmOperation(operationId, canonicalRecord) {
   const operation = await requestResult(outbox.get(operationId));
   if (!operation) {
     await transactionDone(transaction);
-    return;
+    return { confirmed: false, hasPendingSuccessor: false };
   }
+  const related = await requestResult(
+    outbox
+      .index('by_owner_entity')
+      .getAll([operation.ownerKey, operation.entityType, operation.clientId])
+  );
+  const activeSuccessors = related.filter(
+    (candidate) =>
+      candidate.operationId !== operationId &&
+      ['pending', 'retry', 'syncing', 'conflict'].includes(candidate.status)
+  );
   if (canonicalRecord) {
     transaction.objectStore('entities').put({
       ...canonicalRecord,
@@ -249,8 +309,22 @@ export async function confirmOperation(operationId, canonicalRecord) {
       updatedAt: canonicalRecord.updatedAt || Date.now(),
     });
   }
+  activeSuccessors
+    .filter((candidate) => candidate.dependsOnOperationId === operationId)
+    .forEach((candidate) => {
+      const rebased = { ...candidate };
+      delete rebased.dependsOnOperationId;
+      outbox.put({
+        ...rebased,
+        baseRecord: canonicalRecord ?? null,
+      });
+    });
   outbox.delete(operationId);
   await transactionDone(transaction);
+  return {
+    confirmed: true,
+    hasPendingSuccessor: activeSuccessors.length > 0,
+  };
 }
 
 export async function saveMigrationBackup(backup) {

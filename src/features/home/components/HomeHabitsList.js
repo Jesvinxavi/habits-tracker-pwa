@@ -6,7 +6,6 @@ import { hexToRgba, tintedLinearGradient } from '../../../shared/color.js';
 import { sectionVisibility } from '../helpers/coreHelpers.js';
 import { getPeriodKey } from '../schedule.js';
 import { getCategorizedHabitsForSelectedContext } from '../helpers/habitCategorization.js';
-import { HomeSectionPills } from './HomeSectionPills.js';
 
 // Local aliases for schedule helpers
 const {
@@ -75,9 +74,19 @@ export const HomeHabitsList = {
       sections.Scheduled.length +
       sections.Completed.length +
       sections.Skipped.length;
+    const visibleCount =
+      sections.Anytime.length +
+      sections.Scheduled.length +
+      (sectionVisibility.Completed ? sections.Completed.length : 0) +
+      (sectionVisibility.Skipped ? sections.Skipped.length : 0);
 
     if (totalCount === 0) {
       this._renderEmptyPlaceholder(getState().selectedGroup);
+      return;
+    }
+
+    if (visibleCount === 0) {
+      this._renderEmptyPlaceholder(getState().selectedGroup, 'filtered');
       return;
     }
 
@@ -98,8 +107,6 @@ export const HomeHabitsList = {
     // Adjust container height after rendering
     this._adjustContainerHeight();
 
-    // Sync pills selection with the list-selected section
-    HomeSectionPills.setSelectedSection?.(this.selectedSection, { silent: true });
   },
 
   /**
@@ -126,18 +133,27 @@ export const HomeHabitsList = {
   /**
    * Renders empty placeholder
    */
-  _renderEmptyPlaceholder(group) {
+  _renderEmptyPlaceholder(group, mode = 'scheduled') {
     const placeholder = document.createElement('div');
     placeholder.className =
       'empty-placeholder flex flex-col items-center justify-center py-10 mt-6 text-gray-400';
 
-    const msgMap = {
+    const scheduledMessages = {
       daily: 'No Scheduled Habits Today',
       weekly: 'No Scheduled Habits This Week',
       monthly: 'No Scheduled Habits This Month',
       yearly: 'No Scheduled Habits This Year',
     };
-    const msg = msgMap[group] || 'No Scheduled Habits';
+    const filteredMessages = {
+      daily: 'No More Habits to Be Completed Today',
+      weekly: 'No More Habits to Be Completed This Week',
+      monthly: 'No More Habits to Be Completed This Month',
+      yearly: 'No More Habits to Be Completed This Year',
+    };
+    const msg =
+      mode === 'filtered'
+        ? filteredMessages[group] || 'No More Habits to Be Completed'
+        : scheduledMessages[group] || 'No Scheduled Habits';
 
     placeholder.innerHTML = `
       <div class="w-[4.5rem] h-[4.5rem] rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
@@ -282,8 +298,8 @@ export const HomeHabitsList = {
 
       // Progress box
       const progressBox = document.createElement('div');
-      progressBox.className = 'progress-box px-2 py-0.5 text-xs font-bold rounded-md mb-1';
-      progressBox.style.border = `1px solid ${cat.color}`;
+      progressBox.className = 'progress-box px-3 py-1 text-lg leading-none font-extrabold rounded-lg mb-1';
+      progressBox.style.border = `2px solid ${cat.color}`;
       progressBox.style.color = '#000';
       progressBox.style.background = '#FFFFFF';
       progressBox.textContent = `${curProgress}/${habit.target}`;
@@ -496,21 +512,6 @@ export const HomeHabitsList = {
           );
           if (!progressSaved) return;
 
-          // Auto-complete when progress hits target
-          if (
-            habit.target &&
-            curProgress >= habit.target &&
-            !isHabitCompleted(
-              getState().habits.find((item) => item.id === habit.id) || habit,
-              date
-            )
-          ) {
-            const completionSaved = await dispatch(
-              Actions.toggleHabitCompleted(habit.id, getPeriodKey(habit, date))
-            );
-            if (!completionSaved) return;
-          }
-
           this._exitEditMode(card);
 
           // Trigger UI refresh only when exiting edit mode
@@ -675,23 +676,20 @@ export const HomeHabitsList = {
    */
   _createSwipeToRestoreContainer(card, habit) {
     const swipeContainer = document.createElement('div');
-    swipeContainer.className = 'swipe-container relative overflow-visible home-inset-reduced';
+    swipeContainer.className =
+      'swipe-container home-swipe-container home-swipe-container--restore relative overflow-visible home-inset-reduced';
 
     const restoreBtn = document.createElement('button');
-    restoreBtn.className = 'restore-btn absolute top-0 right-0 h-full';
+    restoreBtn.className = 'restore-btn home-swipe-action absolute';
     restoreBtn.style.width = '20%';
-    restoreBtn.style.background = '#16A34A';
-    restoreBtn.style.color = '#fff';
-    restoreBtn.style.borderRadius = '0.75rem';
-    restoreBtn.style.fontWeight = '600';
-    restoreBtn.textContent = 'Restore';
+    restoreBtn.innerHTML = '<span class="home-swipe-action-label">Restore</span>';
 
     const slideEl = document.createElement('div');
     slideEl.className = 'swipe-slide transition-transform';
     slideEl.style.width = '100%';
     slideEl.style.position = 'relative';
     slideEl.style.zIndex = '1';
-    slideEl.style.background = '#FFFFFF';
+    slideEl.style.background = 'var(--surface-color)';
     slideEl.style.borderRadius = '0.75rem';
 
     swipeContainer.appendChild(restoreBtn);
@@ -708,6 +706,7 @@ export const HomeHabitsList = {
     if (isCompleted) {
       // For completed habits: set completion to false and clear progress
       makeCardSwipable(swipeContainer, slideEl, habit, {
+        revealMode: 'translate-within-viewport',
         onRestore: async () => {
           const key = getPeriodKey(habit, new Date(getState().selectedDate));
           // Mark as not completed
@@ -717,38 +716,26 @@ export const HomeHabitsList = {
               key
             )
           );
-          if (!completionSaved) return;
-          // Reset period progress to 0 (needed for target habits)
-          if (habit.target) {
-            const progressSaved = await dispatch(
-              Actions.setHabitProgress(habit.id, key, 0)
-            );
-            if (!progressSaved) return;
-          }
+          if (!completionSaved) return false;
           // Invalidate pills cache when habit is restored
           invalidatePillsCache();
+          return true;
         },
       });
     } else if (isSkipped) {
       // For skipped habits: set up swipe-to-restore action
       makeCardSwipable(swipeContainer, slideEl, habit, {
+        revealMode: 'translate-within-viewport',
         onRestore: async () => {
           const currentHabit = getState().habits.find((item) => item.id === habit.id);
           if (!currentHabit) return;
           const key = getPeriodKey(currentHabit, new Date(getState().selectedDate));
           const restored = await dispatch(Actions.skipHabit(habit.id, key));
-          if (!restored) return;
-
-          // Reset period progress to 0 (needed for target habits)
-          if (currentHabit.target) {
-            const progressSaved = await dispatch(
-              Actions.setHabitProgress(habit.id, key, 0)
-            );
-            if (!progressSaved) return;
-          }
+          if (!restored) return false;
 
           // Invalidate pills cache when habit is restored
           invalidatePillsCache();
+          return true;
         },
       });
     }
@@ -761,23 +748,20 @@ export const HomeHabitsList = {
    */
   _createSwipeToSkipContainer(card, habit) {
     const swipeContainer = document.createElement('div');
-    swipeContainer.className = 'swipe-container relative overflow-visible home-inset-reduced';
+    swipeContainer.className =
+      'swipe-container home-swipe-container home-swipe-container--skip relative overflow-visible home-inset-reduced';
 
     const skipBtn = document.createElement('button');
-    skipBtn.className = 'skip-btn absolute top-0 right-0 h-full';
+    skipBtn.className = 'skip-btn home-swipe-action absolute';
     skipBtn.style.width = '20%';
-    skipBtn.style.background = '#F97316';
-    skipBtn.style.color = '#fff';
-    skipBtn.style.borderRadius = '0.75rem';
-    skipBtn.style.fontWeight = '600';
-    skipBtn.textContent = 'Skip';
+    skipBtn.innerHTML = '<span class="home-swipe-action-label">Skip</span>';
 
     const slideEl = document.createElement('div');
     slideEl.className = 'swipe-slide transition-transform';
     slideEl.style.width = '100%';
     slideEl.style.position = 'relative';
     slideEl.style.zIndex = '1';
-    slideEl.style.background = '#FFFFFF';
+    slideEl.style.background = 'var(--surface-color)';
     slideEl.style.borderRadius = '0.75rem';
 
     swipeContainer.appendChild(skipBtn);
@@ -786,15 +770,25 @@ export const HomeHabitsList = {
     // Add the card to the slide element
     slideEl.appendChild(card);
 
-    makeCardSwipable(swipeContainer, slideEl, habit);
+    makeCardSwipable(swipeContainer, slideEl, habit, {
+      revealMode: 'translate-within-viewport',
+    });
 
     // Skip action
     skipBtn.addEventListener('click', async () => {
+      if (skipBtn.disabled) return;
+      skipBtn.disabled = true;
       const currentHabit = getState().habits.find((item) => item.id === habit.id);
-      if (!currentHabit) return;
+      if (!currentHabit) {
+        skipBtn.disabled = false;
+        return;
+      }
       const key = getPeriodKey(currentHabit, new Date(getState().selectedDate));
       const saved = await dispatch(Actions.skipHabit(habit.id, key));
-      if (!saved) return;
+      if (!saved) {
+        skipBtn.disabled = false;
+        return;
+      }
       // Invalidate pills cache when habit is skipped
       invalidatePillsCache();
     });

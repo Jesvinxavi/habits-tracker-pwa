@@ -1,6 +1,6 @@
 // Main entry – bootstraps the PWA
 import { loadDataFromLocalStorage } from './core/storage.js';
-import { initializeTheme, toggleTheme } from './core/theme.js';
+import { initializeTheme } from './core/theme.js';
 import { initializeNavigation } from './core/navigation.js';
 import { initializeInstallPrompt } from './components/InstallPrompt.js';
 import { isCloudBackend } from './core/dataBackend.js';
@@ -49,12 +49,6 @@ async function bootstrap() {
     await initializeNavigation();
     markStartup('homeReady');
     await initializeInstallPrompt();
-
-    // Theme toggle click handler
-    const themeToggle = document.getElementById('theme-toggle');
-    if (themeToggle) {
-      themeToggle.addEventListener('click', toggleTheme);
-    }
 
     // Remove loading state after all initializations are complete
     await removeLoadingState();
