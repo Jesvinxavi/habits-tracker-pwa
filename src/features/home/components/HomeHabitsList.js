@@ -22,9 +22,6 @@ import { invalidatePillsCache } from './HomeProgressPills.js';
  * HomeHabitsList component that manages habit rendering
  */
 export const HomeHabitsList = {
-  test() {
-    return true;
-  },
   /**
    * Mounts the habits list component
    */
@@ -104,30 +101,6 @@ export const HomeHabitsList = {
 
     this.container.appendChild(frag);
 
-    // Adjust container height after rendering
-    this._adjustContainerHeight();
-
-  },
-
-  /**
-   * Adjusts the habits container height for mobile
-   */
-  _adjustContainerHeight() {
-    if (typeof window === 'undefined') return;
-
-    const rect = this.container.getBoundingClientRect();
-    // Subtract bottom padding (e.g. from pb-20 on .content-area) so last items are fully visible
-    let bottomPadding = 0;
-    const content = this.container.closest('.content-area');
-    if (content) {
-      const cs = window.getComputedStyle(content);
-      bottomPadding = parseFloat(cs.paddingBottom) || 0;
-    }
-    const available = window.innerHeight - rect.top - bottomPadding;
-    if (available > 0) {
-      this.container.style.maxHeight = available + 'px';
-      this.container.style.overflowY = 'auto';
-    }
   },
 
   /**

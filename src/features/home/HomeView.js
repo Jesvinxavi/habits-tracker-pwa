@@ -26,8 +26,6 @@ export const HomeView = {
     // Mount all components
     this._mountComponents();
 
-    // Set up responsive behavior
-    this.setupResponsiveBehavior();
   },
 
   /**
@@ -104,52 +102,17 @@ export const HomeView = {
   /**
    * Renders the entire home view
    */
-  render() {
-    // Update all components
-    HomeHeader.render();
-    HomeCalendar.render();
-    HomeProgress.render();
-    HomeSectionPills.render?.();
-    HomeHabitsList.setSelectedSection?.(HomeSectionPills.getSelectedSection());
-    HomeHabitsList.render();
-    HomeControls.render();
-  },
-
-  /**
-   * Sets up responsive behavior
-   */
-  setupResponsiveBehavior() {
-    // Adjust habits container height for mobile
-    this._adjustHabitsContainerHeight();
-
-    // Listen for window resize
-    window.addEventListener('resize', () => {
-      this._adjustHabitsContainerHeight();
-    });
-  },
-
-  /**
-   * Adjusts the habits container height for mobile
-   */
-  _adjustHabitsContainerHeight() {
-    if (typeof window === 'undefined') return;
-
-    const container = this.habitsContainer;
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-    // Subtract bottom padding (e.g. from pb-20 on .content-area) so last items are fully visible
-    let bottomPadding = 0;
-    const content = this.container.closest('.content-area');
-    if (content) {
-      const cs = window.getComputedStyle(content);
-      bottomPadding = parseFloat(cs.paddingBottom) || 0;
+  render(invalidations = {}) {
+    const renderAll = Object.keys(invalidations).length === 0;
+    if (renderAll || invalidations.header) HomeHeader.render();
+    if (renderAll || invalidations.calendar) HomeCalendar.render();
+    if (renderAll || invalidations.progress) HomeProgress.render();
+    if (renderAll || invalidations.pills) HomeSectionPills.render?.();
+    if (renderAll || invalidations.habits || invalidations.pills) {
+      HomeHabitsList.setSelectedSection?.(HomeSectionPills.getSelectedSection());
     }
-    const available = window.innerHeight - rect.top - bottomPadding;
-    if (available > 0) {
-      container.style.maxHeight = available + 'px';
-      container.style.overflowY = 'auto';
-    }
+    if (renderAll || invalidations.habits) HomeHabitsList.render();
+    if (renderAll) HomeControls.render();
   },
 
   /**

@@ -60,6 +60,36 @@ function actionButton(page, habitId, selector) {
 }
 
 test.describe('Home updates', () => {
+  test('keeps habit DOM stable for sync-only updates and uses CSS-scoped scrolling', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openHome(page);
+    const { habitId } = await seedHabit(page);
+
+    const result = await page.evaluate(async (id) => {
+      const container = document.querySelector('.habits-container');
+      const before = document.querySelector(`[data-habit-id="${id}"]`);
+      const { dispatch, Actions } = await import('/src/core/state.js');
+      await dispatch(Actions.setSyncStatus('syncing'));
+      const after = document.querySelector(`[data-habit-id="${id}"]`);
+      const style = getComputedStyle(container);
+      return {
+        sameCard: before === after,
+        inlineMaxHeight: container.style.maxHeight,
+        minHeight: style.minHeight,
+        overflowY: style.overflowY,
+      };
+    }, habitId);
+
+    expect(result).toEqual({
+      sameCard: true,
+      inlineMaxHeight: '',
+      minHeight: '0px',
+      overflowY: 'auto',
+    });
+  });
+
   test('complete, restore, skip, and restore move a habit between the correct sections', async ({
     page,
   }) => {
