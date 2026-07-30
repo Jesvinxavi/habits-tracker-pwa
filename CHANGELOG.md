@@ -29,13 +29,23 @@ All notable user-facing and operational changes are documented here.
 - **Save as routine**, turning a day's recorded activities into a reusable
   routine with duplicates collapsed
 - `routines` and `programs` threaded through the full persistence chain — Convex
-  schema and mutations, sync, bootstrap, migration, export, offline cache and
-  outbox, state and hydration
+  schema and mutations, sync, bootstrap, offline cache and outbox, state and
+  hydration
 - Separate build targets for GitHub Pages and a local server, with
   `npm run preview:phone` for testing on a phone over the local network; see
   `docs/operations/BUILD_AND_DEPLOY.md`
 - Regression gates for Fitness render delivery, large-account state reads,
   lazy modal recovery, offline modal chunks, and bundle budgets
+- An update prompt. A new version now waits to be accepted instead of taking
+  over, and it will not install while changes are still syncing, a conflict is
+  unresolved, an editor is open, or the device is offline. Accepting it reloads
+  every open tab together, so no tab is left running the old version
+- Icons and habit reordering now work offline: both were being fetched from
+  third-party servers at the moment they were needed, so an installed app opened
+  without a connection showed no icons and could not reorder
+- `npm run audit` runs exactly what pull-request CI runs, so a local pass and a
+  green check mean the same thing. `npm run audit:deps` scans dependencies
+  separately
 
 ### Changed
 
@@ -62,6 +72,16 @@ All notable user-facing and operational changes are documented here.
   DOM and entry chunk
 - The fitness empty state points at the `+` rather than a "Record Activity"
   control that never existed
+- Home habit tiles are more compact, and a habit with a target is now the same
+  height as one with a tick instead of standing 10px taller
+- Less empty space around the Home title
+- The Habits reorder control is an icon rather than a captioned button, and its
+  icon shows rows being moved rather than a plain list
+- The Habits search field says "Search habits" rather than "Search activities"
+- Statistics no longer flashes a loading shimmer while it recalculates, and no
+  longer recalculates at all for sync activity that cannot change what it shows
+- On a metered or 2G connection the app stops downloading pages in the
+  background. Tapping a page still fetches it immediately
 
 ### Fixed
 
@@ -87,6 +107,25 @@ All notable user-facing and operational changes are documented here.
   selecting a different date still performs the intended Today sweep
 - The program tile no longer briefly replaces an identical first-load DOM tree,
   and activity-category expansion now uses one uninterrupted animation clock
+- A change made in one tab while another tab was syncing could sit unsent
+  indefinitely, until something unrelated happened to trigger another sync
+- An action that writes several records at once could be left half-saved if one
+  of them failed, so the screen and the stored data disagreed
+- Edits made on another device to anything but the most recent stretch of
+  history never arrived. The live connection only ever watched the first page of
+  results, so older records silently diverged between devices
+- A record deleted on another device stayed on this one
+- Swiping a habit tile closed did not follow your finger. It jumped shut as soon
+  as the swipe was recognised, and if the tile had been left open it slid behind
+  the skip/restore button before snapping in front of it
+- In dark mode the dates in the calendar strip were white on a light grey tile
+  and effectively unreadable. The weekday labels were also too faint to meet
+  accessibility contrast, in both themes
+- A payload could carry fields it had no business setting, letting an otherwise
+  valid request move a record to another account, change its generation, or mark
+  it deleted
+- The bundle size gate reported zero bytes for a chunk it could not find, so a
+  renamed or missing file passed every budget instead of failing
 
 ### Removed
 
@@ -98,6 +137,16 @@ All notable user-facing and operational changes are documented here.
 - The inline expanding search panel, its expand/collapse and blur machinery, and
   the dead CSS and layout helpers that supported it
 - Timer button state code targeting the removed `#start-timer-btn`
+- The browser-local backend and the `VITE_DATA_BACKEND` switch that chose it.
+  Clerk and Convex are now the only way the app stores anything, and a build
+  that cannot reach them fails instead of quietly becoming a local-only app
+- The migration pipeline that imported data from that backend, along with its
+  Convex tables, functions and bookkeeping fields
+- Self-service data export and import. It had no way into it from the interface
+  and so had never been reachable; data portability is recorded as an
+  outstanding product requirement rather than a feature that was dropped
+- Unreachable Convex endpoints, dead exports and no-op interface code that
+  static analysis had been configured not to report
 
 ## [1.0.0] - 2026-07-26
 
