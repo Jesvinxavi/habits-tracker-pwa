@@ -6,7 +6,12 @@ Branch: `codex/whole-app-optimisation`
 
 Implementation base: `feeb0f48`
 
-Current implementation commit: `2c82c5f7`
+Implementation commit at first stopping point: `2c82c5f7`
+
+Continuation: see **section 15**, which records the development deployment,
+the remaining phase gates, and the browser diagnostics run after that stopping
+point. Sections 1–14 are preserved as written at the stopping point; where
+section 15 contradicts them, section 15 is current.
 
 ## 0. Purpose and authority
 
@@ -23,14 +28,13 @@ It records:
 - the remaining risks and work in dependency order;
 - the exact safety state of development and production data.
 
-This is not a claim that the whole revised plan is complete. The source
-implementation is substantially advanced, but the development Convex
-deployment has not received the narrowed schema, no production deployment was
-changed, no authenticated cloud smoke was run against the new functions, and
-the requested phone/in-app-browser pass was stopped before it began.
+As written at the first stopping point, this was not a claim that the revised
+plan was complete: the development Convex deployment had not received the
+narrowed schema, no authenticated cloud smoke had been run, and the requested
+phone/in-app-browser pass had not begun. Section 15 records the continuation
+that closed those items. Read section 15 before acting on sections 1–14.
 
-The correct continuation point is section 13. Do not restart the audit or
-re-implement the committed phases.
+Do not restart the audit or re-implement the committed phases.
 
 ## 1. Executive status
 
@@ -937,3 +941,249 @@ and schema deployment.
 
 The next agent's first implementation action should be the transformed
 development snapshot workflow—not more client refactoring.
+
+## 15. Continuation record
+
+Date: 2026-07-30. Branch unchanged. Head at the end of this continuation:
+`7c1f86b7`.
+
+This section supersedes sections 1.2, 1.3, and 10 where they disagree. It
+records what happened after the stopping point described in section 14: the
+development deployment, the outstanding phase gates, and a browser diagnostics
+pass on the running app.
+
+### 15.1 Commits
+
+| Commit | Milestone |
+| --- | --- |
+| `39fcbe3d` | Aggregate `audit` script, repository metadata, rewritten runbook |
+| `e3a498d6` | Save-Data prefetch and conflict-blocker coverage |
+| `140966b5` | Bundle budget gate made testable and provably failing |
+| `4ed7661b` | `restDays` moved out of the Fitness feature |
+| `7c1f86b7` | Dark-mode calendar tile legibility fix and contrast spec |
+
+Total since `2de2ef61`: 26 files, +641/−128.
+
+### 15.2 Development deployment
+
+The narrowed schema is deployed to development. The blocker described in
+section 1.2 is closed.
+
+The route in section 13 did not work as written, and the reason is worth
+keeping. A Convex object validator rejects a missing required field *and* an
+undeclared extra one, so:
+
+- importing documents with the retired fields stripped failed against the
+  deployed schema, which still required `migrationStatus`;
+- pushing the narrowed schema first would have failed against documents that
+  still carried it.
+
+Neither order is possible in two steps. The working sequence adds an
+intermediate push in which each retired field is `v.optional(v.any())`, and it
+is now recorded in
+[the setup and recovery runbook](../operations/CONVEX_SETUP_AND_RECOVERY_RUNBOOK.md).
+
+A second failure is worth recording because it is silent. The first transform
+round-tripped documents through `JSON.parse`/`JSON.stringify`, which rewrote
+Convex's `1.0` as `1` and so turned every integral float64 into an int64. The
+import was rejected on `collectionRevisions.generation`. The transformer was
+rewritten to copy retained values as raw text and to assert that a document
+reassembled without deletions is byte-identical to its input.
+
+Evidence:
+
+| Property | Value |
+| --- | --- |
+| Target | development `hallowed-mandrill-729`; production untouched |
+| Source snapshot SHA-256 | `fc5f039b…7a98`, re-verified before use |
+| Pre-import state | export byte-identical to the snapshot, table by table |
+| Transformed archive SHA-256 | `20ab1857335727c7da4f04f68196bc5c0a01659a98435e4097076896cb70c718` |
+| Field values stripped | 7: one `userProfiles.migrationStatus`, six across `programs` |
+| Tables dropped | `legacyData`, `migrationBatches`, both empty and asserted empty |
+| Documents imported | 608, every one retaining `_id` and `_creationTime` |
+| Post-import reconciliation | every normalized table byte-identical to the intended target |
+| Retired fields remaining | none outside `processedOperations.result`, which is `v.any()` |
+| Generations | `activeGeneration` still 1; no `previousGeneration` introduced |
+| New table | `historySyncSignals` created empty |
+
+Both failed imports left the deployment byte-identical to the backup. Convex
+stages and swaps, so a validation error part-way through rolls the whole import
+back. That was verified by re-exporting after each failure rather than assumed.
+
+Residual: `legacyData` and `migrationBatches` still exist as empty untyped
+tables with their indexes dropped. The CLI has no drop-table command and
+`--replace-all` was out of scope, so they are a dashboard cleanup.
+
+### 15.3 Authenticated cloud smoke
+
+Run against the deployed narrowed schema with a real Clerk session on the local
+build, not the harness.
+
+Passing:
+
+- sign-in and session restore;
+- trusted confirmed-cache startup — Home interactive at 449 ms, before Convex
+  authentication completed at 1,793 ms;
+- online hydration to `cacheHydrated` at 2,035 ms;
+- Profile reporting Synced, zero pending operations, and a valid offline lease;
+- a real domain write (rest-day toggle) reaching Convex, and the write toggled
+  back so the account ends where it started;
+- `historySyncSignals` creating its `restDays` row on the first write and
+  advancing to revision 2 on the second. This is the first live exercise of the
+  Phase 3 signal protocol.
+
+Recorded startup timings, local build, warm cache:
+
+```text
+bootstrapStart 22   authStart 39            clerkReady 422
+earlyCacheHydrated 429   persistenceReady 429   homeReady 448   visible 449
+convexAuthenticated 1793   accountReady 1923   coreReady 2026   cacheHydrated 2035
+```
+
+Third-party requests during startup: four, all to the Clerk instance. No Google
+Fonts and no jsDelivr, which is the Phase 8 offline-dependency claim confirmed
+against a running build rather than against the source.
+
+Still outstanding, because they need a second device or a device this machine
+cannot stand in for:
+
+- two-device convergence across recent and old history;
+- offline edit, terminate, reopen, reconnect on a real installed client;
+- conflict resolution UI against a genuine concurrent write;
+- sign-out with pending work, and generation reset. Both were deliberately not
+  run: they would have ended the session that the phone preview is serving.
+
+### 15.4 Phase gates closed
+
+**Phase 6.** `npm run audit` now runs the same gates as pull-request CI in the
+same order, so a local pass means what a green check means. The dependency scan
+moved to `audit:deps`: gating on advisory counts makes an unrelated change fail
+for a reason its author cannot fix. Repository metadata no longer points at a
+`your-org` placeholder. The README documented `VITE_DATA_BACKEND` and a
+`test:migration` script that no longer exist. The migration runbook was the last
+document presenting the deleted pipeline as live procedure; it is renamed and
+rewritten around the one backend. Remaining `VITE_DATA_BACKEND` mentions are
+deliberate prohibitions or historical Fitness records.
+
+**Phase 8.** Connection-aware prefetch and the conflict branch of the update
+coordinator both shipped without tests. A speculative warm-up that quietly
+returns on a metered connection is indistinguishable from one that never ran, so
+the browser spec asserts the pair together: nothing speculative on Save-Data or
+2G, and intent prefetch still firing there. The coordinator tests add retry and
+syncing — previously assumed to share the pending branch rather than shown to —
+conflict's distinct messaging, and the recovery path, since nothing re-shows a
+blocked banner and its own poll is the only route back to an enabled button.
+
+**Phase 9.** The budget script was a top-level side effect with no test, so the
+one thing budgets exist to do had never been observed. The decision is now
+separable from the measurement and unit tested, and each budget carries a line
+saying what it protects. This closed a hole the gate had all along: every
+measurement was coalesced with `|| 0`, so a renamed or missing chunk measured as
+zero bytes and passed — silence in exactly the case a size gate exists to catch.
+Verified against a real Pages build, which passes, and fails on a tightened
+budget, an injected oversized chunk, and a renamed Fitness entry chunk.
+
+Dependency audit, reviewed rather than force-fixed. All 27 advisories descend
+from two roots. `brace-expansion` reaches eslint and, through `workbox-build`,
+`vite-plugin-pwa`: build and lint tooling that ships nothing. `uuid` reaches
+`@clerk/clerk-js` through `jayson` and `@solana/web3.js`, the only path touching
+a runtime dependency — but the shipped auth chunk contains Clerk's own wallet
+code against the injected provider and the Wallet Standard API, with no
+`@solana/web3.js`, `bs58`, `ed25519`, or `Keypair` present. Nothing vulnerable
+reaches the artifact. No forced upgrade was applied.
+
+### 15.5 Findings from browser diagnostics
+
+**Dark mode calendar tiles, fixed in `7c1f86b7`.** The tile background was a
+hard-coded `#f3f4f6` with no dark override while the date number inside it
+followed the theme, so dark mode rendered white on light grey at 1.10:1. The
+today outline repeated the same literal. Measuring also exposed a failure
+present in both themes: the weekday label used `--text-color-secondary`, which
+reaches 2.96:1 on the light tile. Date numbers now measure 17.01:1 in dark;
+labels 5.19:1 light and 6.68:1 dark.
+
+This is the case for measuring rather than reading. Every rule involved looks
+correct in isolation; the defect only exists once the variable beside it flips.
+
+**Stale service worker on the preview origin.** The first load of the local
+preview was served by a `sw.js` left over from an earlier Pages build on the
+same origin, which returned precached HTML from before the Home header work. It
+looked exactly like a layout regression. `npm run preview:phone` already warns
+about this; anyone testing on a device that has previously loaded a Pages build
+must clear that site's data first.
+
+**Home downloads `fitness-core` at startup — open.** Home statically imports
+three symbols from the 70.89 kB / 19.76 kB gzip Fitness chunk. The cause is not
+a feature import: `shared/color.js` and `shared/equality.js` are unassigned by
+`manualChunks`, and rolldown inlines a small shared module into a consuming
+chunk regardless of the group it is assigned. Two fixes were tried and reverted.
+Broadening the `manualChunks` shared rule produced a `utils` chunk but left the
+dependency, making it a net loss of one request. Expressing the same groups
+through rolldown's `advancedChunks` pulled `habits-core` and `habits-modals`
+onto Home as well. Left for the separate vendor-and-chunking work Phase 9
+reserves, with the measurement recorded so it is not rediscovered.
+
+`restDays` was moved to `src/shared/` while tracing this. Bundle output is
+byte-identical, so it is a structural fix — `isRestDay` reads a root reducer
+slice and is consumed by Home and Statistics — and not a size one.
+
+**Not fixed, reported.** The progress ring draws a red dot at 0% because its
+foreground stroke keeps `stroke-linecap: round` at zero progress. The Habits
+page search field reads "Search activities…". The selected day tile and today
+outline print text in the brand accent, and white on `#007bff` is 4.02:1 in both
+themes, below AA for normal text — a palette decision rather than a defect.
+`applyTheme()` is called only from theme initialisation and the toggle, so a
+dark-mode preference arriving from another device would not repaint until
+reload.
+
+### 15.6 Gate results at this head
+
+```text
+npm run lint            passed
+npm run test:unit       32 files, 224 tests passed
+npm run test:convex     passed
+npm run check:dead-code passed, zero issues
+npm run check:cycles    passed, zero cycles
+npm run test:e2e        149 passed, 1 skipped (opt-in large-account case)
+npm run test:pwa        3 passed
+npm run test:fitness:perf  1 passed
+```
+
+Pages budgets:
+
+| Metric | Result | Budget |
+| --- | ---: | ---: |
+| HTML gzip | 13,473 | 18,000 |
+| Fitness entry gzip | 19,614 | 25,000 |
+| Fitness modals gzip | 24,645 | 30,000 |
+| Largest JavaScript gzip | 582,365 | 650,000 |
+| Workbox precache raw | 2,372,436 | 2,500,000 |
+
+### 15.7 Revised phase matrix
+
+| Phase | Status | Outstanding |
+| --- | --- | --- |
+| 0 — Baseline/census/backup | Complete | none |
+| 1 — Harness/persistence seam | Complete | none |
+| 2 — Offline correctness | Partial | manual two-tab offline/reconnect on a device |
+| 3 — Realtime completeness | Partial | two-device convergence; signal protocol now exercised live |
+| 4 — Client legacy removal | Complete | none |
+| 5 — Server/schema cleanup | Complete | empty legacy tables are a dashboard cleanup |
+| 6 — Tests/docs/dead-code | Complete | none |
+| 7 — Home/Stats/holidays | Complete | none |
+| 8 — PWA/offline delivery | Partial | installed-device confirmation on a real phone |
+| 9 — Budgets/vendor | Partial | auth vendor investigation; `fitness-core` chunking in 15.5 |
+
+Every remaining item needs a real device or a second client. None is a source
+change waiting to be written.
+
+### 15.8 State at handover
+
+The worktree is clean. Production has never been exported, imported, deployed,
+or otherwise touched, and its census remains empty. The development backup is
+intact and its checksum re-verified. The development deployment carries the
+narrowed schema and the same 608 documents it started with.
+
+`npm run preview:phone` is serving the local build on port 4180 for device
+testing. It is a real cloud build and requires a Clerk sign-in; if the phone
+cannot authenticate, add the LAN origin to the Clerk instance's allowed origins.
