@@ -1,6 +1,7 @@
 import { gzipSync } from 'node:zlib';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { BUDGETS, evaluateBudgets, formatBudgetResult } from './bundleBudgets.mjs';
 
 const root = new URL('../dist/', import.meta.url);
 
@@ -44,29 +45,20 @@ if (serviceWorker) {
 }
 
 const measurements = {
-  htmlGzip: html?.gzip || 0,
-  fitnessEntryGzip: fitnessEntry?.gzip || 0,
+  htmlGzip: html?.gzip,
+  fitnessEntryGzip: fitnessEntry?.gzip,
   fitnessModalsGzip: fitnessModals.reduce((total, item) => total + item.gzip, 0),
-  largestJavaScriptGzip: largestJavaScript?.gzip || 0,
-  precacheRaw,
+  largestJavaScriptGzip: largestJavaScript?.gzip,
+  // Only a Pages build emits a service worker. A local build has nothing to
+  // precache, which is not a regression.
+  ...(serviceWorker ? { precacheRaw } : {}),
 };
-const budgets = {
-  htmlGzip: 18_000,
-  fitnessEntryGzip: 25_000,
-  fitnessModalsGzip: 30_000,
-  largestJavaScriptGzip: 650_000,
-  precacheRaw: serviceWorker ? 2_500_000 : Number.POSITIVE_INFINITY,
-};
+const budgets = { ...BUDGETS };
+if (!serviceWorker) delete budgets.precacheRaw;
 
-let failed = false;
-Object.entries(measurements).forEach(([name, value]) => {
-  const limit = budgets[name];
-  const okay = value <= limit;
-  failed ||= !okay;
-  console.log(`${okay ? '✓' : '✗'} ${name}: ${value} bytes (budget ${limit})`);
-});
-if (!fitnessEntry || !html) {
+const { results, failed } = evaluateBudgets(measurements, budgets);
+results.forEach((result) => console.log(formatBudgetResult(result)));
+if (results.some((result) => result.value === null)) {
   console.error('Expected build artefacts were not found. Run a build before this check.');
-  failed = true;
 }
 if (failed) process.exitCode = 1;
