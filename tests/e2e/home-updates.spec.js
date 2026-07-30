@@ -276,6 +276,49 @@ test.describe('Home updates', () => {
     }
   });
 
+  test('opens Home and Habits management modals from every entry point', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openHome(page);
+    await seedHabit(page);
+
+    await page.locator('#menu-toggle').click();
+    await page.locator('[data-action="manage-holidays"]').click();
+    await expect(page.locator('#holiday-modal')).toBeVisible();
+    await page.locator('#cancel-holiday').click();
+
+    await page.locator('#menu-toggle').click();
+    await page.locator('[data-action="add-habit"]').click();
+    await expect(page.locator('#add-habit-modal')).toBeVisible();
+    await page.locator('#cancel-habit').click();
+
+    await page.getByRole('tab', { name: 'Habits view' }).click();
+    await page.locator('.new-habit-btn').click();
+    await expect(page.locator('#add-habit-modal')).toBeVisible();
+    await page.locator('#cancel-habit').click();
+
+    await page.locator('.edit-habit-btn').first().click();
+    await expect(page.locator('#add-habit-modal')).toBeVisible();
+    await expect(page.locator('#habit-modal-title')).toHaveText('Edit Habit');
+  });
+
+  test('shows a full placeholder when every remaining habit is hidden', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openHome(page);
+    const { habitId } = await seedHabit(page);
+
+    await revealAction(page, habitId);
+    await actionButton(page, habitId, '.skip-btn').click();
+    await expect(page.locator('.section-pill-btn.selected')).toContainText('Skipped');
+
+    await page.locator('#menu-toggle').click();
+    await page.locator('[data-action="toggle-skipped"]').click();
+
+    const placeholder = page.locator('.empty-placeholder');
+    await expect(placeholder).toBeVisible();
+    await expect(placeholder).toContainText('No More Habits to Be Completed Today');
+    await expect(page.locator('.empty-section-placeholder')).toHaveCount(0);
+  });
+
   test('renders a larger target counter and preserves an archived habit on earlier dates', async ({
     page,
   }) => {

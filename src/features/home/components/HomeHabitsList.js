@@ -74,9 +74,19 @@ export const HomeHabitsList = {
       sections.Scheduled.length +
       sections.Completed.length +
       sections.Skipped.length;
+    const visibleCount =
+      sections.Anytime.length +
+      sections.Scheduled.length +
+      (sectionVisibility.Completed ? sections.Completed.length : 0) +
+      (sectionVisibility.Skipped ? sections.Skipped.length : 0);
 
     if (totalCount === 0) {
       this._renderEmptyPlaceholder(getState().selectedGroup);
+      return;
+    }
+
+    if (visibleCount === 0) {
+      this._renderEmptyPlaceholder(getState().selectedGroup, 'filtered');
       return;
     }
 
@@ -123,18 +133,27 @@ export const HomeHabitsList = {
   /**
    * Renders empty placeholder
    */
-  _renderEmptyPlaceholder(group) {
+  _renderEmptyPlaceholder(group, mode = 'scheduled') {
     const placeholder = document.createElement('div');
     placeholder.className =
       'empty-placeholder flex flex-col items-center justify-center py-10 mt-6 text-gray-400';
 
-    const msgMap = {
+    const scheduledMessages = {
       daily: 'No Scheduled Habits Today',
       weekly: 'No Scheduled Habits This Week',
       monthly: 'No Scheduled Habits This Month',
       yearly: 'No Scheduled Habits This Year',
     };
-    const msg = msgMap[group] || 'No Scheduled Habits';
+    const filteredMessages = {
+      daily: 'No More Habits to Be Completed Today',
+      weekly: 'No More Habits to Be Completed This Week',
+      monthly: 'No More Habits to Be Completed This Month',
+      yearly: 'No More Habits to Be Completed This Year',
+    };
+    const msg =
+      mode === 'filtered'
+        ? filteredMessages[group] || 'No More Habits to Be Completed'
+        : scheduledMessages[group] || 'No Scheduled Habits';
 
     placeholder.innerHTML = `
       <div class="w-[4.5rem] h-[4.5rem] rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">

@@ -9,6 +9,7 @@ import {
   isHabitSkippedToday,
 } from '../home/schedule.js';
 import { handleHabitStatsClick } from './modals/HabitStatsModal.js';
+import { openEditHabitModal } from './modals/HabitFormModal.js';
 
 
 
@@ -247,7 +248,7 @@ export function renderHabitsList(onHabitClick) {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.dataset.habitId;
-      if (id) import('./modals/HabitFormModal.js').then((m) => m.openEditHabitModal(id));
+      if (id) openEditHabitModal(id);
     });
   });
 
