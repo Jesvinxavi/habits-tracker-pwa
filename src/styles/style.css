@@ -21,6 +21,15 @@
     --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
     --home-inset: 16px; /* horizontal offset for key elements on Home view */
     --home-inset-reduced: 8px; /* reduced horizontal offset for section headers and habit tiles */
+    /* Unselected calendar day tile. Its own variable because the tile is a
+       slightly recessed surface rather than a card, so it is neither the page
+       background nor --surface-color in either theme. */
+    --day-tile-color: #f3f4f6;
+    /* Weekday and month labels inside a day tile. --text-color-secondary is
+       #8e8e93, which reaches only 2.96:1 on the light tile and fails AA. These
+       clear 4.5:1 against the worst tile background in their own theme, which
+       is the translucent holiday amber rather than the plain tile. */
+    --day-tile-label-color: #66666b;
 }
 
 /* Dark mode variables */
@@ -29,6 +38,8 @@
     --surface-color: #1c1c1e;
     --text-color-primary: #ffffff;
     --text-color-secondary: #8e8e93;
+    --day-tile-color: #1c1c1e;
+    --day-tile-label-color: #a1a1a6;
 }
 
 /* Frequency section button selected states */
@@ -266,7 +277,7 @@ body {
     transition: background-color 0.2s ease, transform 0.2s ease;
     cursor: pointer;
     flex: 0 0 auto;
-    background-color: #f3f4f6; /* light grey */
+    background-color: var(--day-tile-color);
 }
 
 .day-item:hover {
@@ -284,7 +295,7 @@ body {
     display: block;
     font-size: 13px;
     font-weight: 500;
-    color: var(--text-color-secondary);
+    color: var(--day-tile-label-color);
 }
 
 .day-item.current-day .day-name {
@@ -808,7 +819,7 @@ body {
 /* --- TODAY (not selected) style --- */
 .day-item.today {
     border: 2px solid var(--primary-color);
-    background-color: #f3f4f6; /* same as regular tiles */
+    background-color: var(--day-tile-color); /* same as regular tiles */
     color: var(--primary-color);
     padding-top: 6px;
     padding-bottom: 6px;
