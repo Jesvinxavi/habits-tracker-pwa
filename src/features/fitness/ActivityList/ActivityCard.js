@@ -48,8 +48,10 @@ export const ActivityCard = {
     // DOM structure mirrors habit cards for consistency:
     // swipe-container → restore-btn (hidden delete action) + swipe-slide → activity-card
     return `
-      <div class="swipe-container relative overflow-visible" data-record-id="${recordId}">
-        <button class="restore-btn absolute top-0 right-0 h-full bg-red-600 text-white font-semibold rounded-xl w-1/5 touch-manipulation" aria-label="Delete ${safeNameAttribute} activity">Delete</button>
+      <div class="swipe-container fitness-swipe-container relative overflow-visible" data-record-id="${recordId}">
+        <button class="restore-btn fitness-swipe-action absolute w-1/5" aria-label="Delete ${safeNameAttribute} activity">
+          <span class="fitness-swipe-action-label">Delete</span>
+        </button>
         <div class="swipe-slide transition-transform bg-white dark:bg-gray-800 rounded-xl w-full relative z-1 touch-pan-y">
           <${cardTag} ${cardAttributes} class="activity-card relative flex items-start px-3 py-2 rounded-xl w-full mb-0" style="border: 3px solid ${color}; background-color: ${hexToRgba(color, 0.05)};">
             <div class="activity-icon w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center mr-3 text-xl" style="background-color: ${color}20;" aria-hidden="true">
@@ -88,6 +90,7 @@ export const ActivityCard = {
       if (slideEl && record) {
         // Use shared makeCardSwipable helper for consistent behavior across views
         makeCardSwipable(swipeContainer, slideEl, record, {
+          revealMode: 'translate-within-viewport',
           onRestore: () => {
             // Delete the activity record and refresh the list
             if (callbacks.onActivityDelete) {

@@ -479,7 +479,7 @@ body {
 .home-swipe-container {
     margin-bottom: 4px;
     border-radius: var(--border-radius);
-    background: #9ca3af;
+    background: #b8bec8;
     box-shadow: none;
     overflow: visible;
 }
@@ -497,7 +497,7 @@ body {
     border: 0;
     padding: 5px;
     border-radius: 0 var(--border-radius) var(--border-radius) 0;
-    background: #9ca3af;
+    background: #b8bec8;
     box-shadow: none;
     font-weight: 600;
     font-size: 0.875rem;
@@ -526,6 +526,47 @@ body {
 }
 
 .home-swipe-action:disabled {
+    opacity: 0.65;
+}
+
+.fitness-swipe-container {
+    border-radius: var(--border-radius);
+    background: #b8bec8;
+    box-shadow: none;
+    overflow: visible;
+}
+
+.fitness-swipe-action {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    height: auto;
+    padding: 5px;
+    color: #fff;
+    border: 0;
+    border-radius: 0 var(--border-radius) var(--border-radius) 0;
+    background: #b8bec8;
+    box-shadow: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    touch-action: manipulation;
+}
+
+.fitness-swipe-action-label {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    background: #dc2626;
+}
+
+.fitness-swipe-container.swipe-revealed .fitness-swipe-action {
+    z-index: 2;
+}
+
+.fitness-swipe-action:disabled {
     opacity: 0.65;
 }
 

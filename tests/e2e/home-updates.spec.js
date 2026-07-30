@@ -109,9 +109,9 @@ test.describe('Home updates', () => {
     expect(Math.abs(swipeGeometry.buttonHeight - swipeGeometry.cardHeight)).toBeLessThan(1);
     expect(swipeGeometry.cardLeft).toBeLessThan(swipeGeometry.wrapperLeft);
     expect(swipeGeometry.cardLeft).toBeGreaterThanOrEqual(0);
-    expect(swipeGeometry.wrapperBackground).toBe('rgb(156, 163, 175)');
+    expect(swipeGeometry.wrapperBackground).toBe('rgb(184, 190, 200)');
     expect(swipeGeometry.wrapperOverflow).toBe('visible');
-    expect(swipeGeometry.buttonBackground).toBe('rgb(156, 163, 175)');
+    expect(swipeGeometry.buttonBackground).toBe('rgb(184, 190, 200)');
     expect(swipeGeometry.buttonBorderWidth).toBe('0px');
     expect(swipeGeometry.buttonPadding).toBe('5px');
     expect(swipeGeometry.buttonTopLeftRadius).toBe('0px');
