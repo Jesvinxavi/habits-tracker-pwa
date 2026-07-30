@@ -26,7 +26,8 @@
     "check:dead-code": "knip --include files,exports,dependencies,unlisted --no-config-hints --max-issues 0",
     "check:cycles": "knip --cycles --no-config-hints --max-issues 0",
     "clean": "rm -rf dist node_modules/.vite",
-    "audit": "npm audit && npm run lint && npm run build:local"
+    "audit": "npm run lint && npm run test:unit && npm run test:convex && npm run check:dead-code && npm run check:cycles && npm run check:bundle:pages && npm run test:e2e && npm run test:pwa && npm run test:fitness:perf",
+    "audit:deps": "npm audit"
   },
   "dependencies": {
     "@clerk/clerk-js": "^6.25.8",
@@ -69,14 +70,14 @@
     "javascript",
     "vite"
   ],
-  "author": "Healthy Habits Team",
+  "author": "Jesvin Xavier",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/healthy-habits-tracker.git"
+    "url": "https://github.com/Jesvinxavi/habits-tracker-pwa.git"
   },
   "bugs": {
-    "url": "https://github.com/your-org/healthy-habits-tracker/issues"
+    "url": "https://github.com/Jesvinxavi/habits-tracker-pwa/issues"
   },
-  "homepage": "https://github.com/your-org/healthy-habits-tracker#readme"
+  "homepage": "https://github.com/Jesvinxavi/habits-tracker-pwa#readme"
 }

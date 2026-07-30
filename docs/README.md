@@ -27,7 +27,7 @@ are not active implementation checklists.
 ## Operations
 
 - [Build and deploy](operations/BUILD_AND_DEPLOY.md)
-- [Convex migration and recovery runbook](operations/CONVEX_MIGRATION_RUNBOOK.md)
+- [Convex setup and recovery runbook](operations/CONVEX_SETUP_AND_RECOVERY_RUNBOOK.md)
 
 ## Policies and support
 

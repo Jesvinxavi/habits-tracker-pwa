@@ -68,27 +68,42 @@ npm run dev
 Configure `.env.local` with public browser values:
 
 ```text
-VITE_DATA_BACKEND=cloud
 VITE_CONVEX_URL=https://your-deployment.convex.cloud
 VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
 ```
+
+Clerk and Convex are the only persistence path. There is no backend switch: a
+build that cannot reach its cloud configuration fails rather than falling back
+to browser-local storage.
 
 Set `CLERK_JWT_ISSUER_DOMAIN` in the Convex deployment. Never place Clerk
 secret keys or Convex deploy keys in a `VITE_*` variable.
 
 ## Validation
 
+`npm run audit` runs the same gates as pull-request CI, in the same order:
+
+```bash
+npm run audit
+```
+
+The individual gates are also available on their own:
+
 ```bash
 npm run lint
-npm run check:dead-code
 npm run test:unit
-npm run test:migration
 npm run test:convex
-npm run build:local
-npm run check:bundle
+npm run check:dead-code
+npm run check:cycles
+npm run check:bundle:pages
 npm run test:e2e
 npm run test:pwa
+npm run test:fitness:perf
 ```
+
+`npm run audit:deps` runs the dependency vulnerability audit separately. It is
+deliberately not part of `npm run audit`, because advisory counts move with the
+registry rather than with a change under review.
 
 ## Building and deploying
 
