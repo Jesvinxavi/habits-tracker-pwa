@@ -81,22 +81,28 @@ test.describe('Home updates', () => {
       const wrapperRect = wrapper.getBoundingClientRect();
       const cardRect = cardNode.getBoundingClientRect();
       const buttonRect = button.getBoundingClientRect();
+      const label = button.querySelector('.home-swipe-action-label');
+      const labelRect = label.getBoundingClientRect();
       const wrapperStyle = getComputedStyle(wrapper);
-      const railStyle = getComputedStyle(wrapper, '::before');
       const buttonStyle = getComputedStyle(button);
+      const labelStyle = getComputedStyle(label);
       return {
         wrapperHeight: wrapperRect.height,
         cardHeight: cardRect.height,
         cardLeft: cardRect.left,
         wrapperLeft: wrapperRect.left,
+        buttonWidth: buttonRect.width,
         buttonHeight: buttonRect.height,
         wrapperBackground: wrapperStyle.backgroundColor,
         wrapperOverflow: wrapperStyle.overflow,
-        railTopBorderWidth: railStyle.borderTopWidth,
-        railBottomBorderWidth: railStyle.borderBottomWidth,
+        buttonBackground: buttonStyle.backgroundColor,
         buttonBorderWidth: buttonStyle.borderTopWidth,
-        buttonLeftBorderWidth: buttonStyle.borderLeftWidth,
+        buttonPadding: buttonStyle.paddingTop,
         buttonTopLeftRadius: buttonStyle.borderTopLeftRadius,
+        labelWidth: labelRect.width,
+        labelHeight: labelRect.height,
+        labelBackground: labelStyle.backgroundColor,
+        labelRadius: labelStyle.borderTopLeftRadius,
       };
     });
     expect(Math.abs(swipeGeometry.wrapperHeight - swipeGeometry.cardHeight)).toBeLessThan(1);
@@ -105,11 +111,14 @@ test.describe('Home updates', () => {
     expect(swipeGeometry.cardLeft).toBeGreaterThanOrEqual(0);
     expect(swipeGeometry.wrapperBackground).toBe('rgba(0, 0, 0, 0)');
     expect(swipeGeometry.wrapperOverflow).toBe('visible');
-    expect(swipeGeometry.railTopBorderWidth).toBe('2px');
-    expect(swipeGeometry.railBottomBorderWidth).toBe('2px');
-    expect(swipeGeometry.buttonBorderWidth).toBe('2px');
-    expect(swipeGeometry.buttonLeftBorderWidth).toBe('0px');
+    expect(swipeGeometry.buttonBackground).toBe('rgb(156, 163, 175)');
+    expect(swipeGeometry.buttonBorderWidth).toBe('0px');
+    expect(swipeGeometry.buttonPadding).toBe('5px');
     expect(swipeGeometry.buttonTopLeftRadius).toBe('0px');
+    expect(swipeGeometry.labelWidth).toBeLessThan(swipeGeometry.buttonWidth);
+    expect(swipeGeometry.labelHeight).toBeLessThan(swipeGeometry.buttonHeight);
+    expect(swipeGeometry.labelBackground).toBe('rgb(22, 163, 74)');
+    expect(swipeGeometry.labelRadius).toBe('8px');
     await page.locator('.restore-btn').click();
     await expect(page.locator('.section-pill-btn.selected')).toContainText('Anytime');
     await expect(card.locator('.complete-toggle')).toBeVisible();

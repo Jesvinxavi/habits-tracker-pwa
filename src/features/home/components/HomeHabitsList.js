@@ -663,7 +663,7 @@ export const HomeHabitsList = {
     const restoreBtn = document.createElement('button');
     restoreBtn.className = 'restore-btn home-swipe-action absolute';
     restoreBtn.style.width = '20%';
-    restoreBtn.textContent = 'Restore';
+    restoreBtn.innerHTML = '<span class="home-swipe-action-label">Restore</span>';
 
     const slideEl = document.createElement('div');
     slideEl.className = 'swipe-slide transition-transform';
@@ -735,7 +735,7 @@ export const HomeHabitsList = {
     const skipBtn = document.createElement('button');
     skipBtn.className = 'skip-btn home-swipe-action absolute';
     skipBtn.style.width = '20%';
-    skipBtn.textContent = 'Skip';
+    skipBtn.innerHTML = '<span class="home-swipe-action-label">Skip</span>';
 
     const slideEl = document.createElement('div');
     slideEl.className = 'swipe-slide transition-transform';

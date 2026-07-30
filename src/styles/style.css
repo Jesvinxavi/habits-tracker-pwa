@@ -484,15 +484,6 @@ body {
     overflow: visible;
 }
 
-.home-swipe-container::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-top: 2px solid #111827;
-    border-bottom: 2px solid #111827;
-    pointer-events: none;
-}
-
 .home-swipe-container .habit-card {
     margin-bottom: 0 !important;
 }
@@ -504,19 +495,28 @@ body {
     height: auto;
     color: #fff;
     border: 0;
-    border-top: 2px solid #111827;
-    border-right: 2px solid #111827;
-    border-bottom: 2px solid #111827;
+    padding: 5px;
     border-radius: 0 var(--border-radius) var(--border-radius) 0;
-    box-shadow: inset 7px 0 8px -7px rgba(31, 41, 55, 0.75);
+    background: #9ca3af;
+    box-shadow: none;
     font-weight: 600;
+    font-size: 0.875rem;
 }
 
-.home-swipe-container--skip .home-swipe-action {
+.home-swipe-action-label {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+}
+
+.home-swipe-container--skip .home-swipe-action-label {
     background: #f97316;
 }
 
-.home-swipe-container--restore .home-swipe-action {
+.home-swipe-container--restore .home-swipe-action-label {
     background: #16a34a;
 }
 
