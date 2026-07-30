@@ -7,7 +7,7 @@ import {
   updateRecordedActivity,
 } from '../activities.js';
 import { getState } from '../../../core/state.js';
-import { isRestDay } from '../restDays.js';
+import { isRestDay } from '../../../shared/restDays.js';
 import { showConfirm } from '../../../components/ConfirmDialog.js';
 import { getLocalISODate } from '../../../shared/datetime.js';
 import { bestValue, extractProgressionSeries, shortDateLabel } from '../helpers/activityStats.js';

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ActionTypes,
   Actions,
@@ -9,17 +9,15 @@ import {
 } from '../../src/core/state.js';
 import { recordActivitiesForDate } from '../../src/features/fitness/activities.js';
 
-vi.mock('../../src/core/dataBackend.js', () => ({
-  DATA_BACKENDS: { LEGACY: 'legacy', CLOUD: 'cloud' },
-  isCloudBackend: () => false,
-  getDataBackend: () => 'legacy',
-  assertCloudConfiguration: () => {},
+vi.mock('../../src/core/testHarness.js', () => ({
+  installTestHarnessApi: vi.fn(),
+  isTestHarnessEnabled: () => true,
 }));
-
 vi.mock('../../src/components/ConfirmDialog.js', () => ({ showConfirm: vi.fn() }));
 
 describe('multi-activity recording', () => {
   beforeEach(() => {
+    vi.stubEnv('VITE_TEST_HARNESS', '1');
     listeners.clear();
     dispatch({ type: ActionTypes.RESET_STATE, meta: { source: 'test' } });
     ['a1', 'a2'].forEach((id, index) => {
@@ -33,6 +31,7 @@ describe('multi-activity recording', () => {
       });
     });
   });
+  afterEach(() => vi.unstubAllEnvs());
 
   it('commits a batch with one notification and preserves selection order', async () => {
     const listener = vi.fn();

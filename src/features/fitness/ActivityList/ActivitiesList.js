@@ -7,7 +7,7 @@ import {
   deleteRecordedActivity,
   recordActivityView,
 } from '../activities.js';
-import { isRestDay } from '../restDays.js';
+import { isRestDay } from '../../../shared/restDays.js';
 import { getState } from '../../../core/state.js';
 import { CategoryGroup } from './CategoryGroup.js';
 

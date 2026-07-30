@@ -22,9 +22,6 @@ import { invalidatePillsCache } from './HomeProgressPills.js';
  * HomeHabitsList component that manages habit rendering
  */
 export const HomeHabitsList = {
-  test() {
-    return true;
-  },
   /**
    * Mounts the habits list component
    */
@@ -104,30 +101,6 @@ export const HomeHabitsList = {
 
     this.container.appendChild(frag);
 
-    // Adjust container height after rendering
-    this._adjustContainerHeight();
-
-  },
-
-  /**
-   * Adjusts the habits container height for mobile
-   */
-  _adjustContainerHeight() {
-    if (typeof window === 'undefined') return;
-
-    const rect = this.container.getBoundingClientRect();
-    // Subtract bottom padding (e.g. from pb-20 on .content-area) so last items are fully visible
-    let bottomPadding = 0;
-    const content = this.container.closest('.content-area');
-    if (content) {
-      const cs = window.getComputedStyle(content);
-      bottomPadding = parseFloat(cs.paddingBottom) || 0;
-    }
-    const available = window.innerHeight - rect.top - bottomPadding;
-    if (available > 0) {
-      this.container.style.maxHeight = available + 'px';
-      this.container.style.overflowY = 'auto';
-    }
   },
 
   /**
@@ -262,7 +235,9 @@ export const HomeHabitsList = {
     };
 
     const card = document.createElement('div');
-    card.className = 'habit-card flex items-center px-4 py-2 rounded-xl';
+    // Padding lives in .habit-card. The px-4/py-2 utilities that used to be here
+    // never applied: style.css loads after Tailwind and its shorthand won.
+    card.className = 'habit-card flex items-center rounded-xl';
     card.style.marginBottom = '0.25rem';
     card.dataset.habitId = habit.id;
     card.style.width = '100%';
@@ -298,7 +273,11 @@ export const HomeHabitsList = {
 
       // Progress box
       const progressBox = document.createElement('div');
-      progressBox.className = 'progress-box px-3 py-1 text-lg leading-none font-extrabold rounded-lg mb-1';
+      // Padding, not type size: the counter stays 18px so a target tile ends up
+      // exactly as tall as a tick tile without the number getting harder to read.
+      // 18 text + 2+2 padding + 2+2 border = 26, plus a 2px gap below.
+      progressBox.className =
+        'progress-box px-3 py-0.5 text-lg leading-none font-extrabold rounded-lg mb-0.5';
       progressBox.style.border = `2px solid ${cat.color}`;
       progressBox.style.color = '#000';
       progressBox.style.background = '#FFFFFF';
@@ -315,8 +294,11 @@ export const HomeHabitsList = {
 
       if (unitText) {
         const unitPill = document.createElement('span');
+        // No vertical padding needed: text-xs already carries a 16px line box
+        // around a 12px glyph, so the pill keeps its optical breathing room and
+        // descenders are not clipped. 26 + 2 + 16 matches the 44px content block.
         unitPill.className =
-          'unit-pill whitespace-nowrap px-2 py-0.5 rounded-lg text-xs font-medium';
+          'unit-pill whitespace-nowrap px-2 py-0 rounded-lg text-xs font-medium';
         unitPill.style.background = `${cat.color}`;
         unitPill.style.color = '#fff';
         unitPill.textContent = unitText;
@@ -818,10 +800,3 @@ export const HomeHabitsList = {
     }
   },
 };
-
-/**
- * Standalone function for rendering habits (for external use)
- */
-export function renderHabitsForHome() {
-  HomeHabitsList.render();
-}

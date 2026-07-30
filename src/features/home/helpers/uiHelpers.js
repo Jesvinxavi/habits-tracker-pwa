@@ -1,27 +1,14 @@
 import { getState, dispatch, Actions, subscribe } from '../../../core/state.js';
-import { getPeriodKey } from '../schedule.js';
-import { makeCardSwipable } from '../../../components/swipeableCard.js';
 import { updateSectionVisibility, sectionVisibility as visObj } from './coreHelpers.js';
 import { HomeHabitsList } from '../components/HomeHabitsList.js';
 import { HomeSectionPills } from '../components/HomeSectionPills.js';
-import { isCloudBackend } from '../../../core/dataBackend.js';
-// Keep first-class management surfaces with Home. The phone preview can be
-// rebuilt while a page remains open; deferring these until click would leave
-// that page pointing at removed hashed chunks.
-import { openAddHabitModal } from '../../habits/modals/HabitFormModal.js';
-import { openHolidayModal } from '../../holidays/manage.js';
 
 /* -------------------------------------------------------------------------- */
 /*  SECTION VISIBILITY HELPERS                                                */
 /* -------------------------------------------------------------------------- */
 
 export async function saveSectionVisibility(sectionVis) {
-  if (isCloudBackend()) {
-    return dispatch(Actions.updateHomeSectionVisibility(sectionVis));
-  } else {
-    localStorage.setItem('homeSectionVisibility', JSON.stringify(sectionVis));
-    return true;
-  }
+  return dispatch(Actions.updateHomeSectionVisibility(sectionVis));
 }
 
 export function setSectionVisibility(sectionVis) {
@@ -135,12 +122,18 @@ export function setupMenuToggle() {
 
       // Handle different actions
       switch (action) {
-        case 'add-habit':
+        case 'add-habit': {
+          const { openAddHabitModal } = await import(
+            '../../habits/modals/HabitFormModal.js'
+          );
           openAddHabitModal();
           break;
-        case 'manage-holidays':
+        }
+        case 'manage-holidays': {
+          const { openHolidayModal } = await import('../../holidays/manage.js');
           openHolidayModal();
           break;
+        }
         case 'toggle-completed': {
           const previous = { ...visObj };
           updateSectionVisibility(!visObj.Completed, visObj.Skipped);
@@ -176,44 +169,4 @@ export function setupMenuToggle() {
       }
     });
   }
-}
-
-/* -------------------------------------------------------------------------- */
-/*  PROGRESS UTILITIES                                                         */
-/* -------------------------------------------------------------------------- */
-
-export async function adjustProgress(habitId, max, delta) {
-  const state = getState();
-  const habit = state.habits.find((h) => h.id === habitId);
-  if (!habit) return false;
-
-  const key = getPeriodKey(habit, new Date(state.selectedDate));
-  const currentProgress = habit.progress?.[key] || 0;
-  let next = currentProgress + delta;
-  if (next < 0) next = 0;
-  if (next > max) next = max;
-
-  return dispatch(Actions.setHabitProgress(habitId, key, next));
-}
-
-/* -------------------------------------------------------------------------- */
-/*  SWIPE RESTORE HELPER                                                      */
-/* -------------------------------------------------------------------------- */
-
-export function attachSwipeBehaviour(swipeContainer, slideEl, habit) {
-  makeCardSwipable(swipeContainer, slideEl, habit, {
-    onRestore: async () => {
-      const state = getState();
-      const habitState = state.habits.find((h) => h.id === habit.id);
-      if (!habitState) return;
-      const key = getPeriodKey(habitState, new Date(state.selectedDate));
-
-      const restored = await dispatch(Actions.toggleHabitCompleted(habit.id, key));
-      if (!restored) return;
-
-      if (habitState.target) {
-        await dispatch(Actions.setHabitProgress(habit.id, key, 0));
-      }
-    },
-  });
 }

@@ -3,6 +3,7 @@ import { mountHeaderBar } from '../../shared/HeaderBar.js';
 import { mountActionButtons } from '../../shared/ActionButtons.js';
 import { mountSearchPanel, initializeSearch } from './HabitsSearchModule.js';
 import { mountHabitsList, renderHabitsList } from './HabitsListModule.js';
+import { REORDER_ICON } from './reorderIcons.js';
 
 /**
  * Main HabitsView component that orchestrates all habits sub-components
@@ -25,8 +26,10 @@ export const HabitsView = {
       title: 'Habits',
       extraButtons: [{
         id: 'reorder',
-        text: 'Reorder',
-        icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
+        // Icon only. `label` still names the button, so it keeps its accessible
+        // name and its tooltip without spending header width on a caption.
+        label: 'Reorder',
+        icon: REORDER_ICON,
       }],
       callbacks: {
         onReorder: callbacks.onReorder,
@@ -75,13 +78,6 @@ export const HabitsView = {
 
   deactivate() {
     this.actionButtons?.deactivateState?.();
-  },
-
-  /**
-   * Updates the reorder button state
-   */
-  updateReorderButton() {
-    
   },
 
   /**

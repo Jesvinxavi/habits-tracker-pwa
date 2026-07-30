@@ -12,7 +12,7 @@
 - ✅ Enhanced state management with action-based system
 - ✅ Authenticated Convex authority with normalized records
 - ✅ Per-account IndexedDB confirmed cache and durable offline outbox
-- ✅ Generation-based legacy migration, backups, checksums, and recovery
+- ✅ Generation-scoped recovery with external development snapshots
 
 ### ✅ **PHASE 4 – UI Architecture & Accessibility** (COMPLETE)
 - ✅ Component organization and modular structure
@@ -38,14 +38,25 @@
   unrelated persistence work.
 
 ### ✅ **Persistence Testing Infrastructure**
-- Vitest is required for reducers, schedules, migration, and offline storage.
+- Vitest is required for reducers, schedules, hydration, cloud synchronization,
+  and offline storage.
 - `fake-indexeddb` is required for deterministic IndexedDB tests.
 - Playwright covers PWA and browser persistence flows.
-- CI must run lint, unit/migration tests, Convex type-checking, build, and browser smoke tests.
+- CI must run lint, unit tests, Convex type-checking, dead-code and cycle
+  checks, Pages bundle budgets, the browser regression suite, production PWA
+  smoke coverage, and the bounded Fitness performance invariant.
 - Builds state their destination: `npm run build:pages` for GitHub Pages,
   `npm run build:local` for anything served from the root. `vite build` fails
   without `BUILD_TARGET` rather than guessing. See
   `docs/operations/BUILD_AND_DEPLOY.md`.
+- Clerk + Convex is the only supported persistence backend. IndexedDB is a
+  per-account confirmed cache and durable offline outbox, not an alternative
+  authority. Do not add a backend mode switch or revive `VITE_DATA_BACKEND`.
+- `VITE_TEST_HARNESS=1` is test infrastructure. Normal production builds reject
+  it. The only build exception is the triple-gated Pages smoke command using
+  `PWA_TEST_BUILD=1`, `VITE_PWA_TEST=1`, and `VITE_TEST_HARNESS=1`; that artifact
+  is never deployable. The flag is forbidden in committed env files, deployment
+  environments, and published artifacts.
 
 ## Current Focus Areas
 
@@ -67,7 +78,7 @@
 ## Project Status
 
 - **Browser architecture**: Vanilla JavaScript and Vite
-- **Authoritative persistence**: Convex in cloud mode
+- **Authoritative persistence**: Convex (authenticated with Clerk)
 - **Offline persistence**: IndexedDB confirmed cache and durable outbox
 - **Authentication**: Clerk with a 30-day device-local offline lease
 - **Testing**: Vitest, fake-indexeddb, Convex type-checking, and Playwright

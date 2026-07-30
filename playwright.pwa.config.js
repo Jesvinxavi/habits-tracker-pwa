@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/pwa',
+  workers: 1,
   outputDir: 'test-results/pwa',
   reporter: [['list']],
   use: {
@@ -11,7 +12,7 @@ export default defineConfig({
   },
   webServer: {
     command:
-      'VITE_DATA_BACKEND=legacy npm run build:pages && node scripts/preview-pages.mjs',
+      'PWA_TEST_BUILD=1 VITE_PWA_TEST=1 VITE_TEST_HARNESS=1 npm run build:pages && node scripts/preview-pages.mjs',
     url: 'http://127.0.0.1:4190/habits-tracker-pwa/',
     reuseExistingServer: false,
     timeout: 120000,

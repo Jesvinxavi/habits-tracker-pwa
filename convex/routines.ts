@@ -4,7 +4,7 @@ import { assertNonBlank } from "./lib/validators";
 // No afterDelete cascade: routines are referenced by programs and reference
 // activities, but dangling ids are filtered at read time on the client. Cascading
 // here would bump revisions on records the user never touched, producing spurious
-// sync conflicts and breaking migration checksums.
+// sync conflicts.
 const crud = createCrudMutations({
   table: "routines",
   entityType: "routines",
@@ -19,6 +19,3 @@ const crud = createCrudMutations({
 
 export const create = crud.create;
 export const update = crud.update;
-// Compatibility only for pre-archive clients cached by an older service worker.
-// Remove after 2026-10-29 once that stale-client window has closed.
-export const removeCascade = crud.remove;

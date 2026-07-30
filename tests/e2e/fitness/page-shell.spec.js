@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
+import { seedTestHarness } from '../../helpers/storageSeed.js';
 
 async function openFitness(page) {
-  await page.goto('/?test=true');
+  await page.goto('/');
   await page.getByRole('tab', { name: 'Fitness view' }).click();
   await expect(page.locator('#fitness-view')).toBeVisible();
   await expect(page.locator('#fitness-activity-btn')).toBeVisible();
@@ -86,14 +87,8 @@ test.describe('fitness page shell', () => {
     page,
   }) => {
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'healthyHabitsData',
-        JSON.stringify({ appFirstOpenDate: '2025-01-01T00:00:00.000Z' })
-      );
-    });
-    await page.goto('/?test=true');
-    await page.reload();
+    await page.goto('/');
+    await seedTestHarness(page, { appFirstOpenDate: '2025-01-01T00:00:00.000Z' });
 
     await page.evaluate(() => {
       window.__fitnessScrollBehaviors = [];

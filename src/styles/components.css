@@ -223,6 +223,18 @@ body {
   overscroll-behavior: none;
 }
 #home-view {
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+
+#home-view .home-content {
+  min-height: 0;
+}
+
+#home-view .habits-container {
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
   overscroll-behavior: contain;
 }
 /* Ensure higher-level containers never scroll */

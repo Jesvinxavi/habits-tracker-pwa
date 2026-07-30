@@ -252,8 +252,6 @@ export function normalizedToCompatibilityState(cache, deviceState = {}) {
     restDayRevisions: Object.fromEntries(
       cache.restDays.map((restDay) => [restDay.dateKey, restDay.revision])
     ),
-    foodLog: cache.legacyData?.foodLog || [],
-    stats: cache.legacyData?.stats || {},
     ...deviceState,
   };
 }
@@ -266,8 +264,4 @@ export function hydrateCompatibilityState(cache, deviceState) {
   } finally {
     hydrating = false;
   }
-}
-
-export function isHydratingCompatibilityState() {
-  return hydrating;
 }

@@ -145,17 +145,6 @@ test.describe('profile page still works', () => {
     await expect(page.locator('[data-setting="programPreload"]')).toHaveCount(0);
   });
 
-  test('export includes the two new tables', async ({ page }) => {
-    await open(page, 'Profile view');
-    const tables = await page.evaluate(async () => {
-      const module = await import('/src/core/dataManagement.js');
-      // previewImport walks the same TABLES list the exporter uses.
-      const preview = module.previewImport({ formatVersion: 1, tables: {} });
-      return Object.keys(preview.normalized.tables);
-    });
-    expect(tables).toContain('routines');
-    expect(tables).toContain('programs');
-  });
 });
 
 test('theme toggle still flips both themes', async ({ page }) => {

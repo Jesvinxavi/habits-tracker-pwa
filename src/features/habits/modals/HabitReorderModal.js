@@ -1,15 +1,16 @@
 // Reorder / drag-n-drop functionality for Habits & Categories
 // ----------------------------------------------------------
-// This module relies on SortableJS (loaded on-demand via CDN).
+// This module relies on the locally bundled SortableJS ESM build.
 // The high-level flow:
 // 1. User taps a .reorder-btn in the Habits view.
 // 2. We ensure SortableJS is loaded, then create sortable instances
 //    for every category section and its child habits list.
 // 3. While in "reorder mode" we add CSS class .dragging to give visual cues.
-// 4. Tapping the button again (now labelled "Done") destroys sortables
+// 4. Tapping the button again (now showing a tick) destroys sortables
 //    and persists the new order via state.mutate.
 
 import { dispatch, Actions } from '../../../core/state.js';
+import { DONE_ICON, REORDER_ICON } from '../reorderIcons.js';
 
 let SortableLib = null;
 let sortables = [];
@@ -17,9 +18,10 @@ let reorderActive = false;
 
 export async function ensureSortableLoaded() {
   if (SortableLib) return SortableLib;
-  // Dynamically import the ESM build from jsDelivr (works without CORS/TS hassles)
+  // Keep the dependency at the reorder interaction boundary while ensuring the
+  // installed PWA can reorder without a third-party network request.
   try {
-    SortableLib = (await import('https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/+esm')).default;
+    SortableLib = (await import('sortablejs')).default;
     return SortableLib;
   } catch (err) {
     console.error('[reorder] failed to load SortableJS', err);
@@ -136,29 +138,20 @@ export async function toggleReorderMode() {
 }
 
 export function setReorderBtnLabel(isDone) {
-  const listIconHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-  </svg>`;
-  const tickIconHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>`;
-  const iconHTML = isDone ? tickIconHTML : listIconHTML;
   const label = isDone ? 'Done' : 'Reorder';
   document.querySelectorAll('[data-button-id="reorder"]').forEach((btn) => {
-    btn.innerHTML = `${iconHTML}<span class="ml-1.5">${label}</span>`;
-    btn.classList.add('font-semibold');
-    if (!btn.style.minWidth) btn.style.minWidth = '90px';
+    // Icon only, so the name has to be carried by the attributes rather than by
+    // the text that used to sit beside it.
+    btn.innerHTML = isDone ? DONE_ICON : REORDER_ICON;
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
   });
 }
 
 // Wire the buttons when this module is imported.
 // (initializeReorder in main.js just calls this function.)
 export function initializeReorder() {
-  // Ensure initial styling for reorder buttons (bold & fixed width)
-  document.querySelectorAll('[data-button-id="reorder"]').forEach((btn) => {
-    btn.classList.add('font-semibold');
-    if (!btn.style.minWidth) btn.style.minWidth = '90px';
-  });
+  setReorderBtnLabel(false);
 }
 
 async function persistOrderToState() {

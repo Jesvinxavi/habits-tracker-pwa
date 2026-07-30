@@ -5,9 +5,11 @@
 - [ ] Release notes and changelog match the shipped behavior.
 - [ ] Privacy notice and store disclosures match actual data processing.
 - [ ] Support, export, deletion, and recovery procedures have named owners.
-- [ ] Legacy migration fixtures and checksum activation tests pass.
-- [ ] Previous generation and raw migration backups remain recoverable.
+- [ ] Cloud hydration, generation activation, and snapshot recovery tests pass.
+- [ ] Previous generation and recovery snapshots remain recoverable.
 - [ ] No cleanup or retention job is enabled without production evidence.
+- [ ] No `VITE_DATA_BACKEND` variable or legacy-backend configuration remains in
+      the release environment.
 
 ## Clerk
 
@@ -18,6 +20,8 @@
       base path.
 - [ ] Account-management and sign-out flows pass on browser and installed PWA.
 - [ ] Development-key warning is absent from the production build.
+- [ ] `VITE_TEST_HARNESS` is absent from all production variables and the Pages
+      build environment.
 
 ## Convex
 
@@ -31,7 +35,7 @@
 - [ ] Large cascade operations are bounded or have passed the large-history
       transaction-limit test.
 - [ ] Reactive queries contain no nondeterministic clock reads.
-- [ ] Reset, rollback, migration abandon, and account-deletion drills pass.
+- [ ] Reset, rollback, and account-deletion drills pass.
 
 ## PWA and browser
 
@@ -50,10 +54,13 @@
 npm ci
 npm run lint
 npm run test:unit
-npm run test:migration
 npm run test:convex
-npm run build:local
+npm run check:dead-code
+npm run check:cycles
+npm run check:bundle:pages
 npm run test:e2e
+npm run test:pwa
+npm run test:fitness:perf
 ```
 
 - [ ] No secret, `.env.local`, `node_modules`, build output, browser artifact, or
@@ -70,13 +77,13 @@ npm run test:e2e
 - [ ] Internal production accounts
 - [ ] Limited cohort
 - [ ] General availability
-- [ ] Minimum 30-day retention observation before legacy cleanup
+- [ ] Minimum 30-day retention observation before destructive data cleanup
 
 ## Rollback
 
 1. Stop further rollout.
 2. Disable destructive maintenance.
-3. Preserve cloud generations, outboxes, and migration backups.
+3. Preserve cloud generations, outboxes, and recovery snapshots.
 4. Roll the PWA back to the last verified artifact.
 5. Roll Convex functions back only when schema compatibility is confirmed.
 6. Use retained `previousGeneration` for account-data recovery.

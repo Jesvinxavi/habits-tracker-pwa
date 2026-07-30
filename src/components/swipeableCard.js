@@ -12,6 +12,10 @@ export function makeCardSwipable(
   let startX = 0;
   let startY = 0;
   let currentX = 0;
+  // Where the card already sits when the gesture starts. A revealed card is at
+  // -btnWidth, so without this the pointer delta is measured from the wrong
+  // origin and closing never tracks the finger.
+  let startOffset = 0;
   let isSwiping = false;
 
   let btnWidth = 0; // lazy-computed
@@ -40,24 +44,36 @@ export function makeCardSwipable(
     const pt = e.touches ? e.touches[0] : e;
     startX = pt.clientX;
     startY = pt.clientY;
-    currentX = 0;
     isSwiping = false; // we determine later
     btnWidth = swipeContainer.offsetWidth * 0.2;
     availableLeftShift = Math.max(0, swipeContainer.getBoundingClientRect().left);
+    startOffset = swipeContainer.classList.contains('swipe-revealed') ? -btnWidth : 0;
+    currentX = startOffset;
     activePointerId = e.pointerId !== undefined ? e.pointerId : null;
   }
 
   function onPointerMove(e) {
     if (activePointerId !== null && e.pointerId !== activePointerId) return;
     const pt = e.touches ? e.touches[0] : e;
-    const dx = pt.clientX - startX;
     const dy = pt.clientY - startY;
 
     // If we haven't decided yet whether this is a swipe, check threshold
     if (!isSwiping) {
-      if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
-        // Begin horizontal swipe
+      const travelled = pt.clientX - startX;
+      if (Math.abs(travelled) > 12 && Math.abs(travelled) > Math.abs(dy)) {
+        // Begin horizontal swipe.
         isSwiping = true;
+        // Rebase to where the finger is now, so this frame's delta is zero. The
+        // 12px spent deciding the gesture was horizontal would otherwise be
+        // applied in one step and the card would start its travel with a jump.
+        startX = pt.clientX;
+        // Stop treating the card as revealed for the duration of the drag. The
+        // revealed state lifts the action button above the sliding card, so a
+        // card closing from a previously released reveal travelled behind the
+        // button and only jumped in front when the class came off at release.
+        // Dragging open and closed in one motion never hit this, because the
+        // class is only ever applied on release.
+        swipeContainer.classList.remove('swipe-revealed');
         slideEl.style.transition = 'none';
         // Capture only after a real horizontal swipe starts. Capturing on
         // pointerdown retargets ordinary taps away from buttons inside the card.
@@ -69,10 +85,10 @@ export function makeCardSwipable(
       }
     }
 
-    // horizontal swipe handling
-    currentX = dx;
-    if (currentX > 0) currentX = 0; // left only
-    if (currentX < -btnWidth) currentX = -btnWidth;
+    // horizontal swipe handling, from wherever the card already was
+    currentX = startOffset + (pt.clientX - startX);
+    if (currentX > 0) currentX = 0; // never past closed
+    if (currentX < -btnWidth) currentX = -btnWidth; // never past fully revealed
     setTranslate(currentX);
   }
 

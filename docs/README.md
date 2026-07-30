@@ -13,6 +13,12 @@ are not active implementation checklists.
 
 - [Persistence audit](architecture/PERSISTENCE_AUDIT.md)
 - [Loading performance audit](architecture/LOADING_PERFORMANCE_AUDIT.md)
+- [Whole-app optimisation implementation record](architecture/WHOLE_APP_OPTIMISATION_IMPLEMENTATION_HANDOFF.md)
+  — what was built, measured and left open. Current.
+- [Whole-app forensic optimisation audit and plan](architecture/WHOLE_APP_OPTIMISATION_AUDIT_AND_PLAN.md)
+  — historical: the first audit, superseded by the independent review.
+- [Independent whole-app audit and revised plan](architecture/WHOLE_APP_OPTIMISATION_INDEPENDENT_AUDIT_AND_REVISED_PLAN.md)
+  — historical: the plan that was implemented, kept for its reasoning.
 
 ## Fitness
 
@@ -24,7 +30,7 @@ are not active implementation checklists.
 ## Operations
 
 - [Build and deploy](operations/BUILD_AND_DEPLOY.md)
-- [Convex migration and recovery runbook](operations/CONVEX_MIGRATION_RUNBOOK.md)
+- [Convex setup and recovery runbook](operations/CONVEX_SETUP_AND_RECOVERY_RUNBOOK.md)
 
 ## Policies and support
 

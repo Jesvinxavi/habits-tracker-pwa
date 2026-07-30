@@ -1,12 +1,12 @@
 import { mutation } from "./_generated/server";
-import { v } from "convex/values";
-import { operationEnvelope } from "./lib/envelopes";
+import { operationEnvelope, operationResult } from "./lib/envelopes";
 import { requireIdentity, requireProfile } from "./lib/auth";
 import { findProcessed, recordProcessed } from "./lib/idempotency";
 import { conflictResult } from "./lib/revisions";
 
 export const collection = mutation({
   args: operationEnvelope,
+  returns: operationResult,
   handler: async (ctx, args) => {
     const collection = args.payload.collection as "habitCategories" | "habits";
     const orderedClientIds = args.payload.orderedClientIds as string[];
@@ -27,12 +27,16 @@ export const collection = mutation({
       )
       .unique();
     const currentRevision = revisionRecord?.revision ?? 0;
+    const limit = collection === "habits" ? 1_500 : 200;
     const records = await ctx.db
       .query(collection)
       .withIndex("by_owner_generation", (q: any) =>
         q.eq("ownerKey", ownerKey).eq("generation", profile.activeGeneration),
       )
-      .collect();
+      .take(limit + 1);
+    if (records.length > limit) {
+      throw new Error(`ACCOUNT_REORDER_LIMIT_EXCEEDED:${collection}:${limit}`);
+    }
     const live = records.filter((record: any) => !record.deletedAt);
     const currentOrder = [...live]
       .sort((left: any, right: any) => left.sortOrder - right.sortOrder)

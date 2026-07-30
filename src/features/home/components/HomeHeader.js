@@ -354,12 +354,3 @@ export const HomeHeader = {
     }
   },
 };
-
-/**
- * Standalone function for updating holiday toggle (for external use)
- */
-export function updateHolidayToggle() {
-  if (HomeHeader._updateHolidayToggle) {
-    HomeHeader._updateHolidayToggle();
-  }
-}

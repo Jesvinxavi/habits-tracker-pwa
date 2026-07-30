@@ -16,6 +16,7 @@ import {
 import { generateUuid } from '../shared/common.js';
 
 const MAX_RETRY_DELAY = 60000;
+const ACTIVE_REPLAY_STATUSES = ['pending', 'retry', 'syncing', 'conflict'];
 
 function retryDelay(retryCount) {
   const base = Math.min(MAX_RETRY_DELAY, 1000 * 2 ** retryCount);
@@ -29,13 +30,25 @@ export class SyncEngine {
     this.deviceId = deviceId;
     this.client = client;
     this.running = false;
+    this.closed = false;
+    this.lockRequestPending = false;
+    this.replayRequested = false;
     this.replayRequestedWhileRunning = false;
+    this.retryTimers = new Set();
+    this.lockAbortController =
+      typeof AbortController !== 'undefined' ? new AbortController() : null;
     this.authenticated = true;
     this.channel =
       typeof BroadcastChannel !== 'undefined'
         ? new BroadcastChannel(`habits-sync:${ownerKey}`)
         : null;
+    if (this.channel) {
+      this.channel.onmessage = (event) => {
+        if (event.data?.type === 'replay-requested') this.requestReplay(false);
+      };
+    }
     this.handleOnline = () => {
+      if (this.closed) return;
       if (this.authenticated) this.requestReplay();
       else window.location.reload();
     };
@@ -43,86 +56,156 @@ export class SyncEngine {
   }
 
   setAuthenticated(authenticated) {
+    if (this.closed) return;
     this.authenticated = authenticated;
     if (authenticated) this.requestReplay();
   }
 
-  requestReplay() {
-    // An operation committed between the running pass's last outbox read and its
-    // `running = false` would otherwise be orphaned in `pending` with no retry
-    // scheduled, clearing only on the next unrelated dispatch. Remember the
-    // request so replay() can pick it up before finishing.
+  canReplay() {
+    return !this.closed && this.authenticated && navigator.onLine;
+  }
+
+  scheduleReplay(delay) {
+    if (this.closed) return;
+    const timer = setTimeout(() => {
+      this.retryTimers.delete(timer);
+      this.requestReplay();
+    }, Math.max(0, Math.min(MAX_RETRY_DELAY, delay)));
+    this.retryTimers.add(timer);
+  }
+
+  requestReplay(broadcast = true) {
+    if (this.closed) return;
+    this.replayRequested = true;
+    if (broadcast) this.channel?.postMessage({ type: 'replay-requested' });
     if (this.running) {
       this.replayRequestedWhileRunning = true;
       return;
     }
-    if (!this.authenticated || !navigator.onLine) return;
-    const replay = () => this.replay();
-    if (navigator.locks?.request) {
-      navigator.locks.request(`habits-sync:${this.ownerKey}`, { ifAvailable: true }, (lock) =>
-        lock ? replay() : undefined
-      );
-    } else {
-      replay();
+    if (!this.canReplay() || this.lockRequestPending) return;
+    void this.acquireReplayLock();
+  }
+
+  async acquireReplayLock() {
+    if (this.lockRequestPending || !this.canReplay()) return;
+    this.lockRequestPending = true;
+    const replayIfCurrent = async () => {
+      // Authentication, connectivity, or runtime ownership can change while a
+      // queued cross-tab lock is waiting. Re-check only after acquisition.
+      if (!this.canReplay()) return;
+      this.replayRequested = false;
+      await this.replay();
+    };
+    let lockCallbackRan = false;
+    let replayFailed = false;
+    const lockedReplay = async () => {
+      lockCallbackRan = true;
+      await replayIfCurrent();
+    };
+    try {
+      if (navigator.locks?.request) {
+        // This request intentionally queues. An ifAvailable request can silently
+        // lose a write committed while another tab owns the replay lock.
+        await navigator.locks.request(
+          `habits-sync:${this.ownerKey}`,
+          this.lockAbortController
+            ? { signal: this.lockAbortController.signal }
+            : {},
+          lockedReplay
+        );
+      } else {
+        // Operation IDs are server-idempotent, so concurrent legacy-browser tabs
+        // can safely attempt the same durable operation.
+        await replayIfCurrent();
+      }
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      // A broken Web Locks implementation must not strand the durable outbox.
+      // Falling back can duplicate a request, but the operation ID makes that
+      // duplicate harmless at the server boundary.
+      if (navigator.locks?.request && !lockCallbackRan && this.canReplay()) {
+        try {
+          await replayIfCurrent();
+        } catch (_) {
+          replayFailed = true;
+          this.replayRequested = true;
+        }
+      } else if (this.canReplay()) {
+        replayFailed = true;
+        this.replayRequested = true;
+      }
+    } finally {
+      this.lockRequestPending = false;
+      if (this.replayRequested && this.canReplay()) {
+        this.scheduleReplay(replayFailed ? 1000 : 0);
+      }
     }
   }
 
   async replay() {
-    if (this.running) return;
+    if (this.running || !this.canReplay()) return;
     this.running = true;
     this.replayRequestedWhileRunning = false;
     dispatch(Actions.setSyncStatus('syncing'));
     try {
-      let operations = await listOutbox(this.ownerKey, ['pending', 'retry']);
-      for (const operation of operations) {
-        if (!this.authenticated || !navigator.onLine) break;
-        if (operation.retryAt && operation.retryAt > Date.now()) {
-          setTimeout(
-            () => this.requestReplay(),
-            Math.min(MAX_RETRY_DELAY, operation.retryAt - Date.now())
+      while (this.canReplay()) {
+        this.replayRequested = false;
+        this.replayRequestedWhileRunning = false;
+        const operations = await listOutbox(this.ownerKey, ACTIVE_REPLAY_STATUSES);
+        const activeById = new Set(operations.map((operation) => operation.operationId));
+        const now = Date.now();
+        let earliestRetryAt = Number.POSITIVE_INFINITY;
+        const operation = operations.find((candidate) => {
+          // A `syncing` row means the previous tab/process stopped before it
+          // could durably confirm or retry. Replaying its operation ID is safe.
+          if (!['pending', 'retry', 'syncing'].includes(candidate.status)) return false;
+          if (
+            candidate.status === 'retry' &&
+            candidate.retryAt &&
+            candidate.retryAt > now
+          ) {
+            earliestRetryAt = Math.min(earliestRetryAt, candidate.retryAt);
+            return false;
+          }
+          return (
+            !candidate.dependsOnOperationId ||
+            !activeById.has(candidate.dependsOnOperationId)
           );
-          continue;
-        }
-        if (
-          operation.dependsOnOperationId &&
-          operations.some(
-            (candidate) =>
-              candidate.operationId === operation.dependsOnOperationId &&
-              candidate.status !== 'superseded'
-          )
-        ) {
-          continue;
+        });
+
+        if (!operation) {
+          // A request can arrive after listOutbox has taken its snapshot. Re-read
+          // before declaring the durable queue drained.
+          if (this.replayRequestedWhileRunning) continue;
+          if (Number.isFinite(earliestRetryAt)) {
+            this.scheduleReplay(earliestRetryAt - now);
+          }
+          break;
         }
         await this.replayOne(operation);
-        operations = await listOutbox(this.ownerKey, ['pending', 'retry']);
       }
-      const remaining = await listOutbox(this.ownerKey);
-      dispatch(
-        Actions.setSyncStatus(
-          remaining.some((operation) => operation.status === 'conflict')
-            ? 'conflict'
-            : remaining.length
-              ? 'pending'
-              : 'synced'
-        )
-      );
-      this.channel?.postMessage({ type: 'replay-complete' });
+      const remaining = await listOutbox(this.ownerKey, ACTIVE_REPLAY_STATUSES);
+      if (!this.closed) {
+        dispatch(
+          Actions.setSyncStatus(
+            remaining.some((operation) => operation.status === 'conflict')
+              ? 'conflict'
+              : remaining.length
+                ? 'pending'
+                : 'synced'
+          )
+        );
+      }
     } finally {
       this.running = false;
-    }
-
-    // Pick up anything committed while this pass was in flight. Deferred to a
-    // macrotask because replay() runs as the navigator.locks callback and the
-    // lock is only released once its promise settles — requesting again inline
-    // would fail the ifAvailable check and silently drop the work.
-    if (this.replayRequestedWhileRunning) {
-      this.replayRequestedWhileRunning = false;
-      setTimeout(() => this.requestReplay(), 0);
     }
   }
 
   async replayOne(operation) {
-    await patchOutboxOperation(operation.operationId, { status: 'syncing' });
+    await patchOutboxOperation(operation.operationId, {
+      status: 'syncing',
+      syncingAt: Date.now(),
+    });
     try {
       const payload = sanitizeMutationPayload(operation.mutationName, operation.payload);
       const attemptedRecord = sanitizeOperationRecord(
@@ -143,11 +226,16 @@ export class SyncEngine {
           operation.operationId,
           result.canonicalRecord
         );
-        const runtime = getCloudRuntime();
-        if (runtime && operation.entityType === 'userPreferences' && result.canonicalRecord) {
+        const runtime = this.closed ? null : getCloudRuntime();
+        const isCurrentRuntime = runtime?.ownerKey === this.ownerKey;
+        if (
+          isCurrentRuntime &&
+          operation.entityType === 'userPreferences' &&
+          result.canonicalRecord
+        ) {
           runtime.preferences = result.canonicalRecord;
         }
-        if (runtime && operation.entityType.endsWith('.order')) {
+        if (isCurrentRuntime && operation.entityType.endsWith('.order')) {
           const collection = operation.payload.collection;
           runtime.collectionRevisions = {
             ...(runtime.collectionRevisions || {}),
@@ -159,7 +247,7 @@ export class SyncEngine {
         }
         // A newer optimistic write for this entity is already what the user sees.
         // Do not repaint it with this older confirmation while its successor waits.
-        if (!confirmation?.hasPendingSuccessor) {
+        if (!this.closed && !confirmation?.hasPendingSuccessor) {
           dispatch(
             Actions.confirmOperation({
               operationId: operation.operationId,
@@ -172,16 +260,18 @@ export class SyncEngine {
       }
       if (result.status === 'conflict') {
         await this.autoMergeConflict(operation, result.conflict);
+        return;
       }
+      throw new Error(`Unsupported sync result: ${result.status || 'missing status'}`);
     } catch (error) {
       const retryCount = (operation.retryCount || 0) + 1;
+      const delay = retryDelay(retryCount);
       await patchOutboxOperation(operation.operationId, {
         status: 'retry',
         retryCount,
-        retryAt: Date.now() + retryDelay(retryCount),
+        retryAt: Date.now() + delay,
         lastError: String(error?.message || error),
       });
-      setTimeout(() => this.requestReplay(), retryDelay(retryCount));
     }
   }
 
@@ -257,6 +347,15 @@ export class SyncEngine {
   }
 
   close() {
+    if (this.closed) return;
+    this.closed = true;
+    this.authenticated = false;
+    this.replayRequested = false;
+    this.replayRequestedWhileRunning = false;
+    this.retryTimers.forEach((timer) => clearTimeout(timer));
+    this.retryTimers.clear();
+    this.lockAbortController?.abort();
+    if (this.channel) this.channel.onmessage = null;
     this.channel?.close();
     window.removeEventListener('online', this.handleOnline);
   }

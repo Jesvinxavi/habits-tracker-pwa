@@ -31,11 +31,6 @@ const PRESENTATIONS = {
     summary: 'Your changes remain on this device. Try syncing again.',
     tone: 'danger',
   },
-  migration_required: {
-    label: 'Migration required',
-    summary: 'Review your existing device data before cloud sync begins.',
-    tone: 'warning',
-  },
 };
 
 let storageErrorMessage = '';

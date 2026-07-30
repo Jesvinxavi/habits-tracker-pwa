@@ -1,6 +1,6 @@
 import { mutation } from "../_generated/server";
 import { findProcessed, recordProcessed } from "./idempotency";
-import { operationEnvelope } from "./envelopes";
+import { operationEnvelope, operationResult } from "./envelopes";
 import { requireIdentity, requireProfile } from "./auth";
 import { changedFields, conflictResult } from "./revisions";
 
@@ -8,38 +8,64 @@ type Config = {
   table: string;
   entityType: string;
   validate: (payload: any, ctx: any, profile: any, ownerKey: string) => Promise<void> | void;
-  afterDelete?: (
-    ctx: any,
-    record: any,
-    profile: any,
-    ownerKey: string,
-    args: any,
-  ) => Promise<void>;
+  afterDelete?: (ctx: any, record: any, profile: any, ownerKey: string, args: any) => Promise<void>;
 };
+
+const PROTECTED_PAYLOAD_FIELDS = new Set([
+  "_id",
+  "_creationTime",
+  "ownerKey",
+  "generation",
+  "revision",
+  "updatedAt",
+  "updatedByDeviceId",
+  "deletedAt",
+]);
+
+function mutablePayload(payload: any): Record<string, any> {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("INVALID_OPERATION_PAYLOAD");
+  }
+  return Object.fromEntries(
+    Object.entries(payload).filter(([key]) => !PROTECTED_PAYLOAD_FIELDS.has(key)),
+  ) as Record<string, any>;
+}
 
 function portable(record: any) {
   if (!record) return null;
-  const {
-    _id,
-    _creationTime,
-    ownerKey,
-    generation,
-    updatedAt,
-    updatedByDeviceId,
-    deletedAt,
-    ...value
-  } = record;
+  const { _id, _creationTime, ownerKey, generation, updatedAt, updatedByDeviceId, ...value } =
+    record;
   return value;
 }
 
-async function findCurrent(ctx: any, config: Config, ownerKey: string, generation: number, clientId: string) {
+function canonicalize(value: any): any {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    return Object.keys(value)
+      .sort()
+      .reduce((result: Record<string, any>, key) => {
+        if (value[key] !== undefined) result[key] = canonicalize(value[key]);
+        return result;
+      }, {});
+  }
+  return value;
+}
+
+function recordsEqual(left: any, right: any) {
+  return JSON.stringify(canonicalize(left)) === JSON.stringify(canonicalize(right));
+}
+
+async function findCurrent(
+  ctx: any,
+  config: Config,
+  ownerKey: string,
+  generation: number,
+  clientId: string,
+) {
   return await ctx.db
     .query(config.table)
     .withIndex("by_owner_generation_client", (query: any) =>
-      query
-        .eq("ownerKey", ownerKey)
-        .eq("generation", generation)
-        .eq("clientId", clientId),
+      query.eq("ownerKey", ownerKey).eq("generation", generation).eq("clientId", clientId),
     )
     .unique();
 }
@@ -52,22 +78,28 @@ async function duplicateResult(ctx: any, ownerKey: string, operationId: string) 
 export function createCrudMutations(config: Config) {
   const create = mutation({
     args: operationEnvelope,
+    returns: operationResult,
     handler: async (ctx, args) => {
       const { ownerKey } = await requireIdentity(ctx);
       const duplicate = await duplicateResult(ctx, ownerKey, args.operationId);
       if (duplicate) return duplicate;
       const profile = await requireProfile(ctx, ownerKey);
-      await config.validate(args.payload, ctx, profile, ownerKey);
+      const payload = mutablePayload(args.payload);
+      await config.validate(payload, ctx, profile, ownerKey);
       const current = await findCurrent(
         ctx,
         config,
         ownerKey,
         profile.activeGeneration,
-        args.payload.clientId,
+        payload.clientId,
       );
       if (current) {
-        if (JSON.stringify(portable(current)) === JSON.stringify({ ...args.payload, revision: 1 })) {
-          const result = { status: "applied", canonicalRecord: current, revision: current.revision };
+        if (recordsEqual(portable(current), { ...payload, revision: 1 })) {
+          const result = {
+            status: "applied",
+            canonicalRecord: current,
+            revision: current.revision,
+          };
           await recordProcessed(
             ctx,
             ownerKey,
@@ -80,16 +112,16 @@ export function createCrudMutations(config: Config) {
         }
         return conflictResult(
           config.entityType,
-          args.payload.clientId,
+          payload.clientId,
           null,
           current,
-          args.payload,
+          payload,
           ["clientId"],
         );
       }
       const now = Date.now();
       const id = await ctx.db.insert(config.table as any, {
-        ...args.payload,
+        ...payload,
         ownerKey,
         generation: profile.activeGeneration,
         revision: 1,
@@ -112,32 +144,34 @@ export function createCrudMutations(config: Config) {
 
   const update = mutation({
     args: operationEnvelope,
+    returns: operationResult,
     handler: async (ctx, args) => {
       const { ownerKey } = await requireIdentity(ctx);
       const duplicate = await duplicateResult(ctx, ownerKey, args.operationId);
       if (duplicate) return duplicate;
       const profile = await requireProfile(ctx, ownerKey);
-      await config.validate(args.payload, ctx, profile, ownerKey);
+      const payload = mutablePayload(args.payload);
+      await config.validate(payload, ctx, profile, ownerKey);
       const current = await findCurrent(
         ctx,
         config,
         ownerKey,
         profile.activeGeneration,
-        args.payload.clientId,
+        payload.clientId,
       );
       if (!current || current.deletedAt || args.baseRevision !== current.revision) {
         return conflictResult(
           config.entityType,
-          args.payload.clientId,
+          payload.clientId,
           args.baseRecord,
           current,
-          args.payload,
-          changedFields(args.baseRecord, args.payload),
+          payload,
+          changedFields(args.baseRecord, payload),
         );
       }
       const revision = current.revision + 1;
       await ctx.db.patch(current._id, {
-        ...args.payload,
+        ...payload,
         revision,
         updatedAt: Date.now(),
         updatedByDeviceId: args.deviceId,
@@ -158,6 +192,7 @@ export function createCrudMutations(config: Config) {
 
   const remove = mutation({
     args: operationEnvelope,
+    returns: operationResult,
     handler: async (ctx, args) => {
       const { ownerKey } = await requireIdentity(ctx);
       const duplicate = await duplicateResult(ctx, ownerKey, args.operationId);

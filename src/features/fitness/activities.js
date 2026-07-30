@@ -1,7 +1,7 @@
 import { getState, dispatch, Actions } from '../../core/state.js';
 import { generateUniqueId } from '../../shared/common.js';
 import { showConfirm } from '../../components/ConfirmDialog.js';
-import { isRestDay } from './restDays.js';
+import { isRestDay } from '../../shared/restDays.js';
 import { getLocalMidnightISOString } from '../../shared/datetime.js';
 
 let indexedActivities = null;

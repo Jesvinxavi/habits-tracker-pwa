@@ -18,16 +18,69 @@ import {
   belongsToSelectedGroup,
   isHabitSkippedToday,
 } from '../home/schedule.js';
-import { formatDuration } from '../../shared/datetime.js';
+import { dateToKey, formatDuration } from '../../shared/datetime.js';
 import { isHoliday } from '../../features/holidays/holidays.js';
-import { isRestDay } from '../../features/fitness/restDays.js';
+import { isRestDay } from '../../shared/restDays.js';
 import { getRecordedHistoryIndex } from '../fitness/helpers/recordedHistory.js';
+import { shallowArrayEqual } from '../../shared/equality.js';
 
 // Current stats view state - 'habits' or 'fitness'
 let currentStatsView = 'habits';
 let activeCarouselInterval = null;
 let unsubscribeState = null;
+let midnightTimer = null;
 let initialized = false;
+let statsViewModelCache = null;
+let renderedViewModel = null;
+
+function selectStatsState(state) {
+  return [
+    state.habits,
+    state.categories,
+    state.holidayDates,
+    state.manualHolidayDates,
+    state.holidayPeriods,
+    state.activities,
+    state.recordedActivities,
+    state.restDays,
+  ];
+}
+
+function localDayCacheKey(date) {
+  return `${dateToKey(date)}@${date.getTimezoneOffset()}`;
+}
+
+function scheduleMidnightRefresh() {
+  if (midnightTimer) clearTimeout(midnightTimer);
+  const now = new Date();
+  const nextMidnight = new Date(now);
+  nextMidnight.setHours(24, 0, 0, 25);
+  midnightTimer = setTimeout(() => {
+    statsViewModelCache = null;
+    renderedViewModel = null;
+    renderStatsContent();
+    scheduleMidnightRefresh();
+  }, Math.max(25, nextMidnight.getTime() - now.getTime()));
+}
+
+function getStatsViewModel(now = new Date()) {
+  const selected = selectStatsState(getState());
+  const dayKey = localDayCacheKey(now);
+  if (
+    statsViewModelCache &&
+    statsViewModelCache.dayKey === dayKey &&
+    shallowArrayEqual(statsViewModelCache.selected, selected)
+  ) {
+    return statsViewModelCache.value;
+  }
+
+  const value = {
+    habitStats: calculateHabitStatistics(now),
+    fitnessStats: calculateFitnessStatistics(now),
+  };
+  statsViewModelCache = { selected, dayKey, value };
+  return value;
+}
 
 /**
  * Initializes the stats view with all its components
@@ -44,15 +97,20 @@ export function initializeStats() {
 
 export function activate() {
   if (!initialized || unsubscribeState) return;
-  unsubscribeState = subscribe(() => {
-    renderStatsContent();
+  unsubscribeState = subscribe(selectStatsState, renderStatsContent, {
+    equalityFn: shallowArrayEqual,
   });
+  scheduleMidnightRefresh();
   renderStatsContent();
 }
 
 export function deactivate() {
   unsubscribeState?.();
   unsubscribeState = null;
+  if (midnightTimer) {
+    clearTimeout(midnightTimer);
+    midnightTimer = null;
+  }
   if (activeCarouselInterval) {
     clearInterval(activeCarouselInterval);
     activeCarouselInterval = null;
@@ -114,16 +172,11 @@ function renderStatsContent() {
   const container = document.getElementById('stats-container');
   if (!container) return;
 
-  // Show loading state
-  container.innerHTML =
-    '<div class="loading-state p-8 text-center"><div class="loading-shimmer h-32 rounded-xl mb-4"></div><div class="loading-shimmer h-24 rounded-xl"></div></div>';
-
   try {
-    // Calculate statistics
-    const habitStats = calculateHabitStatistics();
-    const fitnessStats = calculateFitnessStatistics();
+    const viewModel = getStatsViewModel();
+    if (renderedViewModel === viewModel && container.childElementCount > 0) return;
+    const { habitStats, fitnessStats } = viewModel;
 
-    // Clear loading state
     container.innerHTML = '';
 
     // Render sections
@@ -135,7 +188,9 @@ function renderStatsContent() {
     if (habitStats.historicalHabits === 0 && fitnessStats.totalActivities === 0) {
       renderEmptyState(container);
     }
+    renderedViewModel = viewModel;
   } catch (error) {
+    renderedViewModel = null;
     // Error state
     container.innerHTML = `
       <div class="error-state p-8 text-center">
@@ -154,10 +209,9 @@ function renderStatsContent() {
 /**
  * Calculate comprehensive habit statistics
  */
-function calculateHabitStatistics() {
+function calculateHabitStatistics(today = new Date()) {
   const habits = (getState().habits || []).filter(validateHabitData);
   const currentHabits = habits.filter((habit) => !habit.archivedAt);
-  const today = new Date();
 
   // Basic counts
   const stats = {
@@ -182,6 +236,8 @@ function calculateHabitStatistics() {
     monthlyCompletionRate: 0,
     // Holiday statistics
     holidayDaysThisYear: 0,
+    dailyCompletionPeriods: [],
+    categoriesById: new Map((getState().categories || []).map((category) => [category.id, category])),
   };
 
   // Categorize habits by group and calculate group-specific statistics
@@ -190,7 +246,10 @@ function calculateHabitStatistics() {
 
     try {
       // Calculate completion rate over the last 30 days
-      const completionRate = safeCalculation(() => calculateHabitCompletionRate(habit, 30), 0);
+      const completionRate = safeCalculation(
+        () => calculateHabitCompletionRate(habit, 30, today),
+        0
+      );
       stats.completionRates.set(habit.id, {
         habitName: habit.name,
         rate: completionRate,
@@ -211,8 +270,8 @@ function calculateHabitStatistics() {
 
       // Calculate streaks (only for daily habits)
       if (belongsToSelectedGroup(habit, 'daily')) {
-        const currentStreak = safeCalculation(() => calculateCurrentStreak(habit), 0);
-        const longestStreak = safeCalculation(() => calculateLongestStreak(habit), 0);
+        const currentStreak = safeCalculation(() => calculateCurrentStreak(habit, today), 0);
+        const longestStreak = safeCalculation(() => calculateLongestStreak(habit, today), 0);
 
         stats.streaks.push({
           habitName: habit.name,
@@ -260,15 +319,15 @@ function calculateHabitStatistics() {
 
   // Calculate group-specific completion rates
   if (stats.dailyHabits.length > 0) {
-    const dailyRates = stats.dailyHabits.map((habit) =>
-      safeCalculation(() => calculateHabitCompletionRate(habit, 30), 0)
+    const dailyRates = stats.dailyHabits.map(
+      (habit) => stats.completionRates.get(habit.id)?.rate || 0
     );
     stats.dailyCompletionRate = dailyRates.reduce((sum, rate) => sum + rate, 0) / dailyRates.length;
   }
 
   if (stats.weeklyHabits.length > 0) {
     const weeklyRates = stats.weeklyHabits.map((habit) =>
-      safeCalculation(() => calculateWeeklyHabitCompletionRate(habit, 4), 0)
+      safeCalculation(() => calculateWeeklyHabitCompletionRate(habit, 4, today), 0)
     );
     stats.weeklyCompletionRate =
       weeklyRates.reduce((sum, rate) => sum + rate, 0) / weeklyRates.length;
@@ -276,7 +335,7 @@ function calculateHabitStatistics() {
 
   if (stats.monthlyHabits.length > 0) {
     const monthlyRates = stats.monthlyHabits.map((habit) =>
-      safeCalculation(() => calculateMonthlyHabitCompletionRate(habit, 3), 0)
+      safeCalculation(() => calculateMonthlyHabitCompletionRate(habit, 3, today), 0)
     );
     stats.monthlyCompletionRate =
       monthlyRates.reduce((sum, rate) => sum + rate, 0) / monthlyRates.length;
@@ -298,7 +357,7 @@ function calculateHabitStatistics() {
   let holidayCount = 0;
   const currentDate = new Date(yearStart);
   while (currentDate <= yearEnd) {
-    if (isHoliday(currentDate.toISOString())) {
+    if (isHoliday(dateToKey(currentDate))) {
       holidayCount++;
     }
     currentDate.setDate(currentDate.getDate() + 1);
@@ -306,7 +365,9 @@ function calculateHabitStatistics() {
   stats.holidayDaysThisYear = holidayCount;
 
   // Calculate group longest 100% streak
-  stats.longestStreak = safeCalculation(() => calculateLongestGroupStreak(stats.dailyHabits), 0);
+  const dailySeries = buildDailyGroupCompletionSeries(stats.dailyHabits, today);
+  stats.dailyCompletionPeriods = calculateDailyCompletionPeriods(dailySeries);
+  stats.longestStreak = safeCalculation(() => calculateLongestGroupStreak(dailySeries), 0);
 
   return stats;
 }
@@ -316,27 +377,54 @@ function calculateHabitStatistics() {
  * Only counts scheduled days as denominator for accurate percentage
  * Only looks back to when the habit was actually created
  */
-function calculateHabitCompletionRate(habit, days = 30) {
-  const today = new Date();
+function dateFromStoredValue(value) {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    const localDate = new Date(year, month - 1, day);
+    if (dateToKey(localDate) === value) return localDate;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function startOfLocalDay(value) {
+  const date = new Date(value);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function localCalendarDayNumber(value) {
+  const date = new Date(value);
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000;
+}
+
+function calendarDaysBetween(later, earlier) {
+  return localCalendarDayNumber(later) - localCalendarDayNumber(earlier);
+}
+
+/**
+ * Prefer the explicit persisted creation date used by cloud UUID habits.
+ * Timestamp-prefixed legacy IDs remain a compatibility fallback.
+ */
+export function getHabitCreationDate(habit, fallback = new Date()) {
+  const explicit = dateFromStoredValue(habit?.createdAt);
+  if (explicit) return explicit;
+
+  if (typeof habit?.id === 'string' && /^[0-9]{13}/.test(habit.id)) {
+    const timestamp = Number.parseInt(habit.id.slice(0, 13), 10);
+    if (Number.isFinite(timestamp)) return new Date(timestamp);
+  }
+
+  return new Date(fallback);
+}
+
+function calculateHabitCompletionRate(habit, days = 30, today = new Date()) {
   let completed = 0;
   let scheduled = 0;
 
-  // Extract creation date from habit ID (timestamp + random string)
-  let creationDate;
-  if (typeof habit.id === 'string' && /^[0-9]{13}/.test(habit.id)) {
-    const ts = parseInt(habit.id.slice(0, 13), 10);
-    if (!Number.isNaN(ts)) {
-      creationDate = new Date(ts);
-    }
-  }
-
-  // Fallback to current date if we can't extract creation date
-  if (!creationDate || isNaN(creationDate)) {
-    creationDate = new Date();
-  }
+  const creationDate = startOfLocalDay(getHabitCreationDate(habit, today));
 
   // Calculate how many days the habit has existed
-  const daysSinceCreation = Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)) + 1; // +1 to include today
+  const daysSinceCreation = calendarDaysBetween(today, creationDate) + 1;
 
   // Only look back as far as the habit has existed, or the requested days, whichever is smaller
   const daysToCheck = Math.min(days, daysSinceCreation);
@@ -366,27 +454,14 @@ function calculateHabitCompletionRate(habit, days = 30) {
 /**
  * Calculate completion rate for weekly habits based on actual weeks
  */
-function calculateWeeklyHabitCompletionRate(habit, weeks = 4) {
-  const today = new Date();
+function calculateWeeklyHabitCompletionRate(habit, weeks = 4, today = new Date()) {
   let completed = 0;
   let scheduled = 0;
 
-  // Extract creation date from habit ID
-  let creationDate;
-  if (typeof habit.id === 'string' && /^[0-9]{13}/.test(habit.id)) {
-    const ts = parseInt(habit.id.slice(0, 13), 10);
-    if (!Number.isNaN(ts)) {
-      creationDate = new Date(ts);
-    }
-  }
-
-  // Fallback to current date if we can't extract creation date
-  if (!creationDate || isNaN(creationDate)) {
-    creationDate = new Date();
-  }
+  const creationDate = startOfLocalDay(getHabitCreationDate(habit, today));
 
   // Calculate weeks since creation
-  const weeksSinceCreation = Math.floor((today - creationDate) / (1000 * 60 * 60 * 24 * 7)) + 1;
+  const weeksSinceCreation = Math.floor(calendarDaysBetween(today, creationDate) / 7) + 1;
   const weeksToCheck = Math.min(weeks, weeksSinceCreation);
 
   for (let i = 0; i < weeksToCheck; i++) {
@@ -433,24 +508,11 @@ function calculateWeeklyHabitCompletionRate(habit, weeks = 4) {
 /**
  * Calculate completion rate for monthly habits based on actual months
  */
-function calculateMonthlyHabitCompletionRate(habit, months = 3) {
-  const today = new Date();
+function calculateMonthlyHabitCompletionRate(habit, months = 3, today = new Date()) {
   let completed = 0;
   let scheduled = 0;
 
-  // Extract creation date from habit ID
-  let creationDate;
-  if (typeof habit.id === 'string' && /^[0-9]{13}/.test(habit.id)) {
-    const ts = parseInt(habit.id.slice(0, 13), 10);
-    if (!Number.isNaN(ts)) {
-      creationDate = new Date(ts);
-    }
-  }
-
-  // Fallback to current date if we can't extract creation date
-  if (!creationDate || isNaN(creationDate)) {
-    creationDate = new Date();
-  }
+  const creationDate = startOfLocalDay(getHabitCreationDate(habit, today));
 
   // Calculate months since creation
   const monthsSinceCreation =
@@ -502,8 +564,7 @@ function calculateMonthlyHabitCompletionRate(habit, months = 3) {
 /**
  * Calculate current streak for a habit (consecutive days of completion)
  */
-function calculateCurrentStreak(habit) {
-  const today = new Date();
+function calculateCurrentStreak(habit, today = new Date()) {
   let streak = 0;
   let date = new Date(today);
 
@@ -525,8 +586,7 @@ function calculateCurrentStreak(habit) {
 /**
  * Calculate longest streak for a habit
  */
-function calculateLongestStreak(habit) {
-  const today = new Date();
+function calculateLongestStreak(habit, today = new Date()) {
   let longestStreak = 0;
   let currentStreak = 0;
 
@@ -552,27 +612,17 @@ function calculateLongestStreak(habit) {
  * Calculate longest 100% streak for the daily habit group
  * (consecutive active days with 100% completion, skipping holidays without breaking streak)
  */
-function calculateLongestGroupStreak(dailyHabits) {
-  if (dailyHabits.length === 0) return 0;
-
-  const today = new Date();
+function calculateLongestGroupStreak(dailySeries) {
+  if (dailySeries.length === 0) return 0;
   let longest = 0;
   let current = 0;
 
-  for (let i = 365; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(today.getDate() - i);
-
-    const scheduled = dailyHabits.filter((h) => isHabitScheduledOnDate(h, date));
-
-    // Consider only habits that are not explicitly skipped for the day
-    const active = scheduled.filter((h) => !isHabitSkippedToday(h, date));
-
+  // Series is newest-first. Streak evaluation needs chronological order and
+  // retains the previous 366-day product window.
+  for (const { active, completed } of dailySeries.slice(0, 366).reverse()) {
     // Non-active day (either no scheduled, or all scheduled were skipped) – skip without breaking streak
-    if (active.length === 0) continue;
-
-    const completedCount = active.filter((h) => isHabitCompleted(h, date)).length;
-    const is100Percent = completedCount === active.length;
+    if (active === 0) continue;
+    const is100Percent = completed === active;
 
     if (is100Percent) {
       current++;
@@ -585,10 +635,79 @@ function calculateLongestGroupStreak(dailyHabits) {
   return longest;
 }
 
+function buildDailyGroupCompletionSeries(dailyHabits, today = new Date()) {
+  if (dailyHabits.length === 0) return [];
+
+  let earliest = new Date(today);
+  for (const habit of dailyHabits) {
+    const creationDate = getHabitCreationDate(habit, today);
+    if (creationDate < earliest) earliest = creationDate;
+  }
+
+  earliest.setHours(0, 0, 0, 0);
+  const cursor = new Date(today);
+  cursor.setHours(0, 0, 0, 0);
+  const series = [];
+
+  while (cursor >= earliest) {
+    let active = 0;
+    let completed = 0;
+    for (const habit of dailyHabits) {
+      if (
+        isHabitScheduledOnDate(habit, cursor) &&
+        !isHabitSkippedToday(habit, cursor)
+      ) {
+        active++;
+        if (isHabitCompleted(habit, cursor)) completed++;
+      }
+    }
+    series.push({
+      dateKey: dateToKey(cursor),
+      active,
+      completed,
+      percentage: active > 0 ? (completed / active) * 100 : 0,
+    });
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return series;
+}
+
+function calculateDailyCompletionPeriods(series) {
+  const rolling = (windowDays) => {
+    const pastCompletedDays = series.slice(1).filter((day) => day.completed > 0).length;
+    if (1 + pastCompletedDays >= windowDays) {
+      const selected = series.slice(0, windowDays);
+      return selected.length
+        ? selected.reduce((sum, day) => sum + day.percentage, 0) / windowDays
+        : 0;
+    }
+
+    const selected = [
+      ...(series[0] ? [series[0]] : []),
+      ...series.slice(1).filter((day) => day.completed > 0).slice(0, windowDays - 1),
+    ];
+    return selected.length
+      ? selected.reduce((sum, day) => sum + day.percentage, 0) / selected.length
+      : 0;
+  };
+
+  const activeDays = series.filter((day) => day.active > 0);
+  const allTime = activeDays.length
+    ? activeDays.reduce((sum, day) => sum + day.percentage, 0) / activeDays.length
+    : 0;
+
+  return [
+    { label: '7d', rate: rolling(7) },
+    { label: '30d', rate: rolling(30) },
+    { label: 'All Time', rate: allTime },
+  ];
+}
+
 /**
  * Calculate fitness statistics
  */
-function calculateFitnessStatistics() {
+function calculateFitnessStatistics(today = new Date()) {
   // Archived activities keep their history but are no longer part of the
   // library, so they are not counted as activities the user has.
   const activities = (getState().activities || []).filter((activity) => !activity.archivedAt);
@@ -629,11 +748,12 @@ function calculateFitnessStatistics() {
   });
 
   // Calculate recent sessions (last 30 days)
-  const thirtyDaysAgo = new Date();
+  const thirtyDaysAgo = new Date(today);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   history.byDate.forEach((dayRecords, dateStr) => {
-    const recordDate = new Date(dateStr);
+    const recordDate = dateFromStoredValue(dateStr);
+    if (!recordDate) return;
     if (recordDate >= thirtyDaysAgo) {
       stats.recentSessions += dayRecords.length;
     }
@@ -646,10 +766,10 @@ function calculateFitnessStatistics() {
   // Calculate rest days in the last 30 days
   let restDaysCount = 0;
   const currentDate = new Date(thirtyDaysAgo);
-  const today = new Date();
+  const currentDay = new Date(today);
 
-  while (currentDate <= today) {
-    const isoDate = currentDate.toISOString().split('T')[0];
+  while (currentDate <= currentDay) {
+    const isoDate = dateToKey(currentDate);
     if (isRestDay(isoDate)) {
       restDaysCount++;
     }
@@ -702,113 +822,7 @@ function renderHabitStatsSection(container, stats) {
   const section = document.createElement('div');
   section.className = 'habit-stats-section mb-6';
 
-  // --- Completion Carousel ---
-  // Calculate average completion rates for all daily habits
-  function getEarliestCreationDateForDailyHabits() {
-    const dailyHabits = getState().habits.filter((h) => belongsToSelectedGroup(h, 'daily'));
-    let earliest = null;
-    for (const habit of dailyHabits) {
-      let cd = null;
-      if (habit.createdAt) {
-        const d = new Date(habit.createdAt);
-        if (!isNaN(d)) cd = d;
-      } else if (typeof habit.id === 'string' && /^[0-9]{13}/.test(habit.id)) {
-        const ts = parseInt(habit.id.slice(0, 13), 10);
-        if (!Number.isNaN(ts)) cd = new Date(ts);
-      }
-      if (!cd || isNaN(cd)) continue;
-      if (!earliest || cd < earliest) earliest = cd;
-    }
-    return earliest || new Date();
-  }
-
-  function getDailyGroupCountsForDate(dateObj) {
-    const date = new Date(dateObj);
-    const dailyHabits = getState().habits.filter((h) => belongsToSelectedGroup(h, 'daily'));
-    const active = dailyHabits.filter((h) => isHabitScheduledOnDate(h, date) && !isHabitSkippedToday(h, date));
-    const completed = active.filter((h) => isHabitCompleted(h, date));
-    return { active: active.length, completed: completed.length };
-  }
-
-  function getDailyGroupPercentageForDate(dateObj) {
-    const { active, completed } = getDailyGroupCountsForDate(dateObj);
-    if (active === 0) return 0;
-    return (completed / active) * 100;
-  }
-
-  function calculateRollingGroupCompletion(windowDays) {
-    const today = new Date();
-    const earliest = getEarliestCreationDateForDailyHabits();
-
-    // Count past days (before today) with any completion (>0 completed)
-    let pastCompletedDays = 0;
-    const maxLookback = Math.max(0, Math.floor((today - earliest) / (1000 * 60 * 60 * 24)));
-    for (let i = 1; i <= maxLookback; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const { completed } = getDailyGroupCountsForDate(d);
-      if (completed > 0) pastCompletedDays++;
-    }
-
-    // If we have enough completed days to fill the window (plus today), use standard last-N-days average
-    if (1 + pastCompletedDays >= windowDays) {
-      let sum = 0;
-      for (let i = 0; i < windowDays; i++) {
-        const d = new Date(today);
-        d.setDate(today.getDate() - i);
-        sum += getDailyGroupPercentageForDate(d);
-      }
-      return sum / windowDays;
-    }
-
-    // Otherwise, include today + most recent past days with any completion until we reach windowDays
-    const selectedDates = [new Date(today)];
-    for (let i = 1; i <= maxLookback && selectedDates.length < windowDays; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const { completed } = getDailyGroupCountsForDate(d);
-      if (completed > 0) selectedDates.push(d);
-    }
-
-    if (selectedDates.length === 0) return 0;
-    let sum = 0;
-    for (const d of selectedDates) sum += getDailyGroupPercentageForDate(d);
-    return sum / selectedDates.length;
-  }
-
-  function calculateAllTimeGroupCompletion() {
-    const today = new Date();
-    const earliest = getEarliestCreationDateForDailyHabits();
-    const totalDays = Math.max(0, Math.floor((today - earliest) / (1000 * 60 * 60 * 24))) + 1;
-    if (totalDays <= 0) return 0;
-    let sum = 0;
-    let countedDays = 0;
-    for (let i = 0; i < totalDays; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const { active } = getDailyGroupCountsForDate(d);
-      if (active > 0) {
-        sum += getDailyGroupPercentageForDate(d);
-        countedDays++;
-      }
-    }
-    return countedDays > 0 ? sum / countedDays : 0;
-  }
-
-  const periods = [
-    {
-      label: '7d',
-      rate: safeCalculation(() => calculateRollingGroupCompletion(7), 0),
-    },
-    {
-      label: '30d',
-      rate: safeCalculation(() => calculateRollingGroupCompletion(30), 0),
-    },
-    {
-      label: 'All Time',
-      rate: safeCalculation(() => calculateAllTimeGroupCompletion(), 0),
-    },
-  ];
+  const periods = stats.dailyCompletionPeriods;
 
   // Build dynamic tiles based on available habit groups
   const tiles = [];
@@ -890,7 +904,7 @@ function renderHabitStatsSection(container, stats) {
 
   let categoryStatsHTML = '';
   stats.categoryBreakdown.forEach((categoryData, categoryId) => {
-    const category = getState().categories.find((c) => c.id === categoryId);
+    const category = stats.categoriesById.get(categoryId);
     const categoryName = category ? category.name : 'Unknown';
     const categoryColor = category ? category.color : '#888';
 
@@ -1061,9 +1075,8 @@ function switchStatsView(view) {
       activeCarouselInterval = null;
     }
 
-    // Re-render with new data
-    const habitStats = calculateHabitStatistics();
-    const fitnessStats = calculateFitnessStatistics();
+    // Reuse the identity-memoized models calculated for the overview.
+    const { habitStats, fitnessStats } = getStatsViewModel();
 
     detailedContainer.innerHTML = '';
 

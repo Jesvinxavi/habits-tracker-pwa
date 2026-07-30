@@ -47,14 +47,30 @@ export function mountHeaderBar(options = {}) {
     `;
   }
 
-  // Extra buttons section
+  // Extra buttons section. A button with no `text` renders as a square icon
+  // button and takes its accessible name from `label`, so dropping the visible
+  // caption never leaves it unnamed for screen readers or for tests.
   if (extraButtons.length > 0) {
-    const buttonsHtml = extraButtons.map(button => `
-      <button class="${button.className || 'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1.5'}" data-button-id="${button.id || ''}">
+    const buttonsHtml = extraButtons
+      .map((button) => {
+        const iconOnly = !button.text;
+        const palette =
+          'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300';
+        const shape = iconOnly
+          ? 'w-9 h-9 justify-center'
+          : 'px-3 py-1.5 gap-1.5';
+        const className =
+          button.className || `${palette} ${shape} rounded-lg font-medium flex items-center`;
+        const label = button.label || button.text || '';
+        const naming = iconOnly && label ? ` aria-label="${label}" title="${label}"` : '';
+        return `
+      <button class="${className}" data-button-id="${button.id || ''}"${naming}>
         ${button.icon || ''}
         ${button.text || ''}
       </button>
-    `).join('');
+    `;
+      })
+      .join('');
     headerContent += buttonsHtml;
   }
 

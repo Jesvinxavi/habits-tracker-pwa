@@ -2,7 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { requireIdentity, requireProfile } from "./lib/auth";
-import { operationEnvelope } from "./lib/envelopes";
+import { operationEnvelope, operationResult, paginatedAnyResult } from "./lib/envelopes";
 import { findProcessed, recordProcessed } from "./lib/idempotency";
 import { requireLiveParent } from "./lib/domain";
 import { assertDate, assertNonBlank } from "./lib/validators";
@@ -10,6 +10,7 @@ import { changedFields, conflictResult } from "./lib/revisions";
 
 export const setDesiredState = mutation({
   args: operationEnvelope,
+  returns: operationResult,
   handler: async (ctx, args) => {
     const { ownerKey } = await requireIdentity(ctx);
     const processed = await findProcessed(ctx, ownerKey, args.operationId);
@@ -103,6 +104,7 @@ export const listByDateRange = query({
     toDate: v.string(),
     paginationOpts: paginationOptsValidator,
   },
+  returns: paginatedAnyResult,
   handler: async (ctx, args) => {
     const { ownerKey } = await requireIdentity(ctx);
     const profile = await requireProfile(ctx, ownerKey);
@@ -114,23 +116,6 @@ export const listByDateRange = query({
           .eq("generation", profile.activeGeneration)
           .gte("periodSortDate", args.fromDate)
           .lte("periodSortDate", args.toDate),
-      )
-      .paginate(args.paginationOpts);
-  },
-});
-
-export const listByHabit = query({
-  args: { habitClientId: v.string(), paginationOpts: paginationOptsValidator },
-  handler: async (ctx, args) => {
-    const { ownerKey } = await requireIdentity(ctx);
-    const profile = await requireProfile(ctx, ownerKey);
-    return await ctx.db
-      .query("habitEntries")
-      .withIndex("by_owner_generation_habit", (q) =>
-        q
-          .eq("ownerKey", ownerKey)
-          .eq("generation", profile.activeGeneration)
-          .eq("habitClientId", args.habitClientId),
       )
       .paginate(args.paginationOpts);
   },

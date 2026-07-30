@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ActionTypes,
   Actions,
@@ -8,13 +8,6 @@ import {
   subscribe,
 } from '../../src/core/state.js';
 import { getRecordedHistoryIndex } from '../../src/features/fitness/helpers/recordedHistory.js';
-
-vi.mock('../../src/core/dataBackend.js', () => ({
-  DATA_BACKENDS: { LEGACY: 'legacy', CLOUD: 'cloud' },
-  isCloudBackend: () => false,
-  getDataBackend: () => 'legacy',
-  assertCloudConfiguration: () => {},
-}));
 
 function syntheticAccount() {
   const activities = Array.from({ length: 100 }, (_, index) => ({
@@ -52,9 +45,11 @@ function syntheticAccount() {
 
 describe('large-account Fitness work-count harness', () => {
   beforeEach(() => {
+    vi.stubEnv('VITE_TEST_HARNESS', '1');
     listeners.clear();
     dispatch({ type: ActionTypes.RESET_STATE, meta: { source: 'test' } });
   });
+  afterEach(() => vi.unstubAllEnvs());
 
   it('keeps reads, unrelated actions, history indexing and batches bounded', () => {
     const account = syntheticAccount();

@@ -1,44 +1,37 @@
 // Main entry – bootstraps the PWA
-import { loadDataFromLocalStorage } from './core/storage.js';
+import '@material-design-icons/font/filled.css';
 import { initializeTheme } from './core/theme.js';
 import { initializeNavigation } from './core/navigation.js';
 import { initializeInstallPrompt } from './components/InstallPrompt.js';
-import { isCloudBackend } from './core/dataBackend.js';
+import { initializePwaUpdateCoordinator } from './components/PwaUpdateCoordinator.js';
 import { markStartup } from './core/startupMetrics.js';
 import { removeLoadingState } from './shared/loader.js';
-
-// Enable test mode if URL contains ?test=true
-if (
-  typeof window !== 'undefined' &&
-  new URLSearchParams(window.location.search).get('test') === 'true'
-) {
-  window.process = window.process || {};
-  window.process.env = window.process.env || {};
-  window.process.env.NODE_ENV = 'test';
-}
+import {
+  assertTestHarnessConfiguration,
+  isTestHarnessEnabled,
+} from './core/testHarness.js';
 
 async function bootstrap() {
   markStartup('bootstrapStart');
   try {
-    // Load data first, then initialize UI components
-    const persistence = isCloudBackend()
-      ? await import('./core/cloudBootstrap.js').then((module) =>
-          module.bootstrapCloudPersistence()
-        )
-      : await loadDataFromLocalStorage();
+    assertTestHarnessConfiguration();
+    const testHarness = isTestHarnessEnabled();
+
+    // The test harness deliberately starts with reducer-owned in-memory state.
+    // It stays before cloud bootstrap so a UI-test server never initializes
+    // Clerk, Convex, IndexedDB, or any account-scoped background work.
+    let persistence;
+    if (testHarness) {
+      persistence = { mode: 'test_harness' };
+    } else {
+      persistence = await import('./core/cloudBootstrap.js').then((module) =>
+        module.bootstrapCloudPersistence()
+      );
+    }
     markStartup('persistenceReady');
     if (persistence?.access === 'blocked') {
       await removeLoadingState();
       return;
-    }
-
-    // Proactively clear any persisted last-active tab so app always opens to Home
-    if (!isCloudBackend()) {
-      try {
-        localStorage.removeItem('activeHabitTrackerTab');
-      } catch (error) {
-        console.warn('Failed to clear activeHabitTrackerTab:', error);
-      }
     }
 
     // Initialize core components
@@ -49,6 +42,11 @@ async function bootstrap() {
     await initializeNavigation();
     markStartup('homeReady');
     await initializeInstallPrompt();
+    if (!testHarness || import.meta.env.VITE_PWA_TEST === '1') {
+      void initializePwaUpdateCoordinator().catch((error) => {
+        console.warn('PWA update coordination failed:', error);
+      });
+    }
 
     // Remove loading state after all initializations are complete
     await removeLoadingState();
@@ -58,7 +56,7 @@ async function bootstrap() {
     // the loading path. Navigation loads Fitness and Statistics on demand.
     const initializeDeferredFeatures = async () => {
       await import('./features/autoToday.js');
-      if (isCloudBackend()) {
+      if (!testHarness) {
         const { initializeSyncStatusUi } = await import('./core/syncStatusUi.js');
         initializeSyncStatusUi();
       }

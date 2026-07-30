@@ -60,24 +60,6 @@ const crud = createCrudMutations({
         }
       }
     }
-
-    // Legacy only: the current client never sends anytimeRoutines, but a device
-    // still running an older build might, and a stale write must not be able to
-    // put a malformed entry in the table.
-    if (payload.anytimeRoutines !== undefined) {
-      if (!Array.isArray(payload.anytimeRoutines)) {
-        throw new Error("INVALID_PROGRAM_ANYTIME");
-      }
-      for (const entry of payload.anytimeRoutines) {
-        if (!Number.isInteger(entry?.count) || entry.count < 1) {
-          throw new Error("INVALID_PROGRAM_ANYTIME");
-        }
-        // Exactly one target per entry: a routine or a single activity.
-        if (Boolean(entry.routineClientId) === Boolean(entry.activityClientId)) {
-          throw new Error("INVALID_PROGRAM_ANYTIME");
-        }
-      }
-    }
   },
 });
 

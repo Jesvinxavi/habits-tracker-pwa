@@ -57,6 +57,18 @@ function resolveTarget(command) {
 }
 
 export default defineConfig(({ command }) => {
+  const explicitPwaTestBuild =
+    process.env.PWA_TEST_BUILD === '1' &&
+    process.env.VITE_PWA_TEST === '1';
+  if (
+    command === 'build' &&
+    process.env.VITE_TEST_HARNESS === '1' &&
+    !explicitPwaTestBuild
+  ) {
+    throw new Error(
+      'Refusing to build with VITE_TEST_HARNESS=1 outside the explicit PWA test build.'
+    );
+  }
   const target = resolveTarget(command);
   const isPages = target === 'pages';
   const base = isPages ? `/${REPO_NAME}/` : '/';
@@ -78,7 +90,9 @@ export default defineConfig(({ command }) => {
         // on disk change, which is indistinguishable from "my fix did nothing".
         // Local builds are for looking at the current code, so they get none.
         disable: !isPages,
-        registerType: 'autoUpdate',
+        // The application owns activation so a waiting worker cannot reload a
+        // client with pending offline work or an open editor.
+        registerType: 'prompt',
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         },

@@ -4,6 +4,7 @@ import {
   configureConvexAuth,
   clearConvexAuth,
   getClerkConvexToken,
+  assertCloudConfiguration,
 } from './convexClient.js';
 import {
   getDeviceId,
@@ -12,7 +13,6 @@ import {
   renewOfflineLease,
   revokeOfflineLease,
 } from './offlineDb.js';
-import { assertCloudConfiguration } from './dataBackend.js';
 import { getCloudRuntime, clearCloudRuntime } from './cloudRuntime.js';
 import { markStartup } from './startupMetrics.js';
 
@@ -266,11 +266,14 @@ export async function signOutAccount({ discardPending = false } = {}) {
   if (pending.length && !discardPending) {
     return { requiresDecision: true, pendingCount: pending.length };
   }
+  // Stop queued remote work, reactive subscriptions, replay timers, and queued
+  // Web Locks while this account is still identifiable. No background callback
+  // may survive into token teardown or account-cache deletion.
+  clearCloudRuntime();
   await revokeOfflineLease();
   await clearConvexAuth();
   if (clerk) await clerk.signOut();
   await purgeAccountCache(activeAccount.ownerKey);
-  clearCloudRuntime();
   activeAccount = undefined;
   return { signedOut: true, discardedCount: discardPending ? pending.length : 0 };
 }
@@ -326,10 +329,4 @@ export async function requestAccountSignOut() {
       event.currentTarget.disabled = false;
     }
   });
-}
-
-export function initializeAccountControls() {
-  // Account controls now live in the Profile tab. Remove the temporary
-  // cutover control if a hot reload left one behind.
-  document.querySelector('[data-legacy-account-control]')?.remove();
 }

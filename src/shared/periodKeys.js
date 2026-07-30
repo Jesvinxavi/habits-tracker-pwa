@@ -22,13 +22,3 @@ export function periodSortDate(periodKey, fallbackDate) {
   const fallback = String(fallbackDate || '').slice(0, 10);
   return DATE_PATTERN.test(fallback) ? fallback : '1970-01-01';
 }
-
-export function isRecognizedPeriodKey(periodKey) {
-  return (
-    DATE_PATTERN.test(periodKey) ||
-    /^\d{4}-W\d{1,2}$/.test(periodKey) ||
-    /^\d{4}-BW\d{1,2}$/.test(periodKey) ||
-    /^\d{4}-\d{2}$/.test(periodKey) ||
-    /^\d{4}$/.test(periodKey)
-  );
-}

@@ -381,7 +381,7 @@ test.describe('record activity modal', () => {
   test('a rest day refuses recording from any surface', async ({ page }) => {
     await seed(page);
     await page.evaluate(async () => {
-      const { toggleRestDay } = await import('/src/features/fitness/restDays.js');
+      const { toggleRestDay } = await import('/src/shared/restDays.js');
       const { getState } = await import('/src/core/state.js');
       const { getLocalISODate } = await import('/src/shared/datetime.js');
       await toggleRestDay(getLocalISODate(getState().fitnessSelectedDate));
