@@ -14,6 +14,7 @@ are not active implementation checklists.
 - [Persistence audit](architecture/PERSISTENCE_AUDIT.md)
 - [Loading performance audit](architecture/LOADING_PERFORMANCE_AUDIT.md)
 - [Whole-app forensic optimisation audit and plan](architecture/WHOLE_APP_OPTIMISATION_AUDIT_AND_PLAN.md)
+- [Independent whole-app audit and revised plan](architecture/WHOLE_APP_OPTIMISATION_INDEPENDENT_AUDIT_AND_REVISED_PLAN.md)
 
 ## Fitness
 
