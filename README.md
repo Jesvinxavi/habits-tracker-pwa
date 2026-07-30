@@ -138,6 +138,7 @@ Fitness implementation records.
 - [Build and deployment guide](docs/operations/BUILD_AND_DEPLOY.md)
 - [Coding guidelines](docs/development/CODING_GUIDELINES.md)
 - [Fitness documentation](docs/fitness/README.md)
+- [Changelog](docs/release/CHANGELOG.md)
 - [Release notes](docs/release/RELEASE_1.0.0.md)
 - [Privacy notice](docs/policies/PRIVACY.md)
 - [Support and account-data requests](docs/policies/SUPPORT.md)

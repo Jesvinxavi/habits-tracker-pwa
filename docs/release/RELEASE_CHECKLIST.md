@@ -2,7 +2,7 @@
 
 ## Product and data
 
-- [ ] Release notes and changelog match the shipped behavior.
+- [ ] Release notes and [changelog](CHANGELOG.md) match the shipped behavior.
 - [ ] Privacy notice and store disclosures match actual data processing.
 - [ ] Support, export, deletion, and recovery procedures have named owners.
 - [ ] Cloud hydration, generation activation, and snapshot recovery tests pass.

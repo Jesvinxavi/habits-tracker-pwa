@@ -98,5 +98,6 @@ should configure age and consent requirements in Clerk and obtain legal review.
 
 ## Changes
 
-Material privacy changes must update this notice, the changelog, and the release
-metadata before deployment.
+Material privacy changes must update this notice, the
+[changelog](../release/CHANGELOG.md), and the release metadata before
+deployment.

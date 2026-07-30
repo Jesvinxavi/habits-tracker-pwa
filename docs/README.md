@@ -39,6 +39,8 @@ are not active implementation checklists.
 
 ## Release
 
+- [Changelog](release/CHANGELOG.md) — every notable user-facing and operational
+  change, newest first. Add to `[Unreleased]` as work lands.
 - [Version 1.0.0 release notes](release/RELEASE_1.0.0.md)
 - [Production release checklist](release/RELEASE_CHECKLIST.md)
 - [Release risk register](release/RELEASE_RISK_REGISTER.md)
