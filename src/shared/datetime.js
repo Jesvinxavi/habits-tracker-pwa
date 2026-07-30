@@ -46,15 +46,6 @@ export function isSamePeriod(a, b, group = 'daily') {
   }
 }
 
-/**
- * Return true if two Date objects refer to the same calendar day.
- * @param {Date} a
- * @param {Date} b
- */
-export function isSameDay(a, b) {
-  return a.toDateString() === b.toDateString();
-}
-
 export function mondayStart(date) {
   const d = new Date(date);
   const dow = d.getDay(); // 0=Sun,…6=Sat
@@ -288,21 +279,6 @@ export function getLocalMidnightISOString(date) {
 
   // 3. Return ISO-like string (no timezone designator).
   return `${year}-${month}-${day}T00:00:00.000`;
-}
-
-export const toKey = dateToKey;
-
-/**
- * Convert a YYYY-MM-DD key back to a Date object in local time
- * (midnight at the user's locale).
- * Accepts Date or key for convenience.
- */
-export function fromKey(key) {
-  if (key instanceof Date) return new Date(key); // already Date
-  if (typeof key !== 'string') return new Date(NaN);
-  const [y, m, d] = key.split('-').map((s) => parseInt(s, 10));
-  if (!y || !m || !d) return new Date(NaN);
-  return new Date(y, m - 1, d, 0, 0, 0, 0);
 }
 
 /**

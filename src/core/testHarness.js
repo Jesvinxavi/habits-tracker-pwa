@@ -10,20 +10,26 @@ function isHarnessRequested() {
   return import.meta.env.VITE_TEST_HARNESS === '1';
 }
 
+function isExplicitPwaTestBuild() {
+  return import.meta.env.VITE_PWA_TEST === '1';
+}
+
 export function isTestHarnessEnabled() {
-  return import.meta.env.DEV && isHarnessRequested();
+  return (
+    isHarnessRequested() &&
+    (import.meta.env.DEV || isExplicitPwaTestBuild())
+  );
 }
 
 export function assertTestHarnessConfiguration() {
-  if (isHarnessRequested() && !import.meta.env.DEV) {
-    throw new Error('VITE_TEST_HARNESS=1 is only permitted by the development server.');
-  }
-  // The rest of the UI deliberately uses the cloud predicate to suppress old
-  // localStorage side effects (theme, selected tab, rest-day import, etc.).
-  // The harness replaces cloud bootstrap itself, so this does not contact
-  // Clerk or Convex; it is simply the only storage-free test configuration.
-  if (isTestHarnessEnabled() && import.meta.env.VITE_DATA_BACKEND !== 'cloud') {
-    throw new Error('VITE_TEST_HARNESS=1 requires VITE_DATA_BACKEND=cloud.');
+  if (
+    isHarnessRequested() &&
+    !import.meta.env.DEV &&
+    !isExplicitPwaTestBuild()
+  ) {
+    throw new Error(
+      'VITE_TEST_HARNESS=1 is only permitted by the development server or explicit PWA test build.'
+    );
   }
 }
 

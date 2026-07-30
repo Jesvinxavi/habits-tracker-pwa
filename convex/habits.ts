@@ -14,30 +14,7 @@ const crud = createCrudMutations({
       payload.categoryClientId,
     );
   },
-  afterDelete: async (ctx, habit, profile, ownerKey, args) => {
-    const entries = await ctx.db
-      .query("habitEntries")
-      .withIndex("by_owner_generation_habit", (q: any) =>
-        q
-          .eq("ownerKey", ownerKey)
-          .eq("generation", profile.activeGeneration)
-          .eq("habitClientId", habit.clientId),
-      )
-      .collect();
-    const now = Date.now();
-    for (const entry of entries.filter((item: any) => !item.deletedAt)) {
-      await ctx.db.patch(entry._id, {
-        deletedAt: now,
-        revision: entry.revision + 1,
-        updatedAt: now,
-        updatedByDeviceId: args.deviceId,
-      });
-    }
-  },
 });
 
 export const create = crud.create;
 export const update = crud.update;
-// Compatibility for stale pre-archive clients only. Current clients archive
-// through habits:update so historical entries are not tombstoned.
-export const removeCascade = crud.remove;

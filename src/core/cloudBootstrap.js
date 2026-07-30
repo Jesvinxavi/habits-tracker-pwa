@@ -4,52 +4,40 @@ import { functionReference, getConvexClient } from './convexClient.js';
 import { SyncEngine } from './syncEngine.js';
 import { setCloudRuntime } from './cloudRuntime.js';
 import {
+  applyConfirmedEntityChanges,
   getSyncMetadata,
   listCachedEntities,
   listOutbox,
-  putConfirmedEntities,
   putSyncMetadata,
+  replaceConfirmedEntities,
 } from './offlineDb.js';
 import {
   hydrateCompatibilityState,
   overlayPendingOperations,
 } from './stateHydration.js';
-import {
-  readLegacySources,
-  selectLegacyDefault,
-  summarizeLegacySources,
-} from './migration/sourceReader.js';
-import {
-  meaningfulLegacySnapshot,
-  normalizeLegacySnapshot,
-} from './migration/normalizeLegacy.js';
-import { checksum } from './migration/canonical.js';
-import { mergeLegacySnapshots } from './migration/mergeLegacy.js';
-import { mergeNormalizedTables } from './migration/mergeNormalized.js';
-import { exportCloudData } from './dataManagement.js';
-import {
-  backUpLegacySources,
-  renderMigrationPreview,
-  uploadAndActivateMigration,
-} from './migration/coordinator.js';
 import { markStartup } from './startupMetrics.js';
 
-const ENTITY_TYPES = [
+const CORE_ENTITY_TYPES = [
   'profile',
   'preferences',
   'habitCategories',
   'habits',
-  'habitEntries',
   'holidayPeriods',
   'holidaySingles',
   'activityCategories',
   'activities',
-  'activityRecords',
   'routines',
   'programs',
-  'restDays',
-  'legacyData',
 ];
+
+const HISTORY_ENTITY_TYPES = [
+  'habitEntries',
+  'activityRecords',
+  'restDays',
+];
+
+const ENTITY_TYPES = [...CORE_ENTITY_TYPES, ...HISTORY_ENTITY_TYPES];
+const PAGE_SIZE = 500;
 
 function emptyCache() {
   return {
@@ -66,8 +54,23 @@ function emptyCache() {
     routines: [],
     programs: [],
     restDays: [],
-    legacyData: null,
   };
+}
+
+function recordsForCoreType(core, entityType) {
+  if (entityType === 'profile') return core.profile ? [core.profile] : [];
+  if (entityType === 'preferences') {
+    return core.preferences ? [core.preferences] : [];
+  }
+  return core[entityType] || [];
+}
+
+function hasCacheChanges(result) {
+  return Boolean(
+    result?.inserted ||
+      result?.updated ||
+      result?.deleted
+  );
 }
 
 async function loadCachedAccount(ownerKey, generation) {
@@ -77,7 +80,7 @@ async function loadCachedAccount(ownerKey, generation) {
   );
   ENTITY_TYPES.forEach((type, index) => {
     const records = recordsByType[index];
-    if (['profile', 'preferences', 'legacyData'].includes(type)) {
+    if (type === 'profile' || type === 'preferences') {
       cache[type] = records[0] || null;
     } else {
       cache[type] = records;
@@ -87,20 +90,16 @@ async function loadCachedAccount(ownerKey, generation) {
 }
 
 function mergeCoreIntoCache(cache, core) {
-  return {
-    ...cache,
-    profile: core.profile,
-    preferences: core.preferences,
-    habitCategories: core.habitCategories,
-    habits: core.habits,
-    holidayPeriods: core.holidayPeriods,
-    holidaySingles: core.holidaySingles,
-    activityCategories: core.activityCategories,
-    activities: core.activities,
-    routines: core.routines,
-    programs: core.programs,
-    legacyData: core.legacyData,
-  };
+  return CORE_ENTITY_TYPES.reduce(
+    (result, entityType) => ({
+      ...result,
+      [entityType]:
+        entityType === 'profile' || entityType === 'preferences'
+          ? recordsForCoreType(core, entityType)[0] || null
+          : recordsForCoreType(core, entityType),
+    }),
+    { ...cache }
+  );
 }
 
 async function loadAccountWithPendingOperations(ownerKey, generation) {
@@ -115,58 +114,291 @@ async function loadAccountWithPendingOperations(ownerKey, generation) {
 }
 
 async function cacheCore(ownerKey, core) {
-  const generation = core.generation;
-  await Promise.all([
-    putConfirmedEntities(ownerKey, generation, 'profile', [core.profile]),
-    putConfirmedEntities(ownerKey, generation, 'preferences', core.preferences ? [core.preferences] : []),
-    putConfirmedEntities(ownerKey, generation, 'habitCategories', core.habitCategories),
-    putConfirmedEntities(ownerKey, generation, 'habits', core.habits),
-    putConfirmedEntities(ownerKey, generation, 'holidayPeriods', core.holidayPeriods),
-    putConfirmedEntities(ownerKey, generation, 'holidaySingles', core.holidaySingles),
-    putConfirmedEntities(ownerKey, generation, 'activityCategories', core.activityCategories),
-    putConfirmedEntities(ownerKey, generation, 'activities', core.activities),
-    putConfirmedEntities(ownerKey, generation, 'routines', core.routines || []),
-    putConfirmedEntities(ownerKey, generation, 'programs', core.programs || []),
-    putConfirmedEntities(ownerKey, generation, 'legacyData', core.legacyData ? [core.legacyData] : []),
-  ]);
+  const results = await Promise.all(
+    CORE_ENTITY_TYPES.map((entityType) =>
+      replaceConfirmedEntities(
+        ownerKey,
+        core.generation,
+        entityType,
+        recordsForCoreType(core, entityType)
+      )
+    )
+  );
+  return results.some(hasCacheChanges);
+}
+
+/**
+ * Reads every page from a Convex paginated query. When the endpoint includes a
+ * generation, every page must belong to the expected generation or the caller
+ * discards the entire result.
+ */
+export async function queryAllPages(
+  client,
+  reference,
+  args,
+  { expectedGeneration } = {}
+) {
+  let cursor = null;
+  const records = [];
+  do {
+    // Paging is intentionally sequential because Convex cursors are opaque and
+    // each continuation is defined by the preceding page.
+    // eslint-disable-next-line no-await-in-loop
+    const result = await client.query(functionReference(reference), {
+      ...args,
+      paginationOpts: { numItems: PAGE_SIZE, cursor },
+    });
+    if (
+      expectedGeneration !== undefined &&
+      result.generation !== undefined &&
+      result.generation !== expectedGeneration
+    ) {
+      throw new Error('REMOTE_GENERATION_CHANGED');
+    }
+    records.push(...result.page);
+    cursor = result.isDone ? null : result.continueCursor;
+  } while (cursor !== null);
+  return records;
 }
 
 async function queryHistoryWindow(client, fromDate, toDate) {
-  const loadAll = async (reference, args) => {
-    let cursor = null;
-    const records = [];
-    do {
-      const result = await client.query(functionReference(reference), {
-        ...args,
-        paginationOpts: { numItems: 500, cursor },
-      });
-      records.push(...result.page);
-      cursor = result.isDone ? null : result.continueCursor;
-    } while (cursor);
-    return records;
-  };
   const [habitEntries, activityRecords, restDays] = await Promise.all([
-    loadAll('habitEntries:listByDateRange', { fromDate, toDate }),
-    loadAll('history:listActivityRecordsByDateRange', { fromDate, toDate }),
-    client.query(functionReference('history:listRestDaysByDateRange'), { fromDate, toDate }),
+    queryAllPages(
+      client,
+      'habitEntries:listByDateRange',
+      { fromDate, toDate }
+    ),
+    queryAllPages(
+      client,
+      'history:listActivityRecordsByDateRange',
+      { fromDate, toDate }
+    ),
+    client.query(functionReference('history:listRestDaysByDateRange'), {
+      fromDate,
+      toDate,
+    }),
   ]);
   return { habitEntries, activityRecords, restDays };
 }
 
-function hasMeaningfulLegacyData(snapshot) {
-  if (!snapshot) return false;
-  const meaningful = meaningfulLegacySnapshot(snapshot);
-  return Boolean(
-    meaningful.categories?.length ||
-      meaningful.habits?.length ||
-      meaningful.holidayDates?.length ||
-      meaningful.holidayPeriods?.length ||
-      meaningful.activities?.length ||
-      Object.keys(meaningful.recordedActivities || {}).length ||
-      Object.keys(meaningful.restDays || {}).length ||
-      meaningful.foodLog?.length ||
-      Object.keys(meaningful.stats || {}).length
+function recordDateKey(entityType, record) {
+  return entityType === 'habitEntries'
+    ? record.periodSortDate
+    : record.dateKey;
+}
+
+function isRecordInWindow(entityType, record, fromDate, toDate) {
+  const dateKey = recordDateKey(entityType, record);
+  return typeof dateKey === 'string' && dateKey >= fromDate && dateKey <= toDate;
+}
+
+function maximumUpdatedAt(records = []) {
+  return records.reduce(
+    (maximum, record) =>
+      Number.isFinite(record.updatedAt)
+        ? Math.max(maximum, record.updatedAt)
+        : maximum,
+    0
   );
+}
+
+/**
+ * The lower bound stays inclusive. A write that shares a millisecond with the
+ * previous maximum must be read again; revision/equality checks make duplicates
+ * cheap and prevent the timestamp watermark from skipping a record.
+ */
+export function nextInclusiveWatermark(current = 0, signal, records = []) {
+  return Math.max(
+    current,
+    Number.isFinite(signal?.updatedAt) ? signal.updatedAt : 0,
+    maximumUpdatedAt(records)
+  );
+}
+
+function signalMap(signals = []) {
+  return Object.fromEntries(
+    signals.map((signal) => [signal.entityType, signal])
+  );
+}
+
+function createDeviceState(syncStatus) {
+  const state = getState();
+  return {
+    currentDate: state.currentDate,
+    selectedDate: state.selectedDate,
+    fitnessSelectedDate: state.fitnessSelectedDate,
+    selectedGroup: state.selectedGroup,
+    ...(syncStatus ? { syncStatus } : {}),
+  };
+}
+
+/**
+ * One remote queue owns ordering for core and history changes. Callbacks merely
+ * record the latest demand. A newly observed generation invalidates in-flight
+ * work synchronously, while same-generation signals arriving during a fetch are
+ * handled by the next loop before the queue emits one coalesced state delivery.
+ */
+export function createCoalescedRemoteQueue({
+  initialGeneration,
+  processCore,
+  processSignals,
+  afterBatch,
+  retryDelayMs = 1000,
+  onError = (error) => console.warn('Remote refresh failed:', error),
+}) {
+  let generation = initialGeneration;
+  let version = 0;
+  let pendingCore;
+  let needsCore = false;
+  const pendingSignals = new Map();
+  let running;
+  let retryTimer;
+  let closed = false;
+
+  const observeGeneration = (nextGeneration) => {
+    if (nextGeneration === generation) return;
+    generation = nextGeneration;
+    version += 1;
+    pendingSignals.clear();
+  };
+
+  const guard = (capturedVersion, expectedGeneration) =>
+    !closed &&
+    capturedVersion === version &&
+    expectedGeneration === generation;
+
+  const mergeSignals = (signals) => {
+    signals.forEach((signal) => {
+      const current = pendingSignals.get(signal.entityType);
+      if (!current || signal.revision > current.revision) {
+        pendingSignals.set(signal.entityType, signal);
+      }
+    });
+  };
+
+  const drain = async () => {
+    let shouldDeliver = false;
+    let deliveryVersion = null;
+    while (
+      !closed &&
+      (pendingCore !== undefined || needsCore || pendingSignals.size)
+    ) {
+      const core = pendingCore;
+      const loadCore = needsCore && core === undefined;
+      pendingCore = undefined;
+      needsCore = false;
+      const signals = [...pendingSignals.values()];
+      pendingSignals.clear();
+      const capturedVersion = version;
+      const expectedGeneration = generation;
+      const isCurrent = () => guard(capturedVersion, expectedGeneration);
+
+      try {
+        let changed = false;
+        if (core !== undefined || loadCore) {
+          // eslint-disable-next-line no-await-in-loop
+          changed =
+            (await processCore(core, {
+              expectedGeneration,
+              isCurrent,
+            })) || changed;
+        }
+        if (signals.length && isCurrent()) {
+          // eslint-disable-next-line no-await-in-loop
+          changed =
+            (await processSignals(signals, {
+              expectedGeneration,
+              isCurrent,
+            })) || changed;
+        }
+        // A generation callback can arrive while either handler awaits. Its
+        // data belongs to a discarded generation, so never deliver that stale
+        // batch after the queue catches up with the newer generation.
+        if (changed && isCurrent()) {
+          shouldDeliver = true;
+          deliveryVersion = capturedVersion;
+        }
+      } catch (error) {
+        if (isCurrent()) {
+          if (core !== undefined) pendingCore = core;
+          else if (loadCore) needsCore = true;
+          mergeSignals(signals);
+        }
+        throw error;
+      }
+    }
+    if (
+      shouldDeliver &&
+      !closed &&
+      deliveryVersion === version
+    ) {
+      await afterBatch({ generation });
+    }
+  };
+
+  const schedule = () => {
+    if (!running && !retryTimer && !closed) {
+      // Let a synchronous onUpdate burst settle before beginning I/O. Later
+      // callbacks that arrive while I/O is pending are still handled by the
+      // next drain iteration, in arrival order.
+      running = Promise.resolve()
+        .then(drain)
+        .catch((error) => {
+          onError(error);
+          if (!closed) {
+            retryTimer = setTimeout(() => {
+              retryTimer = undefined;
+              schedule();
+            }, retryDelayMs);
+          }
+        })
+        .finally(() => {
+          running = undefined;
+          if (
+            !closed &&
+            !retryTimer &&
+            (pendingCore !== undefined || needsCore || pendingSignals.size)
+          ) {
+            schedule();
+          }
+        });
+    }
+    return running;
+  };
+
+  return {
+    requestCore(core) {
+      if (closed) return;
+      observeGeneration(core.generation);
+      pendingCore = core;
+      schedule();
+    },
+    requestSignals(update) {
+      if (closed) return;
+      if (update.generation !== generation) {
+        observeGeneration(update.generation);
+        needsCore = true;
+      }
+      mergeSignals(update.signals || []);
+      schedule();
+    },
+    async whenIdle() {
+      while (running) {
+        // A completed drain can schedule one follow-up in its finally block.
+        // eslint-disable-next-line no-await-in-loop
+        await running;
+      }
+    },
+    close() {
+      closed = true;
+      version += 1;
+      clearTimeout(retryTimer);
+      retryTimer = undefined;
+      pendingCore = undefined;
+      needsCore = false;
+      pendingSignals.clear();
+    },
+  };
 }
 
 async function hydrateEarlyConfirmedCache(account) {
@@ -185,22 +417,6 @@ async function hydrateEarlyConfirmedCache(account) {
     markStartup('earlyCacheRecordsUnavailable');
     return null;
   }
-  if (
-    !metadata.migrationVerified &&
-    cache.profile.migrationStatus !== 'completed'
-  ) {
-    const sources = await readLegacySources();
-    const selected = selectLegacyDefault(sources);
-    const merged = mergeLegacySnapshots(
-      sources.local.snapshot,
-      sources.indexed.snapshot
-    );
-    if (hasMeaningfulLegacyData(merged.snapshot || selected.snapshot)) {
-      markStartup('earlyCacheMigrationUnresolved');
-      return null;
-    }
-    await putSyncMetadata(account.ownerKey, { migrationVerified: true });
-  }
 
   const syncEngine = new SyncEngine({
     ownerKey: account.ownerKey,
@@ -217,13 +433,7 @@ async function hydrateEarlyConfirmedCache(account) {
     syncEngine,
     writeBlocked: false,
   });
-  hydrateCompatibilityState(cache, {
-    currentDate: getState().currentDate,
-    selectedDate: getState().selectedDate,
-    fitnessSelectedDate: getState().fitnessSelectedDate,
-    selectedGroup: getState().selectedGroup,
-    syncStatus: 'syncing',
-  });
+  hydrateCompatibilityState(cache, createDeviceState('syncing'));
   markStartup('earlyCacheHydrated');
   return {
     ...account,
@@ -287,14 +497,9 @@ async function finishCloudPersistence(account) {
       preferences: cache.preferences,
       collectionRevisions: metadata.collectionRevisions || {},
       syncEngine,
+      writeBlocked: false,
     });
-    hydrateCompatibilityState(cache, {
-      currentDate: getState().currentDate,
-      selectedDate: getState().selectedDate,
-      fitnessSelectedDate: getState().fitnessSelectedDate,
-      selectedGroup: getState().selectedGroup,
-      syncStatus: 'offline',
-    });
+    hydrateCompatibilityState(cache, createDeviceState('offline'));
     return { ...account, mode: 'cloud_offline' };
   }
 
@@ -303,7 +508,7 @@ async function finishCloudPersistence(account) {
   let core = await client.query(functionReference('bootstrap:getCore'), {});
   markStartup('coreReady');
   const existingMetadata = await metadataPromise;
-  const syncEngine = new SyncEngine({
+  let syncEngine = new SyncEngine({
     ownerKey: account.ownerKey,
     generation: core.generation,
     deviceId: account.deviceId,
@@ -319,254 +524,281 @@ async function finishCloudPersistence(account) {
   };
   setCloudRuntime(runtime);
 
-  let sources;
-  let selected;
-  let mergedSources;
-  let migrationSnapshot = null;
-  let legacySummary = null;
-  const shouldInspectLegacySources =
-    core.profile.migrationStatus !== 'completed' ||
-    !existingMetadata?.migrationVerified;
-  if (shouldInspectLegacySources) {
-    sources = await readLegacySources();
-    selected = selectLegacyDefault(sources);
-    mergedSources = mergeLegacySnapshots(
-      sources.local.snapshot,
-      sources.indexed.snapshot
-    );
-    migrationSnapshot = mergedSources.snapshot || selected.snapshot;
-    legacySummary = summarizeLegacySources(sources);
-  }
-  if (
-    core.profile.migrationStatus !== 'completed' &&
-    hasMeaningfulLegacyData(migrationSnapshot)
-  ) {
-    runtime.writeBlocked = true;
-    await backUpLegacySources(account.ownerKey, sources);
-    const normalized = normalizeLegacySnapshot(
-      migrationSnapshot,
-      sources.local.sideKeys
-    );
-    normalized.warnings.push(...mergedSources.conflicts);
-    dispatch(
-      Actions.hydrateCache({
-        ...migrationSnapshot,
-        manualHolidayDates: normalized.tables.holidaySingles.map(
-          (single) => single.dateKey
-        ),
-        currentDate: getState().currentDate,
-        selectedDate: getState().selectedDate,
-        fitnessSelectedDate: getState().fitnessSelectedDate,
-        selectedGroup: getState().selectedGroup,
-        syncStatus: 'migration_required',
-      })
-    );
-    const sourceFingerprint = checksum(meaningfulLegacySnapshot(migrationSnapshot));
-    renderMigrationPreview({
-      normalized,
-      selectedSource:
-        sources.local.snapshot && sources.indexed.snapshot
-          ? 'merged localStorage + IndexedDB (IndexedDB wins matching-ID conflicts)'
-          : selected.selected,
-      onMigrate: async (onProgress) => {
-        const result = await uploadAndActivateMigration({
-          normalized,
-          sourceFingerprint,
-          deviceId: account.deviceId,
-          onProgress,
-          client,
-        });
-        core = result.core;
-        runtime.generation = core.generation;
-        runtime.preferences = core.preferences;
-        runtime.writeBlocked = false;
-        await cacheCore(account.ownerKey, core);
-        await putSyncMetadata(account.ownerKey, {
-          activeGeneration: core.generation,
-          deviceId: account.deviceId,
-          cachedSchemaVersion: core.schemaVersion,
-          lastCompletedSyncTimestamp: Date.now(),
-          legacyFingerprint: sourceFingerprint,
-          migrationVerified: true,
-        });
-        window.location.reload();
-      },
-    });
-    return {
-      ...account,
-      mode: 'migration_required',
-      preview: normalized,
-      legacySummary,
-    };
-  }
-
-  const localFingerprint = migrationSnapshot
-    ? checksum(meaningfulLegacySnapshot(migrationSnapshot))
-    : null;
-  if (
-    core.profile.migrationStatus === 'completed' &&
-    hasMeaningfulLegacyData(migrationSnapshot) &&
-    localFingerprint &&
-    existingMetadata?.legacyFingerprint !== localFingerprint
-  ) {
-    const pending = await listOutbox(account.ownerKey);
-    if (pending.length) {
-      runtime.writeBlocked = true;
-      throw new Error(
-        'Pending offline changes must sync before this device can merge its legacy data'
-      );
-    }
-    await backUpLegacySources(account.ownerKey, sources);
-    const localNormalized = normalizeLegacySnapshot(
-      migrationSnapshot,
-      sources.local.sideKeys
-    );
-    const cloudExport = await exportCloudData(client);
-    const merged = mergeNormalizedTables(cloudExport.tables, localNormalized.tables);
-    runtime.writeBlocked = true;
-    renderMigrationPreview({
-      normalized: merged,
-      selectedSource:
-        'cloud data + this device (cloud wins displayed matching-ID conflicts)',
-      onMigrate: async (onProgress) => {
-        const result = await uploadAndActivateMigration({
-          normalized: merged,
-          sourceFingerprint: localFingerprint,
-          deviceId: account.deviceId,
-          onProgress,
-          client,
-        });
-        runtime.generation = result.core.generation;
-        runtime.preferences = result.core.preferences;
-        runtime.writeBlocked = false;
-        await putSyncMetadata(account.ownerKey, {
-          activeGeneration: result.core.generation,
-          legacyFingerprint: localFingerprint,
-          migrationVerified: true,
-          lastCompletedSyncTimestamp: Date.now(),
-        });
-        window.location.reload();
-      },
-    });
-    return {
-      ...account,
-      mode: 'additional_device_merge_required',
-      preview: merged,
-    };
-  }
-
   const today = new Date();
   const fromDate = `${today.getUTCFullYear() - 1}-01-01`;
   const toDate = `${today.getUTCFullYear() + 1}-12-31`;
-  const rehydrateFromConfirmedCache = async (syncStatus) => {
+  const historyWatermarks = {
+    ...(existingMetadata?.historyWatermarks || {}),
+  };
+  const historySignalRevisions = {
+    ...(existingMetadata?.historySignalRevisions || {}),
+  };
+
+  const rehydrateFromConfirmedCache = async (syncStatus, expectedGeneration) => {
+    const generation = expectedGeneration ?? runtime.generation;
     const cached = await loadAccountWithPendingOperations(
       account.ownerKey,
-      runtime.generation
+      generation
     );
-    hydrateCompatibilityState(cached, {
-      currentDate: getState().currentDate,
-      selectedDate: getState().selectedDate,
-      fitnessSelectedDate: getState().fitnessSelectedDate,
-      selectedGroup: getState().selectedGroup,
-      ...(syncStatus ? { syncStatus } : {}),
-    });
+    if (generation !== runtime.generation) return false;
+    hydrateCompatibilityState(cached, createDeviceState(syncStatus));
+    return true;
   };
 
-  const refreshConfirmedData = async () => {
-    const history = await queryHistoryWindow(client, fromDate, toDate);
-    await cacheCore(account.ownerKey, core);
-    await Promise.all([
-      putConfirmedEntities(
-        account.ownerKey,
-        core.generation,
-        'habitEntries',
-        history.habitEntries
-      ),
-      putConfirmedEntities(
-        account.ownerKey,
-        core.generation,
-        'activityRecords',
-        history.activityRecords
-      ),
-      putConfirmedEntities(
-        account.ownerKey,
-        core.generation,
-        'restDays',
-        history.restDays
-      ),
-      putSyncMetadata(account.ownerKey, {
-        activeGeneration: core.generation,
-        deviceId: account.deviceId,
-        cachedSchemaVersion: core.schemaVersion,
-        lastCompletedSyncTimestamp: Date.now(),
-        subscriptionWindows: { fromDate, toDate },
-        collectionRevisions: core.collectionRevisions || {},
-      }),
-    ]);
-    await rehydrateFromConfirmedCache('synced');
+  const replaceHistoryWindow = async (generation, history) => {
+    const results = await Promise.all(
+      HISTORY_ENTITY_TYPES.map((entityType) =>
+        replaceConfirmedEntities(
+          account.ownerKey,
+          generation,
+          entityType,
+          history[entityType],
+          {
+            isInScope: (record) =>
+              isRecordInWindow(entityType, record, fromDate, toDate),
+          }
+        )
+      )
+    );
+    return results.some(hasCacheChanges);
   };
+
+  const refreshAuthoritativeData = async (
+    targetCore,
+    { isCurrent = () => targetCore.generation === runtime.generation } = {}
+  ) => {
+    const expectedGeneration = targetCore.generation;
+    const signalsBefore = await client.query(
+      functionReference('sync:getHistorySignals'),
+      {}
+    );
+    if (signalsBefore.generation !== expectedGeneration) {
+      throw new Error('REMOTE_GENERATION_CHANGED');
+    }
+    const history = await queryHistoryWindow(client, fromDate, toDate);
+    const signalsAfter = await client.query(
+      functionReference('sync:getHistorySignals'),
+      {}
+    );
+    if (
+      signalsAfter.generation !== expectedGeneration ||
+      !isCurrent()
+    ) {
+      throw new Error('REMOTE_GENERATION_CHANGED');
+    }
+
+    const [coreChanged, historyChanged] = await Promise.all([
+      cacheCore(account.ownerKey, targetCore),
+      replaceHistoryWindow(expectedGeneration, history),
+    ]);
+    if (!isCurrent()) return false;
+
+    const beforeByType = signalMap(signalsBefore.signals);
+    HISTORY_ENTITY_TYPES.forEach((entityType) => {
+      const before = beforeByType[entityType];
+      historyWatermarks[entityType] = nextInclusiveWatermark(
+        historyWatermarks[entityType],
+        before,
+        history[entityType]
+      );
+      historySignalRevisions[entityType] = Math.max(
+        historySignalRevisions[entityType] || 0,
+        before?.revision || 0
+      );
+    });
+    await putSyncMetadata(account.ownerKey, {
+      activeGeneration: expectedGeneration,
+      deviceId: account.deviceId,
+      cachedSchemaVersion: targetCore.schemaVersion,
+      lastCompletedSyncTimestamp: Date.now(),
+      subscriptionWindows: { fromDate, toDate },
+      collectionRevisions: targetCore.collectionRevisions || {},
+      historyWatermarks,
+      historySignalRevisions,
+    });
+    return coreChanged || historyChanged;
+  };
+
+  const installGeneration = async (updatedCore, isCurrent) => {
+    const changedGeneration = updatedCore.generation !== runtime.generation;
+    if (changedGeneration) {
+      runtime.writeBlocked = true;
+      syncEngine.close();
+      syncEngine = new SyncEngine({
+        ownerKey: account.ownerKey,
+        generation: updatedCore.generation,
+        deviceId: account.deviceId,
+        client,
+      });
+      runtime.generation = updatedCore.generation;
+      runtime.syncEngine = syncEngine;
+      Object.keys(historyWatermarks).forEach((key) => delete historyWatermarks[key]);
+      Object.keys(historySignalRevisions).forEach(
+        (key) => delete historySignalRevisions[key]
+      );
+    }
+    runtime.preferences = updatedCore.preferences;
+    runtime.collectionRevisions = updatedCore.collectionRevisions || {};
+    core = updatedCore;
+    let changed = false;
+    if (changedGeneration) {
+      changed = await refreshAuthoritativeData(updatedCore, { isCurrent });
+      if (!isCurrent()) return false;
+      runtime.writeBlocked = false;
+      syncEngine.requestReplay();
+      return true;
+    }
+
+    changed = await cacheCore(account.ownerKey, updatedCore);
+    if (!isCurrent()) return false;
+    await putSyncMetadata(account.ownerKey, {
+      collectionRevisions: runtime.collectionRevisions,
+    });
+    return changed;
+  };
+
+  const processHistorySignals = async (
+    signals,
+    { expectedGeneration, isCurrent }
+  ) => {
+    let changed = false;
+    let metadataChanged = false;
+    for (const signal of signals) {
+      if (
+        !HISTORY_ENTITY_TYPES.includes(signal.entityType) ||
+        signal.revision <= (historySignalRevisions[signal.entityType] || 0)
+      ) {
+        continue;
+      }
+      const sinceUpdatedAt = historyWatermarks[signal.entityType] || 0;
+      // The inclusive lower bound is intentional; never add one here.
+      // eslint-disable-next-line no-await-in-loop
+      const records = await queryAllPages(
+        client,
+        'sync:listChangedEntities',
+        {
+          entityType: signal.entityType,
+          sinceUpdatedAt,
+        },
+        { expectedGeneration }
+      );
+      if (!isCurrent()) return false;
+      const recordsInWindow = records.filter((record) =>
+        isRecordInWindow(signal.entityType, record, fromDate, toDate)
+      );
+      // eslint-disable-next-line no-await-in-loop
+      const result = await applyConfirmedEntityChanges(
+        account.ownerKey,
+        expectedGeneration,
+        signal.entityType,
+        recordsInWindow
+      );
+      if (!isCurrent()) return false;
+      changed = hasCacheChanges(result) || changed;
+      historyWatermarks[signal.entityType] = nextInclusiveWatermark(
+        sinceUpdatedAt,
+        signal,
+        records
+      );
+      historySignalRevisions[signal.entityType] = signal.revision;
+      metadataChanged = true;
+    }
+    if (metadataChanged && isCurrent()) {
+      await putSyncMetadata(account.ownerKey, {
+        historyWatermarks,
+        historySignalRevisions,
+        lastCompletedSyncTimestamp: Date.now(),
+      });
+    }
+    return changed;
+  };
+
+  const remoteQueue = createCoalescedRemoteQueue({
+    initialGeneration: core.generation,
+    processCore: async (updatedCore, { expectedGeneration, isCurrent }) => {
+      const latestCore =
+        updatedCore ||
+        (await client.query(functionReference('bootstrap:getCore'), {}));
+      if (latestCore.generation !== expectedGeneration || !isCurrent()) {
+        return false;
+      }
+      return installGeneration(latestCore, isCurrent);
+    },
+    processSignals: processHistorySignals,
+    afterBatch: ({ generation }) =>
+      rehydrateFromConfirmedCache(undefined, generation),
+    onError: (error) => {
+      if (error?.message === 'REMOTE_GENERATION_CHANGED') {
+        void client
+          .query(functionReference('bootstrap:getCore'), {})
+          .then((updatedCore) => remoteQueue.requestCore(updatedCore))
+          .catch((refreshError) => {
+            console.warn('Generation refresh failed:', refreshError);
+            dispatch(
+              Actions.setSyncStatus(navigator.onLine ? 'failed' : 'offline')
+            );
+          });
+        return;
+      }
+      console.warn('Remote refresh failed:', error);
+      dispatch(Actions.setSyncStatus(navigator.onLine ? 'failed' : 'offline'));
+    },
+  });
 
   const subscribeToCloudUpdates = () => {
-    if (typeof client.onUpdate !== 'function') return;
-    client.onUpdate(functionReference('bootstrap:getCore'), {}, async (updatedCore) => {
-      if (updatedCore.generation !== runtime.generation) {
-        runtime.generation = updatedCore.generation;
-      }
-      runtime.preferences = updatedCore.preferences;
-      runtime.collectionRevisions = updatedCore.collectionRevisions || {};
-      await cacheCore(account.ownerKey, updatedCore);
-      await putSyncMetadata(account.ownerKey, {
-        collectionRevisions: runtime.collectionRevisions,
-      });
-      await rehydrateFromConfirmedCache();
-    });
-    client.onUpdate(
-      functionReference('habitEntries:listByDateRange'),
-      {
-        fromDate,
-        toDate,
-        paginationOpts: { numItems: 500, cursor: null },
-      },
-      async (page) => {
-        await putConfirmedEntities(
-          account.ownerKey,
-          runtime.generation,
-          'habitEntries',
-          page.page
+    if (typeof client.onUpdate !== 'function') return [];
+    return [
+      client.onUpdate(
+        functionReference('bootstrap:getCore'),
+        {},
+        (updatedCore) => remoteQueue.requestCore(updatedCore)
+      ),
+      client.onUpdate(
+        functionReference('sync:getHistorySignals'),
+        {},
+        (update) => remoteQueue.requestSignals(update)
+      ),
+    ];
+  };
+
+  const initializeRemoteState = async () => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await refreshAuthoritativeData(core);
+        await rehydrateFromConfirmedCache('synced', core.generation);
+        runtime.subscriptionUnsubscribers = subscribeToCloudUpdates();
+        return;
+      } catch (error) {
+        if (error?.message !== 'REMOTE_GENERATION_CHANGED' || attempt === 2) {
+          throw error;
+        }
+        const latestCore = await client.query(
+          functionReference('bootstrap:getCore'),
+          {}
         );
-        await rehydrateFromConfirmedCache();
+        if (latestCore.generation !== runtime.generation) {
+          runtime.writeBlocked = true;
+          syncEngine.close();
+          syncEngine = new SyncEngine({
+            ownerKey: account.ownerKey,
+            generation: latestCore.generation,
+            deviceId: account.deviceId,
+            client,
+          });
+          runtime.generation = latestCore.generation;
+          runtime.syncEngine = syncEngine;
+          Object.keys(historyWatermarks).forEach(
+            (key) => delete historyWatermarks[key]
+          );
+          Object.keys(historySignalRevisions).forEach(
+            (key) => delete historySignalRevisions[key]
+          );
+        }
+        core = latestCore;
+        runtime.preferences = latestCore.preferences;
+        runtime.collectionRevisions = latestCore.collectionRevisions || {};
       }
-    );
-    client.onUpdate(
-      functionReference('history:listActivityRecordsByDateRange'),
-      {
-        fromDate,
-        toDate,
-        paginationOpts: { numItems: 500, cursor: null },
-      },
-      async (page) => {
-        await putConfirmedEntities(
-          account.ownerKey,
-          runtime.generation,
-          'activityRecords',
-          page.page
-        );
-        await rehydrateFromConfirmedCache();
-      }
-    );
-    client.onUpdate(
-      functionReference('history:listRestDaysByDateRange'),
-      { fromDate, toDate },
-      async (records) => {
-        await putConfirmedEntities(
-          account.ownerKey,
-          runtime.generation,
-          'restDays',
-          records
-        );
-        await rehydrateFromConfirmedCache();
-      }
-    );
+    }
   };
 
   const hasCompatibleCache =
@@ -577,19 +809,20 @@ async function finishCloudPersistence(account) {
 
   if (cachedAccount?.profile) {
     hydrateCompatibilityState(mergeCoreIntoCache(cachedAccount, core), {
-      currentDate: getState().currentDate,
-      selectedDate: getState().selectedDate,
-      fitnessSelectedDate: getState().fitnessSelectedDate,
-      selectedGroup: getState().selectedGroup,
-      syncStatus: 'syncing',
+      ...createDeviceState('syncing'),
     });
     markStartup('cacheHydrated');
     syncEngine.requestReplay();
-    subscribeToCloudUpdates();
-    void refreshConfirmedData().catch((error) => {
-      console.warn('Background account refresh failed:', error);
-      dispatch(Actions.setSyncStatus(navigator.onLine ? 'failed' : 'offline'));
-    });
+    void initializeRemoteState()
+      .then(() => {
+        runtime.writeBlocked = false;
+      })
+      .catch((error) => {
+        console.warn('Background account refresh failed:', error);
+        dispatch(
+          Actions.setSyncStatus(navigator.onLine ? 'failed' : 'offline')
+        );
+      });
     return {
       ...account,
       mode: 'cloud_cached',
@@ -597,9 +830,9 @@ async function finishCloudPersistence(account) {
     };
   }
 
-  await refreshConfirmedData();
+  await initializeRemoteState();
+  runtime.writeBlocked = false;
   markStartup('cloudHydrated');
   syncEngine.requestReplay();
-  subscribeToCloudUpdates();
   return { ...account, mode: 'cloud', generation: core.generation };
 }

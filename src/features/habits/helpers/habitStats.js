@@ -526,64 +526,6 @@ export function calculateHabitCompletionRate(habit, days = 30) {
 }
 
 /**
- * Calculate rolling-average completion for a habit over the last `windowDays` considering:
- * - Always includes the current day if it is on/after creation date
- * - Fills the remainder with the most recent past days that were completed
- * - Stops once it has `windowDays` days or reaches creation boundary
- * - Denominator is the count of selected days (today + completed past days)
- * - Numerator is count of selected days that are completed
- *
- * If there are zero selected days, returns 0.
- *
- * @param {Object} habit
- * @param {number} windowDays
- * @returns {number}
- */
-export function calculateRollingCompletionRate(habit, windowDays) {
-  const today = new Date();
-  // Determine creation date (using broader heuristics)
-  let creationDate = getHabitStartDate(habit);
-
-  const includeToday = today >= creationDate && isHabitScheduledOnDate(habit, today);
-
-  // Count number of past COMPLETED days (before today)
-  let completedBeforeToday = 0;
-  const maxLookbackDays = Math.floor((today - creationDate) / (1000 * 60 * 60 * 24));
-  for (let i = 1; i <= maxLookbackDays; i++) {
-    const date = new Date(today);
-    date.setDate(today.getDate() - i);
-    if (date < creationDate) break;
-    if (isHabitCompleted(habit, date)) completedBeforeToday++;
-  }
-
-  // If we have enough completed days to fill the window (with today if scheduled), switch to standard last-N-days calc
-  if ((includeToday ? 1 : 0) + completedBeforeToday >= windowDays) {
-    return calculateHabitCompletionRate(habit, windowDays);
-  }
-
-  // Otherwise, build set: today (if scheduled) + most recent COMPLETED past days until we reach windowDays
-  const selectedDates = [];
-  if (includeToday) selectedDates.push(new Date(today));
-
-  for (let i = 1; i <= maxLookbackDays && selectedDates.length < windowDays; i++) {
-    const date = new Date(today);
-    date.setDate(today.getDate() - i);
-    if (date < creationDate) break;
-    if (isHabitCompleted(habit, date)) selectedDates.push(date);
-  }
-
-  const denominator = selectedDates.length;
-  if (denominator === 0) return 0;
-
-  let completedCount = 0;
-  for (const date of selectedDates) {
-    if (isHabitCompleted(habit, date)) completedCount++;
-  }
-
-  return (completedCount / denominator) * 100;
-}
-
-/**
  * Calculate current streak for a habit
  * @param {Object} habit - The habit object
  * @returns {number} Current streak count
@@ -633,4 +575,4 @@ export function calculateLongestStreak(habit) {
   }
 
   return longestStreak;
-} 
+}

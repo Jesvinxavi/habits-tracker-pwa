@@ -254,17 +254,6 @@ export function isHabitCompleted(habit, dateObj) {
   return habit.completed[key] === true;
 }
 
-export function setHabitCompleted(habit, dateObj, val) {
-  const key = getPeriodKey(habit, dateObj);
-  if (typeof habit.completed !== 'object' || habit.completed === null) habit.completed = {};
-  habit.completed[key] = val;
-}
-
-export function toggleHabitCompleted(habit, dateObj) {
-  const cur = isHabitCompleted(habit, dateObj);
-  setHabitCompleted(habit, dateObj, !cur);
-}
-
 /**
  * Return true when the given habit is explicitly skipped on the provided date.
  * Helper centralised here so UI layers can share one source-of-truth.
@@ -277,5 +266,3 @@ export function isHabitSkippedToday(habit, date = new Date()) {
   const key = getPeriodKey(habit, d);
   return Array.isArray(habit.skippedDates) && habit.skippedDates.includes(key);
 }
-
-

@@ -1,8 +1,18 @@
 import { ConvexClient } from 'convex/browser';
 import { makeFunctionReference } from 'convex/server';
-import { assertCloudConfiguration } from './dataBackend.js';
 
 let client;
+
+export function assertCloudConfiguration() {
+  const missing = [];
+  if (!import.meta.env.VITE_CONVEX_URL) missing.push('VITE_CONVEX_URL');
+  if (!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY) {
+    missing.push('VITE_CLERK_PUBLISHABLE_KEY');
+  }
+  if (missing.length) {
+    throw new Error(`Cloud persistence is missing configuration: ${missing.join(', ')}`);
+  }
+}
 
 export function functionReference(name) {
   return makeFunctionReference(name);

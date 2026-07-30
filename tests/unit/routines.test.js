@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActionTypes, getState, dispatch, Actions } from '../../src/core/state.js';
 import {
   addRoutine,
@@ -8,16 +8,6 @@ import {
 } from '../../src/features/fitness/routines.js';
 
 vi.mock('../../src/components/ConfirmDialog.js', () => ({ showConfirm: vi.fn() }));
-
-// Vitest inherits VITE_DATA_BACKEND=cloud from .env.local, which would route every
-// dispatch through the persistence layer with no cloud runtime attached. These
-// tests exercise the in-memory reducer, so pin the backend to legacy.
-vi.mock('../../src/core/dataBackend.js', () => ({
-  DATA_BACKENDS: { LEGACY: 'legacy', CLOUD: 'cloud' },
-  isCloudBackend: () => false,
-  getDataBackend: () => 'legacy',
-  assertCloudConfiguration: () => {},
-}));
 
 /**
  * Seeds an activity straight into state, bypassing the durable write path.
@@ -35,8 +25,10 @@ function seedActivity(id, name) {
 
 describe('routines', () => {
   beforeEach(() => {
+    vi.stubEnv('VITE_TEST_HARNESS', '1');
     dispatch(Actions.resetState());
   });
+  afterEach(() => vi.unstubAllEnvs());
 
   it('assigns sortOrder from the collection length and a YYYY-MM-DD createdAt', async () => {
     const first = await addRoutine({ name: 'Push', activityIds: [] });

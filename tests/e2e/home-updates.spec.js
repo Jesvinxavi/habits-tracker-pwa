@@ -211,7 +211,8 @@ test.describe('Home updates', () => {
     });
     await expect(page.locator('#theme-toggle')).toHaveCount(0);
     const titleLayout = await page
-      .getByRole('heading', { name: 'Healthy Habits Tracker' })
+      .locator('#home-view')
+      .getByRole('heading', { name: 'Healthy Habits Tracker', exact: true })
       .evaluate((node) => ({
         clientWidth: node.clientWidth,
         scrollWidth: node.scrollWidth,

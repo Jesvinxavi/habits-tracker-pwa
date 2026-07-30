@@ -1,5 +1,5 @@
 import { mutation } from "./_generated/server";
-import { operationEnvelope } from "./lib/envelopes";
+import { operationEnvelope, operationResult } from "./lib/envelopes";
 import { requireIdentity, requireProfile } from "./lib/auth";
 import { findProcessed, recordProcessed } from "./lib/idempotency";
 import { conflictResult } from "./lib/revisions";
@@ -14,6 +14,7 @@ const ALLOWED = new Set([
 
 export const patch = mutation({
   args: operationEnvelope,
+  returns: operationResult,
   handler: async (ctx, args) => {
     const { ownerKey } = await requireIdentity(ctx);
     const processed = await findProcessed(ctx, ownerKey, args.operationId);

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActionTypes, dispatch, Actions } from '../../src/core/state.js';
 import {
   addProgram,
@@ -16,15 +16,6 @@ import {
 } from '../../src/features/fitness/programs.js';
 
 vi.mock('../../src/components/ConfirmDialog.js', () => ({ showConfirm: vi.fn() }));
-
-// See routines.test.js: .env.local sets VITE_DATA_BACKEND=cloud, which these
-// reducer-level tests must not route through.
-vi.mock('../../src/core/dataBackend.js', () => ({
-  DATA_BACKENDS: { LEGACY: 'legacy', CLOUD: 'cloud' },
-  isCloudBackend: () => false,
-  getDataBackend: () => 'legacy',
-  assertCloudConfiguration: () => {},
-}));
 
 /**
  * Seeds a routine straight into state.
@@ -56,11 +47,13 @@ function seedActivity(id, name) {
 
 describe('programs', () => {
   beforeEach(() => {
+    vi.stubEnv('VITE_TEST_HARNESS', '1');
     dispatch(Actions.resetState());
     seedRoutine('r1', 'Push');
     seedRoutine('r2', 'Pull');
     seedActivity('a1', 'Bench Press');
   });
+  afterEach(() => vi.unstubAllEnvs());
 
   it('defaults a new program to active, with normalised fields', async () => {
     const program = await addProgram({

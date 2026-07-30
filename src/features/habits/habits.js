@@ -1,9 +1,4 @@
-import {
-  BG_COLOR_CLASS_MAP,
-  TEXT_COLOR_CLASS_MAP,
-  DAY_NAMES_SHORT as DAY_NAMES,
-  MONTH_NAMES_SHORT as MONTH_NAMES,
-} from '../../shared/constants.js';
+import { DAY_NAMES_SHORT as DAY_NAMES, MONTH_NAMES_SHORT as MONTH_NAMES } from '../../shared/constants.js';
 import { capitalize } from '../../shared/common.js';
 
 // ---------------- Inlined schedule-formatting helpers ----------------
@@ -57,14 +52,6 @@ function combineList(items, labelPlural, baseText) {
 }
 
 // --------------------------------------------------------------------
-
-export function getCSSColorClass(color) {
-  return BG_COLOR_CLASS_MAP[color] || 'bg-gray-50 dark:bg-gray-900 dark:bg-opacity-30';
-}
-
-export function getTextColorClass(color) {
-  return TEXT_COLOR_CLASS_MAP[color] || 'text-gray-600 dark:text-gray-300';
-}
 
 export function getFrequencyIcon(habit) {
   // For target-based habits (numeric target), use a bullseye/target icon; else calendar icon

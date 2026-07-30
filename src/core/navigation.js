@@ -1,5 +1,4 @@
 import { dispatch, Actions, getState } from '../core/state.js';
-import { isCloudBackend } from './dataBackend.js';
 import { nextPaint } from '../shared/nextPaint.js';
 import { getLocalMidnightISOString } from '../shared/datetime.js';
 
@@ -154,7 +153,6 @@ export async function initializeNavigation() {
       });
     };
 
-    if (!isCloudBackend()) localStorage.setItem('activeHabitTrackerTab', viewId);
     if (viewId === 'home-view' || viewId === 'fitness-view') {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -286,34 +284,47 @@ export async function initializeNavigation() {
     }
   });
 
-  // Prefetch when page becomes hidden (user likely to come back soon)
-  window.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      prefetchModule('home');
-      prefetchModule('habits');
-      prefetchModule('fitness');
-      prefetchModule('stats');
+  function connectionDiscouragesPrefetch() {
+    const connection =
+      navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    return Boolean(
+      connection?.saveData ||
+        ['slow-2g', '2g'].includes(connection?.effectiveType)
+    );
+  }
+
+  async function serviceWorkerOwnsOfflineWarmup() {
+    if (!('serviceWorker' in navigator)) return false;
+    if (navigator.serviceWorker.controller) return true;
+    try {
+      const registration = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((resolve) => setTimeout(() => resolve(null), 1500)),
+      ]);
+      return Boolean(registration?.active);
+    } catch {
+      return false;
     }
-  });
+  }
 
   // Warm every top-level page after Home is interactive. This downloads code
-  // only; it does not initialize hidden features or extend the startup loader.
+  // only. Installed Pages builds let Workbox own that download, and constrained
+  // connections retain intent prefetch without speculative background traffic.
+  const warmTopLevelModules = async () => {
+    if (connectionDiscouragesPrefetch() || (await serviceWorkerOwnsOfflineWarmup())) {
+      return;
+    }
+    prefetchModule('habits');
+    prefetchModule('fitness');
+    prefetchModule('stats');
+    prefetchModule('profile');
+  };
   if ('requestIdleCallback' in window) {
     requestIdleCallback(
-      () => {
-        prefetchModule('habits');
-        prefetchModule('fitness');
-        prefetchModule('stats');
-        prefetchModule('profile');
-      },
+      () => void warmTopLevelModules(),
       { timeout: 1200 }
     );
   } else {
-    setTimeout(() => {
-      prefetchModule('habits');
-      prefetchModule('fitness');
-      prefetchModule('stats');
-      prefetchModule('profile');
-    }, 250);
+    setTimeout(() => void warmTopLevelModules(), 250);
   }
 }

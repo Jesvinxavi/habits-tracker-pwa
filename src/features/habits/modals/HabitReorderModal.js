@@ -1,6 +1,6 @@
 // Reorder / drag-n-drop functionality for Habits & Categories
 // ----------------------------------------------------------
-// This module relies on SortableJS (loaded on-demand via CDN).
+// This module relies on the locally bundled SortableJS ESM build.
 // The high-level flow:
 // 1. User taps a .reorder-btn in the Habits view.
 // 2. We ensure SortableJS is loaded, then create sortable instances
@@ -17,9 +17,10 @@ let reorderActive = false;
 
 export async function ensureSortableLoaded() {
   if (SortableLib) return SortableLib;
-  // Dynamically import the ESM build from jsDelivr (works without CORS/TS hassles)
+  // Keep the dependency at the reorder interaction boundary while ensuring the
+  // installed PWA can reorder without a third-party network request.
   try {
-    SortableLib = (await import('https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/+esm')).default;
+    SortableLib = (await import('sortablejs')).default;
     return SortableLib;
   } catch (err) {
     console.error('[reorder] failed to load SortableJS', err);

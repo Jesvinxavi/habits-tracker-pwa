@@ -1,38 +1,5 @@
 import { getState } from '../../../core/state.js';
-import { isCloudBackend } from '../../../core/dataBackend.js';
-import {
-  isHabitCompleted,
-  isHabitSkippedToday,
-  isHabitScheduledOnDate,
-  belongsToSelectedGroup,
-} from '../schedule.js';
-
-/* -------------------------------------------------------------------------- */
-/*  PROGRESS CALCULATION                                                      */
-/* -------------------------------------------------------------------------- */
-
-export function calculateProgressForCurrentContext() {
-  const rawDateObj = new Date(getState().selectedDate);
-  
-  // Normalize the date to match how calendar tiles store dates (local midnight as UTC)
-  const normalizedLocal = new Date(rawDateObj.getFullYear(), rawDateObj.getMonth(), rawDateObj.getDate());
-  const dateObj = new Date(Date.UTC(normalizedLocal.getFullYear(), normalizedLocal.getMonth(), normalizedLocal.getDate()));
-
-  // 1) Habits that belong to the currently selected group
-  // 2) Are actually scheduled for the selected date (takes holiday mode into account)
-  const scheduledHabits = getState().habits.filter(
-    (h) => belongsToSelectedGroup(h, getState().selectedGroup) && isHabitScheduledOnDate(h, dateObj)
-  );
-
-  // 3) Remove any that the user explicitly skipped
-  const activeHabits = scheduledHabits.filter((h) => !isHabitSkippedToday(h, dateObj));
-
-  // 4) Determine how many of the remaining active habits are completed
-  const completed = activeHabits.filter((h) => isHabitCompleted(h, dateObj));
-
-  const progress = activeHabits.length ? (completed.length / activeHabits.length) * 100 : 0;
-  return progress;
-}
+import { belongsToSelectedGroup } from '../schedule.js';
 
 /* -------------------------------------------------------------------------- */
 /*  GROUP NAVIGATION HELPERS                                                  */
@@ -70,18 +37,13 @@ export let sectionVisibility = {
   Skipped: true,
 };
 
-// Load section visibility from localStorage
+// Cloud hydration finishes before Home is initialized, so the reducer is the
+// single source of truth for account-scoped section visibility.
 try {
-  if (isCloudBackend()) {
-    sectionVisibility = {
-      ...sectionVisibility,
-      ...(getState().homeSectionVisibility || {}),
-    };
-  }
-  const saved = localStorage.getItem('homeSectionVisibility');
-  if (saved && !isCloudBackend()) {
-    sectionVisibility = { ...sectionVisibility, ...JSON.parse(saved) };
-  }
+  sectionVisibility = {
+    ...sectionVisibility,
+    ...(getState().homeSectionVisibility || {}),
+  };
 } catch (e) {
   console.warn('Failed to load section visibility:', e);
 }

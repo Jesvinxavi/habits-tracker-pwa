@@ -1,7 +1,19 @@
 let runtime;
 
+function disposeRuntime(value) {
+  value?.remoteQueue?.close?.();
+  value?.subscriptionUnsubscribers?.forEach((unsubscribe) => {
+    try {
+      unsubscribe();
+    } catch (error) {
+      console.warn('Cloud subscription cleanup failed:', error);
+    }
+  });
+  value?.syncEngine?.close?.();
+}
+
 export function setCloudRuntime(nextRuntime) {
-  runtime?.syncEngine?.close();
+  disposeRuntime(runtime);
   runtime = nextRuntime;
 }
 
@@ -10,6 +22,6 @@ export function getCloudRuntime() {
 }
 
 export function clearCloudRuntime() {
-  runtime?.syncEngine?.close();
+  disposeRuntime(runtime);
   runtime = undefined;
 }

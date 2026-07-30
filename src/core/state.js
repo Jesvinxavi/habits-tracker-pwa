@@ -8,7 +8,6 @@ import {
   normalizeFitnessPayload,
   normalizeRecordedActivity,
 } from '../shared/fitnessValidation.js';
-import { isCloudBackend } from './dataBackend.js';
 import { installTestHarnessApi, isTestHarnessEnabled } from './testHarness.js';
 import { getCloudRuntime } from './cloudRuntime.js';
 
@@ -39,8 +38,6 @@ const initialState = {
     // Off by default: pulling a program's routines into a day writes records, so
     // it stays an explicit choice until the user opts in.
   },
-  foodLog: [],
-  stats: {},
   // Fitness activities data
   activities: [],
   activityCategories: [
@@ -55,7 +52,7 @@ const initialState = {
   programs: [], // Training blocks with a weekly routine schedule
   restDays: {}, // Map dateKey (YYYY-MM-DD) -> true
   homeSectionVisibility: { Completed: true, Skipped: true },
-  syncStatus: 'legacy',
+  syncStatus: isTestHarnessEnabled() ? 'synced' : 'syncing',
 };
 
 /**
@@ -440,7 +437,6 @@ export function dispatch(action) {
   const prevState = _appData;
 
   if (
-    isCloudBackend() &&
     !isTestHarnessEnabled() &&
     !action.meta?.source &&
     typeof action.type === 'string'

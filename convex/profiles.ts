@@ -1,22 +1,15 @@
-import { mutation, query } from "./_generated/server";
+import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireIdentity } from "./lib/auth";
-
-const DEFAULT_CATEGORIES = [
-  { clientId: "cardio", name: "Cardio", color: "#EF4444", icon: "🏃‍♂️" },
-  {
-    clientId: "strength",
-    name: "Strength Training",
-    color: "#2563EB",
-    icon: "💪",
-  },
-  { clientId: "stretching", name: "Stretching", color: "#22C55E", icon: "🧘‍♀️" },
-  { clientId: "sports", name: "Sports", color: "#F97316", icon: "⚽" },
-  { clientId: "other", name: "Other", color: "#EAB308", icon: "🎯" },
-];
+import { DEFAULT_ACTIVITY_CATEGORIES } from "./lib/defaults";
 
 export const provision = mutation({
   args: { deviceId: v.string(), appFirstOpenDate: v.string() },
+  returns: v.object({
+    profile: v.any(),
+    cacheOwnerKey: v.string(),
+    clerkUserId: v.string(),
+  }),
   handler: async (ctx, args) => {
     const { ownerKey, identity } = await requireIdentity(ctx);
     const existing = await ctx.db
@@ -36,7 +29,6 @@ export const provision = mutation({
       activeGeneration: 1,
       dataSchemaVersion: 1,
       appFirstOpenDate: args.appFirstOpenDate,
-      migrationStatus: "not_started",
       createdAt: now,
       updatedAt: now,
     });
@@ -52,11 +44,11 @@ export const provision = mutation({
       updatedAt: now,
       updatedByDeviceId: args.deviceId,
     });
-    for (let index = 0; index < DEFAULT_CATEGORIES.length; index += 1) {
+    for (let index = 0; index < DEFAULT_ACTIVITY_CATEGORIES.length; index += 1) {
       await ctx.db.insert("activityCategories", {
         ownerKey,
         generation: 1,
-        ...DEFAULT_CATEGORIES[index],
+        ...DEFAULT_ACTIVITY_CATEGORIES[index],
         sortOrder: index,
         isSystemDefault: true,
         revision: 1,
@@ -69,16 +61,5 @@ export const provision = mutation({
       cacheOwnerKey: ownerKey,
       clerkUserId: identity.subject,
     };
-  },
-});
-
-export const get = query({
-  args: {},
-  handler: async (ctx) => {
-    const { ownerKey } = await requireIdentity(ctx);
-    return await ctx.db
-      .query("userProfiles")
-      .withIndex("by_owner", (q) => q.eq("ownerKey", ownerKey))
-      .unique();
   },
 });

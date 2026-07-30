@@ -1,13 +1,6 @@
 import { getState, dispatch, Actions } from '../../core/state.js';
-import { updateProgressRing } from '../home/components/ProgressRing.js';
 import { getFrequencyText, getFrequencyIcon } from './habits.js';
 import { hexToRgba } from '../../shared/color.js';
-import {
-  isHabitCompleted,
-  isHabitScheduledOnDate,
-  belongsToSelectedGroup,
-  isHabitSkippedToday,
-} from '../home/schedule.js';
 import { handleHabitStatsClick } from './modals/HabitStatsModal.js';
 import { openEditHabitModal } from './modals/HabitFormModal.js';
 
@@ -19,61 +12,10 @@ import { openEditHabitModal } from './modals/HabitFormModal.js';
 
 
 
-// ---------- Home View ----------
-
-
-
-// ---------- Home View ----------
-
-export function renderHomeView() {
-  // Update collapsed state of completed/skipped sections according to settings
-  const completedSection = document.getElementById('completed-section');
-  const skippedSection = document.getElementById('skipped-section');
-  if (completedSection)
-    completedSection.classList.toggle('collapsed', getState().settings.hideCompleted);
-  if (skippedSection) skippedSection.classList.toggle('collapsed', getState().settings.hideSkipped);
-
-  // Re-calculate progress ring using the same logic as home view
-  // This ensures consistency with the selected group filtering
-  const dateObj = new Date(getState().selectedDate);
-
-  // 1) Habits that belong to the currently selected group
-  // 2) Are actually scheduled for the selected date (takes holiday mode into account)
-  const scheduledHabits = getState().habits.filter(
-    (h) => belongsToSelectedGroup(h, getState().selectedGroup) && isHabitScheduledOnDate(h, dateObj)
-  );
-
-  // 3) Remove any that the user explicitly skipped
-  const activeHabits = scheduledHabits.filter((h) => !isHabitSkippedToday(h, dateObj));
-
-  // 4) Determine how many of the remaining active habits are completed
-  const completed = activeHabits.filter((h) => isHabitCompleted(h, dateObj));
-
-  const progress = activeHabits.length ? (completed.length / activeHabits.length) * 100 : 0;
-  updateProgressRing(progress);
-}
-
 export async function toggleHabitCompletion(habitId) {
   const state = getState();
   const dateKey = state.selectedDate.slice(0, 10);
   return dispatch(Actions.toggleHabitCompleted(habitId, dateKey));
-}
-
-export async function toggleSectionVisibility(sectionType) {
-  const section = document.getElementById(`${sectionType}-section`);
-  if (!section) return false;
-  const collapsed = !section.classList.toggle('collapsed'); // toggle returns new state
-  let saved = false;
-  if (sectionType === 'completed') saved = await dispatch(Actions.toggleCompleted(collapsed));
-  else if (sectionType === 'skipped') saved = await dispatch(Actions.toggleSkipped(collapsed));
-  if (!saved) {
-    section.classList.toggle('collapsed', !collapsed);
-    return false;
-  }
-  // update toggle text if button exists
-  const toggleBtn = section.querySelector('.toggle-section');
-  if (toggleBtn) toggleBtn.textContent = collapsed ? 'Show ⌄' : 'Hide ⌄';
-  return true;
 }
 
 // ---------- Habits View ----------
@@ -287,20 +229,4 @@ export function renderHabitsList(onHabitClick) {
 
   // Initialize category event handlers (for edit category buttons)
   import('./ui/categories.js').then((m) => m.initializeCategories());
-}
-
-export function initializeHabitsList() {
-  renderHomeView();
-  renderHabitsList();
-
-  // Attach toggle buttons (home view)
-  document.querySelectorAll('.toggle-section').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const section = btn.closest('.habits-section');
-      if (section && section.id) {
-        const type = section.id.replace('-section', '');
-        toggleSectionVisibility(type);
-      }
-    });
-  });
 }

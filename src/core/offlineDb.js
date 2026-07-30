@@ -446,10 +446,6 @@ export async function replaceConfirmedEntities(
   return result;
 }
 
-export async function putConfirmedEntities(ownerKey, generation, entityType, records) {
-  return applyConfirmedEntityChanges(ownerKey, generation, entityType, records);
-}
-
 export async function getSyncMetadata(ownerKey) {
   const db = await openOfflineDb();
   const transaction = db.transaction('syncMetadata', 'readonly');
@@ -588,18 +584,6 @@ export async function confirmOperation(operationId, canonicalRecord) {
     confirmed: true,
     hasPendingSuccessor: activeSuccessors.length > 0,
   };
-}
-
-export async function saveMigrationBackup(backup) {
-  const db = await openOfflineDb();
-  const transaction = db.transaction('migrationBackups', 'readwrite');
-  transaction.objectStore('migrationBackups').put({
-    ...backup,
-    backupId: backup.backupId || generateUuid(),
-    createdAt: backup.createdAt || Date.now(),
-    verificationState: backup.verificationState || 'unverified',
-  });
-  await transactionDone(transaction);
 }
 
 export async function purgeAccountCache(ownerKey) {

@@ -12,9 +12,8 @@
     "preview:phone": "npm run build:local && node scripts/preview.mjs --phone",
     "preview:pages": "npm run build:pages && node scripts/preview-pages.mjs",
     "deploy": "npm run build:pages && gh-pages -d dist",
-    "test": "npm run test:unit && npm run test:migration",
+    "test": "npm run test:unit",
     "test:unit": "vitest run tests/unit tests/convex",
-    "test:migration": "vitest run tests/migration",
     "test:e2e": "playwright test",
     "test:fitness:perf": "FITNESS_PERF=1 playwright test tests/e2e/fitness/optimisation-invariants.spec.js --grep \"large-account\" --workers=1",
     "test:pwa": "playwright test --config=playwright.pwa.config.js",
@@ -25,12 +24,15 @@
     "check:bundle": "npm run build:local && node scripts/check-bundle-budgets.mjs",
     "check:bundle:pages": "npm run build:pages && node scripts/check-bundle-budgets.mjs",
     "check:dead-code": "knip --include files,exports,dependencies,unlisted --no-config-hints --max-issues 0",
+    "check:cycles": "knip --cycles --no-config-hints --max-issues 0",
     "clean": "rm -rf dist node_modules/.vite",
     "audit": "npm audit && npm run lint && npm run build:local"
   },
   "dependencies": {
     "@clerk/clerk-js": "^6.25.8",
-    "convex": "^1.42.3"
+    "@material-design-icons/font": "^0.14.15",
+    "convex": "^1.42.3",
+    "sortablejs": "^1.15.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.0",

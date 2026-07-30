@@ -145,6 +145,61 @@ describe('compatibility hydration', () => {
     expect(state.restDays).toEqual({});
   });
 
+  it('keeps a pending optimistic history write visible over a remote tombstone', () => {
+    const cache = {
+      profile: { activeGeneration: 1 },
+      preferences: {},
+      habitCategories: [{ clientId: 'category-1', sortOrder: 0 }],
+      habits: [
+        {
+          clientId: 'habit-1',
+          categoryClientId: 'category-1',
+          createdAtISO: '2026-01-01',
+          sortOrder: 0,
+        },
+      ],
+      habitEntries: [
+        {
+          clientId: 'entry-1',
+          habitClientId: 'habit-1',
+          periodKey: '2026-07-30',
+          periodSortDate: '2026-07-30',
+          completed: false,
+          progress: 0,
+          skipped: false,
+          deletedAt: 100,
+        },
+      ],
+      holidayPeriods: [],
+      holidaySingles: [],
+      activityCategories: [],
+      activities: [],
+      activityRecords: [],
+      restDays: [],
+    };
+    const stateWithoutPendingWrite = normalizedToCompatibilityState(cache);
+    const overlaid = overlayPendingOperations(cache, [
+      {
+        generation: 1,
+        entityType: 'habitEntries',
+        attemptedRecord: {
+          clientId: 'entry-1',
+          habitClientId: 'habit-1',
+          periodKey: '2026-07-30',
+          periodSortDate: '2026-07-30',
+          completed: true,
+          progress: 1,
+          skipped: false,
+        },
+      },
+    ]);
+
+    const state = normalizedToCompatibilityState(overlaid);
+    expect(stateWithoutPendingWrite.habits[0].completed['2026-07-30']).toBeUndefined();
+    expect(state.habits[0].completed['2026-07-30']).toBe(true);
+    expect(overlaid.habitEntries[0]).not.toHaveProperty('deletedAt');
+  });
+
   it('round-trips routines and programs from cache shape to in-app shape', () => {
     const state = normalizedToCompatibilityState({
       profile: { appFirstOpenDate: '2024-01-01' },

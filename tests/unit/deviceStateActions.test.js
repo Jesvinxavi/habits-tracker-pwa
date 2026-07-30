@@ -24,8 +24,7 @@ describe('device-only state actions', () => {
     });
   });
 
-  it('updates the fitness date synchronously in cloud mode', () => {
-    vi.stubEnv('VITE_DATA_BACKEND', 'cloud');
+  it('updates the device-only fitness date synchronously', () => {
     const selectedDate = '2026-07-28T00:00:00.000';
 
     const result = dispatch(Actions.setFitnessSelectedDate(selectedDate));
@@ -34,8 +33,8 @@ describe('device-only state actions', () => {
     expect(getState().fitnessSelectedDate).toBe(selectedDate);
   });
 
-  it('fails closed for a cloud domain write before persistence is ready', async () => {
-    vi.stubEnv('VITE_DATA_BACKEND', 'cloud');
+  it('fails closed for a domain write before persistence is ready', async () => {
+    vi.stubEnv('VITE_TEST_HARNESS', '');
     clearCloudRuntime();
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const before = getState().activities;

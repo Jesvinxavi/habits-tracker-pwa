@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { convexTest } from 'convex-test';
 import { anyApi } from 'convex/server';
 import schema from '../../convex/schema';
-import { checksum } from '../../src/core/migration/canonical.js';
 
 const modules = import.meta.glob('../../convex/**/*.ts');
 
@@ -34,7 +33,7 @@ describe('Convex authenticated domain API', () => {
   it('rejects anonymous account access', async () => {
     const testBackend = convexTest(schema, modules);
 
-    await expect(testBackend.query(anyApi.profiles.get, {})).rejects.toThrow(
+    await expect(testBackend.query(anyApi.bootstrap.getCore, {})).rejects.toThrow(
       'UNAUTHENTICATED',
     );
   });
@@ -44,11 +43,10 @@ describe('Convex authenticated domain API', () => {
     const alice = authenticated(testBackend, 'alice');
     const bob = authenticated(testBackend, 'bob');
 
-    await provision(alice, 'alice-device');
-    await provision(bob, 'bob-device');
-
-    const aliceProfile = await alice.query(anyApi.profiles.get, {});
-    const bobProfile = await bob.query(anyApi.profiles.get, {});
+    const aliceResult = await provision(alice, 'alice-device');
+    const bobResult = await provision(bob, 'bob-device');
+    const aliceProfile = aliceResult.profile;
+    const bobProfile = bobResult.profile;
 
     expect(aliceProfile.ownerKey).toBe('https://clerk.test|alice');
     expect(bobProfile.ownerKey).toBe('https://clerk.test|bob');
@@ -88,20 +86,50 @@ describe('Convex authenticated domain API', () => {
     expect(duplicate.status).toBe('duplicate');
     expect(duplicate.canonicalRecord._id).toBe(created.canonicalRecord._id);
 
-    await client.mutation(
+    const habitPayload = {
+      clientId: 'drink-water',
+      categoryClientId: 'health',
+      name: 'Drink water',
+      frequency: 'monthly',
+      createdAtISO: '2026-01-01',
+      paused: false,
+      activeOnHolidays: true,
+      icon: '💧',
+      sortOrder: 0,
+      monthly: {
+        interval: 1,
+        mode: 'on',
+        dates: [2],
+      },
+    };
+    const habit = await client.mutation(
       anyApi.habits.create,
-      operation('habit-create', {
-        clientId: 'drink-water',
-        categoryClientId: 'health',
-        name: 'Drink water',
-        frequency: 'daily',
-        createdAtISO: '2026-01-01',
-        paused: false,
-        activeOnHolidays: true,
-        icon: '💧',
+      operation('habit-create', habitPayload),
+    );
+    expect(habit.status).toBe('applied');
+
+    const reorderedHabit = await client.mutation(
+      anyApi.habits.create,
+      operation('habit-create-reordered', {
+        monthly: {
+          dates: [2],
+          mode: 'on',
+          interval: 1,
+        },
         sortOrder: 0,
+        icon: '💧',
+        activeOnHolidays: true,
+        paused: false,
+        createdAtISO: '2026-01-01',
+        frequency: 'monthly',
+        name: 'Drink water',
+        categoryClientId: 'health',
+        clientId: 'drink-water',
       }),
     );
+    expect(['applied', 'duplicate']).toContain(reorderedHabit.status);
+    expect(reorderedHabit.canonicalRecord._id).toBe(habit.canonicalRecord._id);
+
     await client.mutation(
       anyApi.habitEntries.setDesiredState,
       operation('entry-create', {
@@ -148,6 +176,17 @@ describe('Convex authenticated domain API', () => {
     expect(tombstones.category.deletedAt).toEqual(expect.any(Number));
     expect(tombstones.habit.deletedAt).toEqual(expect.any(Number));
     expect(tombstones.entry.deletedAt).toEqual(expect.any(Number));
+
+    const historySignals = await client.query(anyApi.sync.getHistorySignals, {});
+    expect(historySignals.signals).toEqual([
+      expect.objectContaining({ entityType: 'habitEntries', revision: 2 }),
+    ]);
+
+    const recreateTombstonedCategory = await client.mutation(
+      anyApi.habitCategories.create,
+      operation('category-recreate-after-tombstone', categoryOperation.payload),
+    );
+    expect(recreateTombstonedCategory.status).toBe('conflict');
   });
 
   it('returns and advances collection revisions for repeat reorders', async () => {
@@ -268,78 +307,7 @@ describe('Convex authenticated domain API', () => {
     expect(entry.deletedAt).toBeUndefined();
   });
 
-  it('keeps a staged generation invisible until checksum-verified activation', async () => {
-    const testBackend = convexTest(schema, modules);
-    const client = authenticated(testBackend, 'migration-user');
-    await provision(client);
-
-    const preferences = [{
-      darkMode: true,
-      hideCompleted: true,
-      hideSkipped: false,
-      holidayMode: false,
-      homeSectionVisibility: { Completed: false, Skipped: true },
-      revision: 1,
-    }];
-    const tableNames = [
-      'userPreferences',
-      'habitCategories',
-      'habits',
-      'habitEntries',
-      'holidayPeriods',
-      'holidaySingles',
-      'activityCategories',
-      'activities',
-      'activityRecords',
-      'routines',
-      'programs',
-      'restDays',
-      'legacyData',
-    ];
-    const expectedCounts = Object.fromEntries(
-      tableNames.map((table) => [table, table === 'userPreferences' ? 1 : 0]),
-    );
-    const expectedChecksums = Object.fromEntries(
-      tableNames.map((table) => [
-        table,
-        checksum(table === 'userPreferences' ? preferences : []),
-      ]),
-    );
-
-    await client.mutation(anyApi.migration.begin, {
-      batchId: 'migration-batch',
-      deviceId: 'migration-device',
-      sourceFingerprint: 'source-fingerprint',
-      appFirstOpenDate: '2020-02-03',
-      expectedCounts,
-      expectedChecksums,
-    });
-    await client.mutation(anyApi.migration.uploadChunk, {
-      batchId: 'migration-batch',
-      table: 'userPreferences',
-      records: preferences,
-      chunkChecksum: checksum(preferences),
-    });
-
-    const stagedProfile = await client.query(anyApi.profiles.get, {});
-    expect(stagedProfile.activeGeneration).toBe(1);
-    expect(stagedProfile.appFirstOpenDate).toBe('2026-01-01');
-
-    const verification = await client.mutation(anyApi.migration.verify, {
-      batchId: 'migration-batch',
-    });
-    expect(verification.status).toBe('verified');
-
-    await client.mutation(anyApi.migration.activate, {
-      batchId: 'migration-batch',
-    });
-    const activeProfile = await client.query(anyApi.profiles.get, {});
-    expect(activeProfile.activeGeneration).toBe(2);
-    expect(activeProfile.previousGeneration).toBe(1);
-    expect(activeProfile.appFirstOpenDate).toBe('2020-02-03');
-  });
-
-  it('keeps the legacy routine removeCascade compatibility path idempotent', async () => {
+  it('keeps routine create and update idempotent', async () => {
     const testBackend = convexTest(schema, modules);
     const client = authenticated(testBackend, 'routine-user');
     await provision(client);
@@ -371,12 +339,6 @@ describe('Convex authenticated domain API', () => {
     expect(updated.revision).toBe(2);
     expect(updated.canonicalRecord.name).toBe('Push A');
 
-    const removed = await client.mutation(
-      anyApi.routines.removeCascade,
-      operation('op-3', { clientId: 'routine-1' }, { baseRevision: 2 })
-    );
-    expect(removed.status).toBe('applied');
-    expect(removed.canonicalRecord.deletedAt).toBeGreaterThan(0);
   });
 
   it('reports a conflict for a stale routine revision', async () => {
@@ -398,6 +360,52 @@ describe('Convex authenticated domain API', () => {
       operation('op-2', { ...payload, name: 'Stale' }, { baseRevision: 99 })
     );
     expect(stale.status).toBe('conflict');
+  });
+
+  it('does not let mutation payloads overwrite account or revision metadata', async () => {
+    const testBackend = convexTest(schema, modules);
+    const client = authenticated(testBackend, 'protected-fields');
+    await provision(client);
+    const payload = {
+      clientId: 'routine-1',
+      name: 'Push Day',
+      activityClientIds: [],
+      createdAtISO: '2026-07-26',
+      sortOrder: 0,
+    };
+    const created = await client.mutation(
+      anyApi.routines.create,
+      operation('protected-create', payload),
+    );
+
+    const updated = await client.mutation(
+      anyApi.routines.update,
+      operation(
+        'protected-update',
+        {
+          ...payload,
+          name: 'Push A',
+          ownerKey: 'another-account',
+          generation: 999,
+          revision: 999,
+          updatedAt: 1,
+          updatedByDeviceId: 'another-device',
+          deletedAt: 1,
+        },
+        { baseRevision: created.revision },
+      ),
+    );
+
+    expect(updated.status).toBe('applied');
+    expect(updated.canonicalRecord).toEqual(
+      expect.objectContaining({
+        ownerKey: 'https://clerk.test|protected-fields',
+        generation: 1,
+        revision: 2,
+        updatedByDeviceId: 'device-1',
+      }),
+    );
+    expect(updated.canonicalRecord.deletedAt).toBeUndefined();
   });
 
   it('rejects invalid routine payloads', async () => {
@@ -432,7 +440,7 @@ describe('Convex authenticated domain API', () => {
     ).rejects.toThrow('INVALID_ACTIVITY_LIST');
   });
 
-  it('validates program ranges, weekdays, rest days and legacy anytime targets', async () => {
+  it('validates program ranges, weekdays, rest days and schedule targets', async () => {
     const testBackend = convexTest(schema, modules);
     const client = authenticated(testBackend, 'program-validation');
     await provision(client);
@@ -489,39 +497,21 @@ describe('Convex authenticated domain API', () => {
       )
     ).rejects.toThrow('INVALID_PROGRAM_SCHEDULE');
 
-    await expect(
-      client.mutation(
-        anyApi.programs.create,
-        operation('op-anytime', {
-          ...base,
-          anytimeRoutines: [{ routineClientId: 'routine-1', count: 0 }],
-        })
-      )
-    ).rejects.toThrow('INVALID_PROGRAM_ANYTIME');
-
-    // The current client sends neither scheduleMode nor anytimeRoutines, but a
-    // device still running an older build does, and its writes must keep working.
     const created = await client.mutation(
       anyApi.programs.create,
       operation('op-ok', {
         ...base,
-        scheduleMode: 'freeform',
         restDays: [0, 6],
-        anytimeRoutines: [{ routineClientId: 'routine-2', count: 2 }],
       })
     );
     expect(created.status).toBe('applied');
-    expect(created.canonicalRecord.scheduleMode).toBe('freeform');
     expect(created.canonicalRecord.restDays).toEqual([0, 6]);
 
-    // What the client writes today: the pinned schedule and nothing else.
     const current = await client.mutation(
       anyApi.programs.create,
       operation('op-current', { ...base, clientId: 'program-2', restDays: [0], sortOrder: 1 })
     );
     expect(current.status).toBe('applied');
-    expect(current.canonicalRecord.scheduleMode).toBeUndefined();
-    expect(current.canonicalRecord.anytimeRoutines).toBeUndefined();
   });
 
   it('accepts several routines pinned to the same weekday', async () => {

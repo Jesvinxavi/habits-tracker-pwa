@@ -1,32 +1,12 @@
 import { getState, dispatch, Actions } from '../core/state.js';
-import { isCloudBackend } from './dataBackend.js';
-
-export async function forceLightMode() {
-  await dispatch(Actions.setDarkMode(false));
-  if (!isCloudBackend()) localStorage.setItem('theme', 'light');
-  applyTheme();
-}
 
 export function initializeTheme() {
-  if (isCloudBackend()) {
-    applyTheme();
-    return;
-  }
-  const savedTheme = localStorage.getItem('theme');
-  const isDark = savedTheme === 'dark';
-  dispatch(Actions.setDarkMode(isDark));
-  if (savedTheme === null) {
-    localStorage.setItem('theme', 'light');
-  }
   applyTheme();
 }
 
 export async function toggleTheme() {
   await dispatch(Actions.toggleDarkMode());
   applyTheme();
-  if (!isCloudBackend()) {
-    localStorage.setItem('theme', getState().settings.darkMode ? 'dark' : 'light');
-  }
 }
 
 export function applyTheme() {

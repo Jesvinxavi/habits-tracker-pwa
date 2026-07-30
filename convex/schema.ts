@@ -1,15 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-const migrationStatus = v.union(
-  v.literal("not_started"),
-  v.literal("staging"),
-  v.literal("awaiting_resolution"),
-  v.literal("verifying"),
-  v.literal("completed"),
-  v.literal("failed"),
-);
-
 const shared = {
   ownerKey: v.string(),
   generation: v.number(),
@@ -32,10 +23,7 @@ export default defineSchema({
     activeGeneration: v.number(),
     dataSchemaVersion: v.number(),
     appFirstOpenDate: v.string(),
-    migrationStatus,
-    activeMigrationBatchId: v.optional(v.string()),
     previousGeneration: v.optional(v.number()),
-    migrationCompletedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_owner", ["ownerKey"]),
@@ -47,11 +35,6 @@ export default defineSchema({
     hideCompleted: v.boolean(),
     hideSkipped: v.boolean(),
     holidayMode: v.boolean(),
-    // Optional so it can be added without invalidating existing preference rows.
-    // Retired with the program preload feature: nothing writes or reads it, but
-    // rows saved before it was dropped still hold a value and would otherwise
-    // fail validation.
-    programPreload: v.optional(v.boolean()),
     homeSectionVisibility: v.object({
       Completed: v.boolean(),
       Skipped: v.boolean(),
@@ -141,11 +124,7 @@ export default defineSchema({
       "habitClientId",
       "periodKey",
     ])
-    .index("by_owner_generation_sort_date", [
-      "ownerKey",
-      "generation",
-      "periodSortDate",
-    ]),
+    .index("by_owner_generation_sort_date", ["ownerKey", "generation", "periodSortDate"]),
 
   holidayPeriods: sharedIndexes(
     defineTable({
@@ -156,9 +135,10 @@ export default defineSchema({
     }),
   ).index("by_owner_generation_start", ["ownerKey", "generation", "startISO"]),
 
-  holidaySingles: sharedIndexes(
-    defineTable({ ...shared, dateKey: v.string() }),
-  ).index("by_owner_generation_date", ["ownerKey", "generation", "dateKey"]),
+  holidaySingles: sharedIndexes(defineTable({ ...shared, dateKey: v.string() })).index(
+    "by_owner_generation_date",
+    ["ownerKey", "generation", "dateKey"],
+  ),
 
   activityCategories: sharedIndexes(
     defineTable({
@@ -193,11 +173,7 @@ export default defineSchema({
       // deletedAt, which is the sync tombstone.
       archivedAt: v.optional(v.number()),
     }),
-  ).index("by_owner_generation_category", [
-    "ownerKey",
-    "generation",
-    "categoryClientId",
-  ]),
+  ).index("by_owner_generation_category", ["ownerKey", "generation", "categoryClientId"]),
 
   activityRecords: sharedIndexes(
     defineTable({
@@ -262,27 +238,7 @@ export default defineSchema({
           activityClientId: v.optional(v.string()),
         }),
       ),
-      // Retired with the two-mode scheduling scheme: nothing writes or reads
-      // scheduleMode any more. It stays declared, and optional, because rows
-      // written before it was dropped still hold a value and would otherwise
-      // fail validation.
-      scheduleMode: v.optional(
-        v.union(v.literal("prescriptive"), v.literal("freeform")),
-      ),
       restDays: v.optional(v.array(v.number())),
-      // Also retired: a session now counts anywhere in its week, so a separate
-      // anytime bucket says nothing a pinned day does not. Kept declared for
-      // the same reason as scheduleMode. Each entry targeted a routine or a
-      // single activity, so both id fields are optional.
-      anytimeRoutines: v.optional(
-        v.array(
-          v.object({
-            routineClientId: v.optional(v.string()),
-            activityClientId: v.optional(v.string()),
-            count: v.number(),
-          }),
-        ),
-      ),
       // Schedules this program has been through, each closed off when the plan
       // was edited mid-block. Dates before a phase's end are measured against
       // it rather than against the live scheduledDays, so editing a running
@@ -311,19 +267,10 @@ export default defineSchema({
     }),
   ).index("by_owner_generation_start", ["ownerKey", "generation", "startDateISO"]),
 
-  restDays: sharedIndexes(
-    defineTable({ ...shared, dateKey: v.string() }),
-  ).index("by_owner_generation_date", ["ownerKey", "generation", "dateKey"]),
-
-  legacyData: defineTable({
-    ownerKey: v.string(),
-    generation: v.number(),
-    foodLog: v.any(),
-    stats: v.any(),
-    unknownTopLevelFields: v.any(),
-    sourceSchemaVersion: v.number(),
-    updatedAt: v.number(),
-  }).index("by_owner_generation", ["ownerKey", "generation"]),
+  restDays: sharedIndexes(defineTable({ ...shared, dateKey: v.string() })).index(
+    "by_owner_generation_date",
+    ["ownerKey", "generation", "dateKey"],
+  ),
 
   processedOperations: defineTable({
     ownerKey: v.string(),
@@ -336,34 +283,18 @@ export default defineSchema({
     .index("by_owner_operation", ["ownerKey", "operationId"])
     .index("by_processed_at", ["processedAt"]),
 
-  migrationBatches: defineTable({
+  historySyncSignals: defineTable({
     ownerKey: v.string(),
-    batchId: v.string(),
-    deviceId: v.string(),
-    sourceFingerprint: v.string(),
-    appFirstOpenDate: v.string(),
-    baseGeneration: v.number(),
-    targetGeneration: v.number(),
-    expectedCounts: v.any(),
-    expectedChecksums: v.any(),
-    uploadedCounts: v.any(),
-    status: v.union(
-      v.literal("staging"),
-      v.literal("awaiting_resolution"),
-      v.literal("verifying"),
-      v.literal("verified"),
-      v.literal("activated"),
-      v.literal("failed"),
-      v.literal("abandoned"),
+    generation: v.number(),
+    entityType: v.union(
+      v.literal("habitEntries"),
+      v.literal("activityRecords"),
+      v.literal("restDays"),
     ),
-    conflictSummary: v.optional(v.any()),
-    createdAt: v.number(),
+    revision: v.number(),
     updatedAt: v.number(),
-    committedAt: v.optional(v.number()),
-  })
-    .index("by_owner_batch", ["ownerKey", "batchId"])
-    .index("by_owner_fingerprint", ["ownerKey", "sourceFingerprint"])
-    .index("by_owner_status", ["ownerKey", "status"]),
+    updatedByDeviceId: v.string(),
+  }).index("by_owner_generation_entity", ["ownerKey", "generation", "entityType"]),
 
   collectionRevisions: defineTable({
     ownerKey: v.string(),
@@ -372,9 +303,5 @@ export default defineSchema({
     revision: v.number(),
     updatedAt: v.number(),
     updatedByDeviceId: v.string(),
-  }).index("by_owner_generation_collection", [
-    "ownerKey",
-    "generation",
-    "collection",
-  ]),
+  }).index("by_owner_generation_collection", ["ownerKey", "generation", "collection"]),
 });

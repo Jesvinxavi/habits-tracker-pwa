@@ -791,10 +791,3 @@ export const HomeHabitsList = {
     }
   },
 };
-
-/**
- * Standalone function for rendering habits (for external use)
- */
-export function renderHabitsForHome() {
-  HomeHabitsList.render();
-}
