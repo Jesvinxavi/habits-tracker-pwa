@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { devices, expect, test } from '@playwright/test';
 
 async function openHome(page) {
   await page.goto('/?test=true');
@@ -119,6 +119,9 @@ test.describe('Home updates', () => {
     expect(swipeGeometry.labelHeight).toBeLessThan(swipeGeometry.buttonHeight);
     expect(swipeGeometry.labelBackground).toBe('rgb(22, 163, 74)');
     expect(swipeGeometry.labelRadius).toBe('8px');
+    await expect(actionButton(page, habitId, '.restore-btn').locator('..')).toHaveClass(
+      /swipe-revealed/
+    );
     await page.locator('.restore-btn').click();
     await expect(page.locator('.section-pill-btn.selected')).toContainText('Anytime');
     await expect(card.locator('.complete-toggle')).toBeVisible();
@@ -244,6 +247,33 @@ test.describe('Home updates', () => {
         { id: second.habitId, completed: 0, skipped: 0 },
       ])
     );
+  });
+
+  test('accepts touch taps on exposed skip and restore actions', async ({ browser }) => {
+    const context = await browser.newContext({
+      ...devices['iPhone 13'],
+      baseURL: 'http://127.0.0.1:4173',
+      timezoneId: 'Europe/London',
+    });
+    const page = await context.newPage();
+    try {
+      await openHome(page);
+      const { habitId } = await seedHabit(page);
+
+      await revealAction(page, habitId);
+      const skipButton = actionButton(page, habitId, '.skip-btn');
+      await expect(skipButton.locator('..')).toHaveClass(/swipe-revealed/);
+      await skipButton.tap();
+      await expect(page.locator('.section-pill-btn.selected')).toContainText('Skipped');
+
+      await revealAction(page, habitId);
+      const restoreButton = actionButton(page, habitId, '.restore-btn');
+      await expect(restoreButton.locator('..')).toHaveClass(/swipe-revealed/);
+      await restoreButton.tap();
+      await expect(page.locator('.section-pill-btn.selected')).toContainText('Anytime');
+    } finally {
+      await context.close();
+    }
   });
 
   test('renders a larger target counter and preserves an archived habit on earlier dates', async ({

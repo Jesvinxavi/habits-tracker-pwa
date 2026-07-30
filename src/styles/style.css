@@ -501,6 +501,11 @@ body {
     box-shadow: none;
     font-weight: 600;
     font-size: 0.875rem;
+    touch-action: manipulation;
+}
+
+.home-swipe-container.swipe-revealed .home-swipe-action {
+    z-index: 2;
 }
 
 .home-swipe-action-label {

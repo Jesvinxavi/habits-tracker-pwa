@@ -90,11 +90,13 @@ export function makeCardSwipable(
         : revealMode === 'resize'
           ? 'width 0.2s'
           : 'transform 0.2s';
-    if (Math.abs(currentX) > btnWidth / 2) {
+    const shouldReveal = Math.abs(currentX) > btnWidth / 2;
+    if (shouldReveal) {
       setTranslate(-btnWidth);
     } else {
       setTranslate(0);
     }
+    swipeContainer.classList.toggle('swipe-revealed', shouldReveal);
     if (e.pointerId !== undefined && slideEl.releasePointerCapture) {
       slideEl.releasePointerCapture(e.pointerId);
     }
@@ -127,7 +129,10 @@ export function makeCardSwipable(
     if (button.disabled) return;
     button.disabled = true;
     const restored = await onRestore();
-    if (restored !== false) setTranslate(0);
+    if (restored !== false) {
+      setTranslate(0);
+      swipeContainer.classList.remove('swipe-revealed');
+    }
     if (button.isConnected) button.disabled = false;
   });
 }
