@@ -13,7 +13,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, watch } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -21,7 +21,9 @@ import { dirname, join } from 'node:path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const indexPath = join(root, 'dist', 'index.html');
 const phone = process.argv.includes('--phone');
-const PORT = 4180;
+// 4180 is the documented port. Overridable so a second instance can be run
+// alongside one that is already serving a device.
+const PORT = Number(process.env.PREVIEW_PORT) || 4180;
 
 /**
  * Stops with an explanation instead of serving something that cannot work.
@@ -106,13 +108,17 @@ vite.on('exit', (code) => process.exit(code ?? 0));
 // resolves to the SPA fallback, and the app renders as unstyled HTML on whatever
 // device is pointed at it. Watching for it turns a baffling symptom into a line
 // of output naming the cause.
+//
+// Polled by path rather than fs.watch: a build removes dist/ and writes a new
+// file, so a watch registered against the old inode goes quiet exactly when it
+// is needed. Statting the path survives the directory being replaced.
 let warnedAboutSubpath = false;
-watch(indexPath, () => {
+const buildWatch = setInterval(() => {
   let current;
   try {
     current = subpathOf(readFileSync(indexPath, 'utf8'));
   } catch {
-    return; // mid-write; the next event will have the finished file
+    return; // absent or half-written mid-build; the next tick sees the result
   }
   if (current && !warnedAboutSubpath) {
     warnedAboutSubpath = true;
@@ -134,4 +140,5 @@ watch(indexPath, () => {
     warnedAboutSubpath = false;
     console.log('\n  dist/ is a local build again — reload the page.\n');
   }
-});
+}, 2000);
+buildWatch.unref();
