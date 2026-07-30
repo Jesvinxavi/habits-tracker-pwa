@@ -121,8 +121,11 @@ body {
 }
 
 .home-app-header {
-    height: 72px;
-    min-height: 72px;
+    /* The title is centred in this height and the progress ring begins at the
+       header's bottom edge, so this number is the entire gap above and below the
+       title. At 52px a 27.75px title keeps about 12px each side. */
+    height: 52px;
+    min-height: 52px;
 }
 
 .app-title {
