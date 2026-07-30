@@ -107,9 +107,9 @@ test.describe('Home updates', () => {
     });
     expect(Math.abs(swipeGeometry.wrapperHeight - swipeGeometry.cardHeight)).toBeLessThan(1);
     expect(Math.abs(swipeGeometry.buttonHeight - swipeGeometry.cardHeight)).toBeLessThan(1);
-    expect(swipeGeometry.cardLeft).toBeGreaterThanOrEqual(swipeGeometry.wrapperLeft);
+    expect(swipeGeometry.cardLeft).toBeLessThan(swipeGeometry.wrapperLeft);
     expect(swipeGeometry.cardLeft).toBeGreaterThanOrEqual(0);
-    expect(swipeGeometry.wrapperBackground).toBe('rgba(0, 0, 0, 0)');
+    expect(swipeGeometry.wrapperBackground).toBe('rgb(156, 163, 175)');
     expect(swipeGeometry.wrapperOverflow).toBe('visible');
     expect(swipeGeometry.buttonBackground).toBe('rgb(156, 163, 175)');
     expect(swipeGeometry.buttonBorderWidth).toBe('0px');

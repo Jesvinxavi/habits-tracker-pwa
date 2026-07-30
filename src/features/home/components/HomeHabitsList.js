@@ -687,7 +687,7 @@ export const HomeHabitsList = {
     if (isCompleted) {
       // For completed habits: set completion to false and clear progress
       makeCardSwipable(swipeContainer, slideEl, habit, {
-        revealMode: 'resize',
+        revealMode: 'translate-within-viewport',
         onRestore: async () => {
           const key = getPeriodKey(habit, new Date(getState().selectedDate));
           // Mark as not completed
@@ -706,7 +706,7 @@ export const HomeHabitsList = {
     } else if (isSkipped) {
       // For skipped habits: set up swipe-to-restore action
       makeCardSwipable(swipeContainer, slideEl, habit, {
-        revealMode: 'resize',
+        revealMode: 'translate-within-viewport',
         onRestore: async () => {
           const currentHabit = getState().habits.find((item) => item.id === habit.id);
           if (!currentHabit) return;
@@ -751,7 +751,9 @@ export const HomeHabitsList = {
     // Add the card to the slide element
     slideEl.appendChild(card);
 
-    makeCardSwipable(swipeContainer, slideEl, habit, { revealMode: 'resize' });
+    makeCardSwipable(swipeContainer, slideEl, habit, {
+      revealMode: 'translate-within-viewport',
+    });
 
     // Skip action
     skipBtn.addEventListener('click', async () => {

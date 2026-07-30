@@ -15,10 +15,19 @@ export function makeCardSwipable(
   let isSwiping = false;
 
   let btnWidth = 0; // lazy-computed
+  let availableLeftShift = 0;
 
   let activePointerId = null;
 
   function setTranslate(x) {
+    if (revealMode === 'translate-within-viewport') {
+      const revealWidth = Math.max(0, -x);
+      const translateWidth = Math.min(revealWidth, availableLeftShift);
+      const resizeWidth = revealWidth - translateWidth;
+      slideEl.style.width = `calc(100% - ${resizeWidth}px)`;
+      slideEl.style.transform = `translateX(${-translateWidth}px)`;
+      return;
+    }
     if (revealMode === 'resize') {
       slideEl.style.width = `calc(100% + ${x}px)`;
       slideEl.style.transform = 'translateX(0)';
@@ -34,6 +43,7 @@ export function makeCardSwipable(
     currentX = 0;
     isSwiping = false; // we determine later
     btnWidth = swipeContainer.offsetWidth * 0.2;
+    availableLeftShift = Math.max(0, swipeContainer.getBoundingClientRect().left);
     activePointerId = e.pointerId !== undefined ? e.pointerId : null;
   }
 
@@ -74,7 +84,12 @@ export function makeCardSwipable(
     }
 
     isSwiping = false;
-    slideEl.style.transition = revealMode === 'resize' ? 'width 0.2s' : 'transform 0.2s';
+    slideEl.style.transition =
+      revealMode === 'translate-within-viewport'
+        ? 'width 0.2s, transform 0.2s'
+        : revealMode === 'resize'
+          ? 'width 0.2s'
+          : 'transform 0.2s';
     if (Math.abs(currentX) > btnWidth / 2) {
       setTranslate(-btnWidth);
     } else {
