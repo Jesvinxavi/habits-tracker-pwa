@@ -273,7 +273,11 @@ export const HomeHabitsList = {
 
       // Progress box
       const progressBox = document.createElement('div');
-      progressBox.className = 'progress-box px-3 py-1 text-lg leading-none font-extrabold rounded-lg mb-1';
+      // Padding, not type size: the counter stays 18px so a target tile ends up
+      // exactly as tall as a tick tile without the number getting harder to read.
+      // 18 text + 2+2 padding + 2+2 border = 26, plus a 2px gap below.
+      progressBox.className =
+        'progress-box px-3 py-0.5 text-lg leading-none font-extrabold rounded-lg mb-0.5';
       progressBox.style.border = `2px solid ${cat.color}`;
       progressBox.style.color = '#000';
       progressBox.style.background = '#FFFFFF';
@@ -290,8 +294,11 @@ export const HomeHabitsList = {
 
       if (unitText) {
         const unitPill = document.createElement('span');
+        // No vertical padding needed: text-xs already carries a 16px line box
+        // around a 12px glyph, so the pill keeps its optical breathing room and
+        // descenders are not clipped. 26 + 2 + 16 matches the 44px content block.
         unitPill.className =
-          'unit-pill whitespace-nowrap px-2 py-0.5 rounded-lg text-xs font-medium';
+          'unit-pill whitespace-nowrap px-2 py-0 rounded-lg text-xs font-medium';
         unitPill.style.background = `${cat.color}`;
         unitPill.style.color = '#fff';
         unitPill.textContent = unitText;
