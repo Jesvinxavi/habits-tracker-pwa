@@ -20,16 +20,24 @@ jobs:
         run: npm ci
       - name: Run ESLint
         run: npm run lint
-      - name: Run unit and migration tests
-        run: npm test
+      - name: Run unit tests
+        run: npm run test:unit
       - name: Type-check Convex functions
         run: npm run test:convex
-      - name: Build
-        run: npm run build:local
+      - name: Check dead code
+        run: npm run check:dead-code
+      - name: Check import cycles
+        run: npm run check:cycles
+      - name: Check Pages bundle budgets
+        run: npm run check:bundle:pages
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Run browser tests
+      - name: Run browser regression suite
         run: npm run test:e2e
+      - name: Run production PWA smoke test
+        run: npm run test:pwa
+      - name: Run bounded Fitness performance invariant
+        run: npm run test:fitness:perf
       - name: Upload browser artifacts
         if: failure()
         uses: actions/upload-artifact@v4

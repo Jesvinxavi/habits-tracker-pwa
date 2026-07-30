@@ -60,12 +60,48 @@ npm run dev
 ```
 
 Vite dev server on port 3000, with hot reload. Serves from `/`, so the base path
-question never arises. `.env.local` decides the data backend: it is set to
-`cloud`, which needs a Clerk sign-in. To run against on-device storage instead:
+question never arises. The app has one data backend: Clerk authenticates the
+user and Convex is the authoritative remote store, with IndexedDB retaining the
+confirmed cache and offline outbox. Configure only the public development
+variables in `.env.local`:
 
 ```bash
-VITE_DATA_BACKEND=legacy npm run dev
+VITE_CONVEX_URL=https://<development-deployment>.convex.cloud
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
 ```
+
+Never set `VITE_DATA_BACKEND`: the retired legacy backend switch is not a
+supported recovery path. `VITE_TEST_HARNESS=1` is exclusively for Playwright.
+Normal production builds reject it. `npm run test:pwa` has a deliberately
+narrow exception requiring all three of `PWA_TEST_BUILD=1`, `VITE_PWA_TEST=1`,
+and `VITE_TEST_HARNESS=1`; the resulting Pages-shaped artifact is a test fixture
+and must never be deployed. The harness flags must never be placed in `.env`,
+`.env.local`, GitHub Actions variables, or a Pages deployment.
+
+### Safely recovering a development schema/data experiment
+
+Do not point an import command at production while experimenting. First select
+the development Convex deployment, take a dated local snapshot, and keep it
+outside version control:
+
+```bash
+backup_dir="../healthy-habits-dev-backups"
+mkdir -p "$backup_dir"
+npx convex export --deployment dev --path "$backup_dir/dev-before-schema-change.zip"
+```
+
+Apply and verify the schema change with `npx convex dev`, then run the relevant
+unit and browser tests. If the development data needs to be restored, inspect
+the snapshot and import it back into that same development deployment:
+
+```bash
+npx convex import --deployment dev "$backup_dir/dev-before-schema-change.zip"
+```
+
+`--replace` and especially `--replace-all` delete existing documents. Use them
+only after creating a fresh export, confirming the deployment name is `dev`,
+and reviewing the CLI's interactive summary. Never commit snapshots, auth
+tokens, owner identifiers, or exported account data.
 
 ## Service workers
 
@@ -97,12 +133,13 @@ If a device has already cached an older build:
 | `npm run preview:phone` | `build:local`, then serve on the LAN for phone testing |
 | `npm run deploy` | `build:pages`, then publish `dist/` to `gh-pages` |
 | `npm run lint` | ESLint over `src` and `tests` |
-| `npm test` | Unit and migration tests (Vitest) |
+| `npm test` | Unit and Convex-domain tests (Vitest) |
 | `npm run test:e2e` | Playwright browser tests |
 | `npm run test:fitness:perf` | Isolated one-worker, 4× CPU large-account Fitness diagnostic |
-| `npm run test:pwa` | Production Pages build and offline lazy-Fitness smoke test |
+| `npm run test:pwa` | Pages-shaped harness build; offline Fitness, local icons/reorder, and controlled-update lifecycle tests |
 | `npm run test:convex` | Type-check the Convex functions |
-| `npm run check:dead-code` | Knip gate for unused files, Fitness exports, and dependencies |
+| `npm run check:dead-code` | Knip gate for unused files, exports, and dependencies |
+| `npm run check:cycles` | Knip gate for circular imports |
 | `npm run check:bundle` | Local build plus HTML, Fitness, modal, and JavaScript budgets |
 | `npm run check:bundle:pages` | Pages build plus the same budgets and the PWA precache budget |
 | `npm run analyze` | Local build with the `analyze` mode bundle report |

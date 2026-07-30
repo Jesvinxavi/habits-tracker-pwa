@@ -15,6 +15,7 @@ are not active implementation checklists.
 - [Loading performance audit](architecture/LOADING_PERFORMANCE_AUDIT.md)
 - [Whole-app forensic optimisation audit and plan](architecture/WHOLE_APP_OPTIMISATION_AUDIT_AND_PLAN.md)
 - [Independent whole-app audit and revised plan](architecture/WHOLE_APP_OPTIMISATION_INDEPENDENT_AUDIT_AND_REVISED_PLAN.md)
+- [Whole-app optimisation implementation status and handoff](architecture/WHOLE_APP_OPTIMISATION_IMPLEMENTATION_HANDOFF.md)
 
 ## Fitness
 

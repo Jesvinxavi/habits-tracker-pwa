@@ -65,7 +65,6 @@ jobs:
         env:
           NODE_ENV: production
           REPO_NAME: ${{ github.event.repository.name }}
-          VITE_DATA_BACKEND: ${{ vars.VITE_DATA_BACKEND || 'legacy' }}
           VITE_CONVEX_URL: ${{ vars.VITE_CONVEX_URL }}
           VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
         run: npm run build:pages

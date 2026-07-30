@@ -18,16 +18,9 @@
     "*.config.js"
   ],
   "ignoreExportsUsedInFile": true,
-  "ignoreIssues": {
-    "src/components/**": ["exports"],
-    "src/core/**": ["exports"],
-    "src/features/habits/**": ["exports"],
-    "src/features/home/**": ["exports"],
-    "src/features/profile/**": ["exports"],
-    "src/features/stats/**": ["exports"],
-    "src/selectors/**": ["exports"],
-    "src/shared/**": ["exports"]
-  },
+  "ignore": [
+    "convex/_generated/**"
+  ],
   "playwright": false,
   "vite": false
 }
