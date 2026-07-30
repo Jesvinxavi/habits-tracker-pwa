@@ -235,7 +235,9 @@ export const HomeHabitsList = {
     };
 
     const card = document.createElement('div');
-    card.className = 'habit-card flex items-center px-4 py-2 rounded-xl';
+    // Padding lives in .habit-card. The px-4/py-2 utilities that used to be here
+    // never applied: style.css loads after Tailwind and its shorthand won.
+    card.className = 'habit-card flex items-center rounded-xl';
     card.style.marginBottom = '0.25rem';
     card.dataset.habitId = habit.id;
     card.style.width = '100%';

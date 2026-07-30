@@ -412,7 +412,10 @@ body {
 .habit-card {
     display: flex;
     align-items: center;
-    padding: 16px;
+    /* Vertical and horizontal are set separately so the tile can be compact
+       without narrowing the row. This rule loads after Tailwind and beats the
+       `px-4 py-2` in the markup, so it is the only padding that applies. */
+    padding: 8px 16px;
     margin-bottom: 8px;
     border-radius: var(--border-radius);
     border: 2px solid transparent;
