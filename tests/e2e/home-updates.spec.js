@@ -82,6 +82,7 @@ test.describe('Home updates', () => {
       const cardRect = cardNode.getBoundingClientRect();
       const buttonRect = button.getBoundingClientRect();
       const wrapperStyle = getComputedStyle(wrapper);
+      const railStyle = getComputedStyle(wrapper, '::before');
       const buttonStyle = getComputedStyle(button);
       return {
         wrapperHeight: wrapperRect.height,
@@ -91,7 +92,10 @@ test.describe('Home updates', () => {
         buttonHeight: buttonRect.height,
         wrapperBackground: wrapperStyle.backgroundColor,
         wrapperOverflow: wrapperStyle.overflow,
+        railTopBorderWidth: railStyle.borderTopWidth,
+        railBottomBorderWidth: railStyle.borderBottomWidth,
         buttonBorderWidth: buttonStyle.borderTopWidth,
+        buttonLeftBorderWidth: buttonStyle.borderLeftWidth,
         buttonTopLeftRadius: buttonStyle.borderTopLeftRadius,
       };
     });
@@ -101,7 +105,10 @@ test.describe('Home updates', () => {
     expect(swipeGeometry.cardLeft).toBeGreaterThanOrEqual(0);
     expect(swipeGeometry.wrapperBackground).toBe('rgba(0, 0, 0, 0)');
     expect(swipeGeometry.wrapperOverflow).toBe('visible');
+    expect(swipeGeometry.railTopBorderWidth).toBe('2px');
+    expect(swipeGeometry.railBottomBorderWidth).toBe('2px');
     expect(swipeGeometry.buttonBorderWidth).toBe('2px');
+    expect(swipeGeometry.buttonLeftBorderWidth).toBe('0px');
     expect(swipeGeometry.buttonTopLeftRadius).toBe('0px');
     await page.locator('.restore-btn').click();
     await expect(page.locator('.section-pill-btn.selected')).toContainText('Anytime');
