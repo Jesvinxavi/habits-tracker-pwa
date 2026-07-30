@@ -4,7 +4,7 @@
  * Component for building the rest day toggle functionality
  */
 
-import { isRestDay, toggleRestDay } from './restDays.js';
+import { isRestDay, toggleRestDay } from '../../shared/restDays.js';
 import { getState } from '../../core/state.js';
 import { getLocalISODate } from '../../shared/datetime.js';
 import { getActivitiesForDate } from './activities.js';

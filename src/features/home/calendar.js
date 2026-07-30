@@ -10,7 +10,7 @@ import {
 } from '../../shared/datetime.js';
 import { centerOnSelector } from '../../components/scrollHelpers.js';
 import { MONTH_NAMES_SHORT as MONTHS, DAY_NAMES_SHORT as DAYS } from '../../shared/constants.js';
-import { isRestDay } from '../../features/fitness/restDays.js';
+import { isRestDay } from '../../shared/restDays.js';
 import { calculateSmartDateForGroup } from '../../shared/dateSelection.js';
 
 /**

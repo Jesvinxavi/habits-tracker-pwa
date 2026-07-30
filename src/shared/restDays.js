@@ -1,4 +1,4 @@
-import { getState, dispatch, Actions } from '../../core/state.js';
+import { getState, dispatch, Actions } from '../core/state.js';
 
 /*********** API ***********/
 

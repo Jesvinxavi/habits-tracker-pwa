@@ -20,7 +20,7 @@ import {
 } from '../home/schedule.js';
 import { dateToKey, formatDuration } from '../../shared/datetime.js';
 import { isHoliday } from '../../features/holidays/holidays.js';
-import { isRestDay } from '../../features/fitness/restDays.js';
+import { isRestDay } from '../../shared/restDays.js';
 import { getRecordedHistoryIndex } from '../fitness/helpers/recordedHistory.js';
 import { shallowArrayEqual } from '../../shared/equality.js';
 

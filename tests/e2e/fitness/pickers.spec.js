@@ -162,7 +162,7 @@ test.describe('add-activity picker', () => {
   test('rest day blocks the batch', async ({ page }) => {
     await seed(page);
     await page.evaluate(async () => {
-      const { toggleRestDay } = await import('/src/features/fitness/restDays.js');
+      const { toggleRestDay } = await import('/src/shared/restDays.js');
       const { getState } = await import('/src/core/state.js');
       const { getLocalISODate } = await import('/src/shared/datetime.js');
       await toggleRestDay(getLocalISODate(getState().fitnessSelectedDate));
@@ -261,7 +261,7 @@ test.describe('add-routine picker', () => {
     await makeRoutine(page, 'Cardio Day', ['Treadmill Run']);
     await makeRoutine(page, 'Push Day', ['Bench Press']);
     await page.evaluate(async () => {
-      const { toggleRestDay } = await import('/src/features/fitness/restDays.js');
+      const { toggleRestDay } = await import('/src/shared/restDays.js');
       const { getState } = await import('/src/core/state.js');
       const { getLocalISODate } = await import('/src/shared/datetime.js');
       await toggleRestDay(getLocalISODate(getState().fitnessSelectedDate));

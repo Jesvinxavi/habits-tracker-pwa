@@ -8,7 +8,7 @@ import { escapeHtml, normalizeHexColor } from '../../../shared/sanitize.js';
 import { shallowArrayEqual } from '../../../shared/equality.js';
 import { getRoutine, getRoutineActivities } from '../routines.js';
 import { getActivity, getActivityCategory } from '../activities.js';
-import { isRestDay } from '../restDays.js';
+import { isRestDay } from '../../../shared/restDays.js';
 import {
   getProgram,
   getProgramProgress,

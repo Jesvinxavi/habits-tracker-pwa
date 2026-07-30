@@ -3,7 +3,7 @@ import { generateUniqueId } from '../../shared/common.js';
 import { getLocalISODate, getLocalMidnightISOString } from '../../shared/datetime.js';
 import { getRoutineActivities } from './routines.js';
 import { getActivitiesForDate, recordActivitiesForDate } from './activities.js';
-import { isRestDay } from './restDays.js';
+import { isRestDay } from '../../shared/restDays.js';
 import { computeProgramProgress } from './helpers/programProgress.js';
 
 let indexedPrograms = null;
