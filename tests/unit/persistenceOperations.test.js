@@ -3,10 +3,12 @@ import { persistStateAction } from '../../src/core/persistenceRouter.js';
 import { ActionTypes } from '../../src/core/state.js';
 
 const committed = [];
+const batches = [];
 
 vi.mock('../../src/core/offlineDb.js', () => ({
-  commitOptimisticOperation: vi.fn(async (entry) => {
-    committed.push(entry);
+  commitOptimisticOperations: vi.fn(async (entries) => {
+    batches.push([...entries]);
+    committed.push(...entries);
   }),
 }));
 
@@ -23,6 +25,7 @@ vi.mock('../../src/core/cloudRuntime.js', () => ({
 describe('SET_ACTIVE_PROGRAM operations', () => {
   beforeEach(() => {
     committed.length = 0;
+    batches.length = 0;
   });
 
   const baseState = {
@@ -66,6 +69,8 @@ describe('SET_ACTIVE_PROGRAM operations', () => {
       baseState
     );
     expect(committed).toHaveLength(2);
+    expect(batches).toHaveLength(1);
+    expect(batches[0]).toHaveLength(2);
     const byId = Object.fromEntries(
       committed.map((entry) => [entry.operation.clientId, entry])
     );

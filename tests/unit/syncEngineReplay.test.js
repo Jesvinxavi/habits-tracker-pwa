@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SyncEngine } from '../../src/core/syncEngine.js';
 
 const outbox = [];
@@ -6,6 +6,7 @@ const confirmed = [];
 const dispatched = [];
 // Lets a test inject an operation at a chosen point inside a running replay pass.
 const hooks = { onPendingRead: null };
+const engines = [];
 let pendingReads = 0;
 
 vi.mock('../../src/core/convexClient.js', () => ({
@@ -56,27 +57,29 @@ vi.mock('../../src/core/state.js', () => ({
 }));
 
 /**
- * Mimics the browser Web Locks API: the lock is held until the callback's
- * promise settles, and an ifAvailable request made while it is held is refused.
- * @returns {{request: Function, held: () => boolean, refusals: () => number}} Lock double.
+ * Mimics the browser Web Locks API: requests queue and each lock is held until
+ * its callback's promise settles.
+ * @returns {{request: Function, held: () => boolean}} Lock double.
  */
 function createLockManager() {
   let held = false;
-  let refusals = 0;
+  let tail = Promise.resolve();
   return {
     held: () => held,
-    refusals: () => refusals,
-    request: async (name, options, callback) => {
-      if (held && options?.ifAvailable) {
-        refusals += 1;
-        return callback(null);
-      }
-      held = true;
-      try {
-        return await callback({ name });
-      } finally {
-        held = false;
-      }
+    request: (name, optionsOrCallback, maybeCallback) => {
+      const callback =
+        typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback;
+      const run = async () => {
+        held = true;
+        try {
+          return await callback({ name });
+        } finally {
+          held = false;
+        }
+      };
+      const result = tail.then(run);
+      tail = result.catch(() => {});
+      return result;
     },
   };
 }
@@ -97,12 +100,14 @@ function queue(operationId, overrides = {}) {
 }
 
 function createEngine(client = { mutation: async () => ({ status: 'applied', revision: 1 }) }) {
-  return new SyncEngine({
+  const engine = new SyncEngine({
     ownerKey: 'owner',
     generation: 1,
     deviceId: 'device',
     client,
   });
+  engines.push(engine);
+  return engine;
 }
 
 async function settle(ticks = 12) {
@@ -119,6 +124,11 @@ describe('SyncEngine replay coalescing', () => {
     dispatched.length = 0;
     pendingReads = 0;
     hooks.onPendingRead = null;
+  });
+
+  afterEach(() => {
+    engines.splice(0).forEach((engine) => engine.close());
+    vi.unstubAllGlobals();
   });
 
   it('drains an operation that lands after the final outbox read', async () => {
@@ -142,8 +152,7 @@ describe('SyncEngine replay coalescing', () => {
   });
 
   it('drains it even when Web Locks serialise replay', async () => {
-    // The real browser path: replay() runs as the navigator.locks callback, so a
-    // follow-up requested before the lock is released is refused outright.
+    // The real browser path: replay() runs as the navigator.locks callback.
     const locks = createLockManager();
     vi.stubGlobal('navigator', { onLine: true, locks });
     const engine = createEngine();
@@ -161,6 +170,158 @@ describe('SyncEngine replay coalescing', () => {
     expect(confirmed).toEqual(['first', 'second']);
     expect(outbox).toHaveLength(0);
     expect(locks.held()).toBe(false);
+  });
+
+  it('waits behind another tab instead of dropping the replay request', async () => {
+    const locks = createLockManager();
+    vi.stubGlobal('navigator', { onLine: true, locks });
+    let releaseOtherTab;
+    const otherTab = locks.request('habits-sync:owner', async () => {
+      await new Promise((resolve) => {
+        releaseOtherTab = resolve;
+      });
+    });
+    const engine = createEngine();
+    queue('waiting-write');
+
+    engine.requestReplay();
+    await settle(2);
+    expect(confirmed).toEqual([]);
+
+    releaseOtherTab();
+    await otherTab;
+    await settle();
+    expect(confirmed).toEqual(['waiting-write']);
+    expect(outbox).toHaveLength(0);
+  });
+
+  it('re-checks authentication after acquiring a queued lock', async () => {
+    const locks = createLockManager();
+    vi.stubGlobal('navigator', { onLine: true, locks });
+    let releaseOtherTab;
+    const otherTab = locks.request('habits-sync:owner', async () => {
+      await new Promise((resolve) => {
+        releaseOtherTab = resolve;
+      });
+    });
+    await settle(1);
+    const mutation = vi.fn(async () => ({ status: 'applied', revision: 1 }));
+    const engine = createEngine({ mutation });
+    queue('signed-out-write');
+
+    engine.requestReplay();
+    engine.setAuthenticated(false);
+    releaseOtherTab();
+    await otherTab;
+    await settle();
+
+    expect(mutation).not.toHaveBeenCalled();
+    expect(outbox).toHaveLength(1);
+    engine.close();
+  });
+
+  it('aborts a queued lock on close without using the no-lock fallback', async () => {
+    let queuedSignal;
+    const locks = {
+      request: vi.fn((name, options) => {
+        queuedSignal = options.signal;
+        return new Promise((resolve, reject) => {
+          queuedSignal.addEventListener(
+            'abort',
+            () => {
+              const error = new Error('Lock request aborted');
+              error.name = 'AbortError';
+              reject(error);
+            },
+            { once: true }
+          );
+        });
+      }),
+    };
+    vi.stubGlobal('navigator', { onLine: true, locks });
+    const mutation = vi.fn(async () => ({ status: 'applied', revision: 1 }));
+    const engine = createEngine({ mutation });
+    queue('queued-on-close');
+
+    engine.requestReplay();
+    await settle(1);
+    engine.close();
+    await settle(2);
+
+    expect(queuedSignal.aborted).toBe(true);
+    expect(mutation).not.toHaveBeenCalled();
+    expect(outbox).toHaveLength(1);
+    expect(engine.retryTimers.size).toBe(0);
+  });
+
+  it('lets a peer tab service a broadcast replay request without rebroadcasting', async () => {
+    const peers = [];
+    const posts = [];
+    class TestBroadcastChannel {
+      constructor(name) {
+        this.name = name;
+        this.onmessage = null;
+        peers.push(this);
+      }
+
+      postMessage(data) {
+        posts.push(data);
+        peers
+          .filter((peer) => peer !== this && peer.name === this.name)
+          .forEach((peer) => queueMicrotask(() => peer.onmessage?.({ data })));
+      }
+
+      close() {
+        const index = peers.indexOf(this);
+        if (index >= 0) peers.splice(index, 1);
+      }
+    }
+    vi.stubGlobal('BroadcastChannel', TestBroadcastChannel);
+    vi.stubGlobal('navigator', { onLine: true, locks: createLockManager() });
+    const originMutation = vi.fn(async () => ({ status: 'applied', revision: 1 }));
+    const peerMutation = vi.fn(async () => ({ status: 'applied', revision: 1 }));
+    const origin = createEngine({ mutation: originMutation });
+    createEngine({ mutation: peerMutation });
+    origin.setAuthenticated(false);
+    queue('peer-write');
+
+    origin.requestReplay();
+    await settle();
+
+    expect(originMutation).not.toHaveBeenCalled();
+    expect(peerMutation).toHaveBeenCalledTimes(1);
+    expect(confirmed).toEqual(['peer-write']);
+    expect(posts).toEqual([{ type: 'replay-requested' }]);
+  });
+
+  it('falls back safely when the Web Locks implementation rejects', async () => {
+    vi.stubGlobal('navigator', {
+      onLine: true,
+      locks: {
+        request: vi.fn(async () => {
+          throw new Error('Locks unavailable');
+        }),
+      },
+    });
+    const engine = createEngine();
+    queue('fallback-write');
+
+    engine.requestReplay();
+    await settle();
+
+    expect(confirmed).toEqual(['fallback-write']);
+    expect(outbox).toHaveLength(0);
+  });
+
+  it('recovers an operation left syncing by a terminated tab', async () => {
+    vi.stubGlobal('navigator', { onLine: true });
+    const engine = createEngine();
+    queue('abandoned-write', { status: 'syncing' });
+
+    await engine.replay();
+
+    expect(confirmed).toEqual(['abandoned-write']);
+    expect(outbox).toHaveLength(0);
   });
 
   it('does not schedule a redundant pass when nothing arrived', async () => {
@@ -207,5 +368,30 @@ describe('SyncEngine replay coalescing', () => {
     const confirmations = dispatched.filter((action) => action.type === 'CONFIRM_OPERATION');
     expect(confirmations).toHaveLength(1);
     expect(confirmations[0].payload.canonicalRecord.skipped).toBe(false);
+  });
+
+  it('clears retry timers and cannot restart after close', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-07-30T12:00:00.000Z'));
+      vi.stubGlobal('navigator', { onLine: true });
+      const mutation = vi.fn(async () => ({ status: 'applied', revision: 1 }));
+      const engine = createEngine({ mutation });
+      queue('future-retry', {
+        status: 'retry',
+        retryAt: Date.now() + 5000,
+      });
+
+      await engine.replay();
+      expect(engine.retryTimers.size).toBe(1);
+      engine.close();
+      expect(engine.retryTimers.size).toBe(0);
+
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(mutation).not.toHaveBeenCalled();
+      expect(outbox).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

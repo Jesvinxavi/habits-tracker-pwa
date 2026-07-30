@@ -1,7 +1,7 @@
 import { ActionTypes } from './state.js';
-import { commitOptimisticOperation } from './offlineDb.js';
+import { commitOptimisticOperations } from './offlineDb.js';
 import { getCloudRuntime } from './cloudRuntime.js';
-import { periodSortDate } from './migration/periodKeys.js';
+import { periodSortDate } from '../shared/periodKeys.js';
 import {
   sanitizeActivityDefinition,
   sanitizeActivityRecord,
@@ -781,8 +781,6 @@ export async function persistStateAction(action, state) {
       );
     }
   }
-  for (const operation of operations) {
-    await commitOptimisticOperation(operation);
-  }
+  await commitOptimisticOperations(operations);
   runtime.syncEngine?.requestReplay();
 }
