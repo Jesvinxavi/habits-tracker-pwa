@@ -1,5 +1,12 @@
 # Whole-App Independent Optimisation Audit and Revised Implementation Plan
 
+> **Historical. Implemented and closed.** This plan was carried out on
+> `codex/whole-app-optimisation` and merged. What was built, what was measured,
+> what was deliberately not done, and the few items that remain open are recorded
+> in [the implementation record](WHOLE_APP_OPTIMISATION_IMPLEMENTATION_HANDOFF.md),
+> which is the current document. Read this one for the reasoning behind a
+> decision, not as a list of work to do.
+
 Date: 2026-07-30. Branch reviewed: `codex/whole-app-optimisation` at
 `feeb0f48` (clean tree before this document). This is an independent review of
 `WHOLE_APP_OPTIMISATION_AUDIT_AND_PLAN.md`, followed by a second audit of the

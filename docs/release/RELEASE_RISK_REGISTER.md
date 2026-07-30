@@ -4,7 +4,7 @@ Status: pre-release review
 
 Target: Healthy Habits Tracker 1.0.0
 
-Last reviewed: 29 July 2026
+Last reviewed: 30 July 2026, after the whole-app optimisation work merged.
 
 This register records work that must be completed or explicitly accepted before
 general availability. The release branch and draft pull request are suitable
@@ -47,8 +47,9 @@ owner and review date.
   client arguments.
 - Normal data reads are scoped to the authenticated account and active dataset
   generation.
-- Migration activation requires verified counts and checksums.
-- Existing browser data is preserved for recovery during the migration period.
-- The PWA service worker does not runtime-cache Clerk or Convex API traffic.
-- Automated lint, unit, migration, Convex type, production build, and browser
-  checks are available in CI.
+- Generations remain the account epoch, so a reset keeps the previous generation
+  readable.
+- The PWA service worker does not runtime-cache Clerk or Convex API traffic, and
+  a waiting worker cannot activate over pending offline work.
+- Automated lint, unit, Convex type, dead-code, cycle, bundle-budget, browser and
+  PWA checks all run in CI, and `npm run audit` runs the same set locally.

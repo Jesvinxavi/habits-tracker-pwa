@@ -8,10 +8,13 @@ Implementation base: `feeb0f48`
 
 Implementation commit at first stopping point: `2c82c5f7`
 
-Continuation: see **section 15**, which records the development deployment,
-the remaining phase gates, and the browser diagnostics run after that stopping
-point. Sections 1–14 are preserved as written at the stopping point; where
-section 15 contradicts them, section 15 is current.
+Status: **complete and merged to `develop`** at `91410b8b`.
+
+Read in reverse. **Section 16** is the close-out: the device testing pass and
+the list of what remains open. **Section 15** records the development schema
+deployment, the authenticated cloud smoke and the phase gates. Sections 1–14 are
+preserved as written at the first stopping point and are superseded wherever the
+later sections disagree.
 
 ## 0. Purpose and authority
 
@@ -1187,3 +1190,131 @@ narrowed schema and the same 608 documents it started with.
 `npm run preview:phone` is serving the local build on port 4180 for device
 testing. It is a real cloud build and requires a Clerk sign-in; if the phone
 cannot authenticate, add the LAN origin to the Clerk instance's allowed origins.
+
+## 16. Device testing pass and close-out
+
+Date: 2026-07-30. Head at close-out: `91410b8b`. Merged to `develop`.
+
+Section 15 closed the plan's own gates. This section records what a real device
+found afterwards, which is a different category of finding: every item here came
+from using the app on a phone or from measuring the running build, and none of it
+was visible in the source.
+
+### 16.1 Interaction and layout work
+
+| Commit | Change |
+| --- | --- |
+| `88cd1c86` | Home habit tiles compacted, 82px to 66px |
+| `e4bf32ad` | Target tile height matched to a tick tile, both 66px |
+| `e0e05c20` | A revealed card can be swiped closed instead of snapping |
+| `58ac6d73` | A closing card no longer travels behind the action button |
+| `dc55b543` | Space around the Home title halved |
+| `a56a0b79` | Habits reorder button reduced to an icon |
+| `91410b8b` | Habits search field says habits, not activities |
+
+Three of these are the same swipe gesture, and the sequence is worth keeping
+because each fix exposed the next.
+
+1. Closing a revealed card was not a rough animation, it was not animated at
+   all. The gesture measured its delta from pointerdown and assumed the card
+   started at zero, but a revealed card sits at `-btnWidth`. Dragging right gave
+   a positive delta which the "left only" clamp turned into zero, so the card
+   slammed shut the moment the drag passed the 12px threshold.
+2. With that fixed, the 12px spent deciding the gesture was horizontal was still
+   applied in one step, so travel began with a jump in both directions.
+3. With both fixed, a card closed from a *released* reveal still slid behind the
+   button and jumped in front at the end, while the same motion performed
+   without lifting a finger looked correct. That difference was the diagnosis:
+   `swipe-revealed` is only applied on release, and it lifts the button above
+   the card, so only the non-continuous path was ever affected.
+
+The user reported (3) precisely enough to name the reproduction, which is what
+made it findable at all.
+
+### 16.2 Two duplication faults, same shape
+
+`.habit-card` set `padding: 16px` while its own markup carried `px-4 py-2`, and
+the Home header set `height: 72px` while its markup carried `h-[72px]`. In both
+cases `style.css` loads after Tailwind and won, so the markup was stating values
+it did not control, and the tile was rendering at twice the padding it asked
+for. Both now have a single source.
+
+The reorder button had the same fault across modules rather than within one:
+`HabitsView` built it and `HabitReorderModal` re-rendered it on every mode flip,
+each with its own copy of the icon markup. The modal is dynamically imported, so
+the icons moved to a small shared module rather than being imported from it.
+
+### 16.3 A preview trap, and a guard that had to be fixed twice
+
+`npm run test:pwa` and `npm run check:bundle:pages` both write a Pages build into
+the same `dist/` a running preview serves. The result is not a 404: index.html
+loads, every asset resolves to the SPA fallback and returns HTML, and the app
+renders unstyled on whatever device is pointed at it. It looks exactly like the
+stylesheet broke. This happened twice during this session, both times because
+the assistant ran `test:pwa` and left it.
+
+The first guard (`238d0522`) never fired. It used `fs.watch` on
+`dist/index.html`, but a build removes the directory and writes a new file, so
+the watch was bound to a dead inode. The verification is what allowed it to ship
+broken: it rewrote the file in place, which keeps the inode and does emit an
+event, and so tested a case that never occurs. `77e18579` replaced it with a
+stat poll, verified against a real `BUILD_TARGET=pages vite build` and then
+observed firing in a live preview during an actual `test:pwa`.
+
+The lesson generalises beyond this script: a guard's test has to reproduce the
+mechanism that triggers it, not a convenient approximation of the symptom.
+
+### 16.4 Two-device convergence, observed
+
+Section 15.3 listed two-device convergence as outstanding because it needs a
+second client. It was then observed incidentally: Holiday Mode was switched off
+for 30 July on the phone, and the change was present in the desktop session
+against the deployed narrowed schema. The document record shows the write
+carrying the phone's device id, distinct from the browser session's, so the two
+clients did converge through Convex. This is weaker than a designed test — it
+covers one recent-history record in one direction — but it is real evidence and
+is recorded as such rather than left as a gap.
+
+### 16.5 Final gate results
+
+```text
+npm run lint            passed
+npm run test:unit       32 files, 224 tests passed
+npm run test:convex     passed
+npm run check:dead-code passed, zero issues
+npm run check:cycles    passed, zero cycles
+npm run test:e2e        149 passed, 1 skipped (opt-in large-account case)
+npm run test:pwa        3 passed
+npm run test:fitness:perf  1 passed
+```
+
+Pages budgets all pass: HTML 13,472 of 18,000; Fitness entry 19,614 of 25,000;
+Fitness modals 24,645 of 30,000; largest JavaScript 582,365 of 650,000; Workbox
+precache 2,372,430 of 2,500,000 bytes.
+
+One known flake: `home-updates.spec.js:353` fails roughly once in eighty runs,
+on an archived habit's card not being present after a date change. It was
+measured at the same rate with and without the tile changes, so it predates
+them. It is a real race worth fixing, not a test to delete.
+
+### 16.6 What remains open
+
+- The auth vendor chunk is 588 KB gzip and dominates delivery. Untouched
+  deliberately: the plan forbids unsupported deep imports to move that number.
+- Home downloads `fitness-core` at startup, 19.76 KB gzip, because rolldown
+  inlines `shared/color.js` and `shared/equality.js` into it regardless of their
+  `manualChunks` group. Two fixes were tried and reverted with measurements in
+  15.5.
+- Offline edit, terminate, reopen and reconnect on an installed client.
+- Conflict resolution against a genuine concurrent write.
+- Sign-out with pending work, and generation reset.
+- `legacyData` and `migrationBatches` remain as empty untyped tables in
+  development; the CLI has no drop-table command.
+- The selected day tile and today outline print text in the brand accent, and
+  white on `#007bff` is 4.02:1 in both themes, below AA for normal text. A
+  palette decision rather than a defect.
+- `applyTheme()` runs only at initialisation and on the toggle, so a dark-mode
+  preference arriving from another device does not repaint until reload.
+
+Production has still never been exported, imported, deployed or otherwise
+touched, and its census remains empty.

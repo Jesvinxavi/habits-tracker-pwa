@@ -35,7 +35,7 @@
 - [ ] Large cascade operations are bounded or have passed the large-history
       transaction-limit test.
 - [ ] Reactive queries contain no nondeterministic clock reads.
-- [ ] Reset, rollback, migration abandon, and account-deletion drills pass.
+- [ ] Reset, rollback, and account-deletion drills pass.
 
 ## PWA and browser
 

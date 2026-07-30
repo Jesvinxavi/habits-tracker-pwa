@@ -1,5 +1,14 @@
 # Whole-App Forensic Optimisation Audit and Implementation Plan
 
+> **Historical. Do not follow this as a checklist.** This is the first audit of
+> the whole-app optimisation. It was superseded by
+> [the independent review and revised plan](WHOLE_APP_OPTIMISATION_INDEPENDENT_AUDIT_AND_REVISED_PLAN.md),
+> which changed its safety premise and reordered its phases, and that plan was
+> implemented and closed out in
+> [the implementation record](WHOLE_APP_OPTIMISATION_IMPLEMENTATION_HANDOFF.md).
+> Its findings and measurements are kept because they are the evidence the later
+> documents argue from; its instructions name code that no longer exists.
+
 Date: 2026-07-30. Branch audited: `codex/whole-app-optimisation` at `bcc0044b`
 (clean tree). Every file under `src/`, `convex/` (excluding `_generated/`),
 `tests/`, `scripts/`, `.github/workflows/`, the build/test configs, `index.html`
