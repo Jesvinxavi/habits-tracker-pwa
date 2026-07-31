@@ -20,6 +20,12 @@ are not active implementation checklists.
 - [Independent whole-app audit and revised plan](architecture/WHOLE_APP_OPTIMISATION_INDEPENDENT_AUDIT_AND_REVISED_PLAN.md)
   — historical: the plan that was implemented, kept for its reasoning.
 
+## Statistics
+
+- [Statistics forensic audit and plan](stats/STATS_FORENSIC_AUDIT_AND_PLAN.md)
+  — every stats surface and calculation audited, the "Unable to connect"
+  modal failure root-caused, and the phased fix/new-stats plan. Current.
+
 ## Fitness
 
 - [Fitness documentation index](fitness/README.md)
