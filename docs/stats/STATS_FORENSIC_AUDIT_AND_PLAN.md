@@ -735,17 +735,22 @@ the carousel behind a 100 ms `setTimeout` (`stats.js:938-941`) — fine at
 today's scale once P1 lands; noted for the consolidation (X2), not as an
 independent fix.
 
-## 9. Decisions needed from the owner (they change what the numbers mean)
+## 9. Decisions — confirmed by the owner 2026-07-31
 
-| # | Question | Recommendation |
+| # | Question | **Decision** |
 |---|---|---|
-| D1 | Skip semantics (H1): is a skipped day neutral, or a miss? | Neutral everywhere; skips already have their own metric. |
-| D2 | Pending today (H2/H3): does an incomplete today break streaks / drag today's rate? | Pending: exclude today until completed or the day ends. |
-| D3 | Paused habits (H6): should pause hide history in stats? | No — stats evaluate past dates ignoring pause; add `pausedAt` later for full correctness. |
-| D4 | Sessions without metrics (C3): average over all sessions or only sessions with data? | Only sessions with the metric; show quick-record count separately. |
-| D5 | Archived habits (H5): appear in category breakdown? | Exclude from current-facing aggregates; keep in historical series. |
-| D6 | "Completed Today" (H4): period-completions or literal today? | Literal today. |
-| D7 | Longest streak window (H11): all-time or last-year? | All-time once P1 lands. |
+| D1 | Skip semantics (H1): is a skipped day neutral, or a miss? | **Neutral everywhere** — excluded from denominators, does not break streaks. Skips keep their own separate metric. |
+| D2 | Pending today (H2/H3): does an incomplete today break streaks / drag today's rate? | **Pending** — today is excluded until completed or the day ends. |
+| D3 | Paused habits (H6): should pause hide history in stats? | **Keep full history, freeze at the pause.** A paused habit's own stats modal shows its complete record up to the moment it was paused; no new days accrue while paused, and it contributes nothing to page-level aggregates until unpaused. Requires an additive `pausedAt`. |
+| D4 | Sessions without metrics (C3): average over all sessions or only sessions with data? | **Only sessions carrying the metric**, with an "N unlogged" note so quick-records stay visible. |
+| D5 | Archived habits (H5): appear in category breakdown? | **Excluded from current-facing aggregates**; their own record and their historical days are kept. |
+| D6 | "Completed Today" (H4): period-completions or literal today? | **Literally today.** |
+| D7 | Longest streak window (H11): all-time or last-year? | **All-time, no cap.** |
+
+Design scope, also confirmed: **full reorganisation** of the Stats page and
+both modals — one consistent card system, labelled sections, progressive
+disclosure (summary above, detail below), and charts where a bare number does
+not carry the meaning.
 
 ## 10. New statistics the collected data already supports
 
