@@ -1,120 +1,118 @@
 /**
  * Habit Statistics Modal
  *
- * Modal UI functionality for displaying habit statistics
- * Extracted from HabitsListModule.js for better modularity
+ * The per-habit view: how reliably it has been kept, how it is trending, and
+ * where it falls down. It shares the app's modal stack and the statistics card
+ * system rather than hand-rolling either, so it locks scrolling, traps focus and
+ * closes on Escape like every other dialog.
  */
 
 import { getState } from '../../../core/state.js';
 import { calculateHabitStatistics } from '../helpers/habitStats.js';
 import { formatLastPerformed } from '../../../shared/datetime.js';
+import { closeModal, openModal, topModalId } from '../../../components/Modal.js';
+import { escapeHtml, normalizeHexColor } from '../../../shared/sanitize.js';
+import { mountPeriodCarousel, renderPeriodCarousel } from '../../stats/completionCarousel.js';
+import {
+  barChart,
+  heatmap,
+  statCard,
+  statGrid,
+  statSection,
+  statsEmptyState,
+} from '../../stats/statsUi.js';
 
-// Global variable to track active carousel interval
-let activeCarouselInterval = null;
+const MODAL_ID = 'habit-stats-modal';
+let releaseCarousel = null;
+let escapeBound = false;
 
 /**
  * Handle habit stats click - calculate and show modal
  * @param {string} habitId - The ID of the habit
+ * @returns {void}
  */
 export function handleHabitStatsClick(habitId) {
-  const habit = getState().habits.find((h) => h.id === habitId);
+  const habit = getState().habits.find((candidate) => candidate.id === habitId);
   if (!habit) return;
-
-  // Calculate habit statistics
-  const stats = calculateHabitStatistics(habitId);
-
-  // Open stats modal with calculated data
-  openHabitStatsModal(habit, stats);
+  openHabitStatsModal(habit, calculateHabitStatistics(habitId));
 }
 
 /**
  * Opens the habit statistics modal with calculated data
  * @param {Object} habit - The habit object
  * @param {Object} stats - The calculated statistics
+ * @returns {void}
  */
 export function openHabitStatsModal(habit, stats) {
-  const category = getState().categories.find((c) => c.id === habit.categoryId);
-  const content = buildHabitStatsContent(habit, stats, category);
+  const category = getState().categories.find((entry) => entry.id === habit.categoryId);
+  const color = normalizeHexColor(category?.color, '#3B82F6');
 
-  const modalHTML = `
-    <div id="habit-stats-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div class="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full max-h-[90vh] flex flex-col">
-        <div class="flex-shrink-0 p-6 border-b border-gray-200 dark:border-gray-700">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-full flex items-center justify-center text-xl" style="background: ${category?.color || '#888'}; color: white;">
-                ${habit.icon || '📋'}
+  document.getElementById(MODAL_ID)?.remove();
+  document.body.insertAdjacentHTML(
+    'beforeend',
+    `
+      <div id="${MODAL_ID}" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="modal-content bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
+          <div class="flex-shrink-0 flex items-center justify-between gap-3 p-4 border-b border-gray-200 dark:border-gray-800">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center text-xl flex-shrink-0" style="background-color:${color}20;">
+                ${escapeHtml(habit.icon || '📋')}
               </div>
-              <div>
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${habit.name}</h3>
-                <p class="text-sm text-gray-500 dark:text-gray-400">${category?.name || 'Uncategorized'}</p>
+              <div class="min-w-0">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white truncate">${escapeHtml(habit.name)}</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 truncate">${escapeHtml(category?.name || 'Uncategorised')}</p>
               </div>
             </div>
-            <button id="close-habit-stats-modal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
+            <button id="close-habit-stats-modal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 flex-shrink-0" aria-label="Close statistics">
               <span class="material-icons">close</span>
             </button>
           </div>
-        </div>
-        <div class="flex-1 overflow-y-auto p-6">
-          ${content}
+          <div class="flex-1 overflow-y-auto p-4">
+            ${buildHabitStatsContent(habit, stats, category)}
+          </div>
         </div>
       </div>
-    </div>
-  `;
+    `
+  );
 
-  // Remove existing modal if any
-  const existingModal = document.getElementById('habit-stats-modal');
-  if (existingModal) {
-    existingModal.remove();
-  }
+  bindHandlers();
+  openModal(MODAL_ID);
+  releaseCarousel = mountPeriodCarousel(document.getElementById(MODAL_ID));
+}
 
-  // Add modal to body
-  document.body.insertAdjacentHTML('beforeend', modalHTML);
+/**
+ * Closes the modal and takes it back out of the DOM.
+ * @returns {void}
+ */
+export function closeHabitStatsModal() {
+  const modal = document.getElementById(MODAL_ID);
+  if (!modal) return;
+  releaseCarousel?.();
+  releaseCarousel = null;
+  closeModal(MODAL_ID);
+  modal.remove();
+}
 
-  // Get modal elements
-  const modal = document.getElementById('habit-stats-modal');
-  const closeBtn = document.getElementById('close-habit-stats-modal');
+/**
+ * Binds the modal's own close affordances.
+ * @returns {void}
+ */
+function bindHandlers() {
+  const modal = document.getElementById(MODAL_ID);
+  document
+    .getElementById('close-habit-stats-modal')
+    ?.addEventListener('click', () => closeHabitStatsModal());
+  modal?.addEventListener('click', (event) => {
+    if (event.target === modal) closeHabitStatsModal();
+  });
 
-  // Close modal function
-  const closeModal = () => {
-    // Clear any active carousel interval
-    if (activeCarouselInterval) {
-      clearInterval(activeCarouselInterval);
-      activeCarouselInterval = null;
-    }
-    
-    if (modal) {
-      modal.classList.add('hidden');
-      setTimeout(() => modal.remove(), 300);
-    }
-  };
-
-  // Event listeners
-  if (closeBtn) {
-    closeBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      closeModal();
-    });
-  }
-
-  if (modal) {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        closeModal();
-      }
-    });
-  }
-
-  // Show modal
-  if (modal) {
-    modal.classList.remove('hidden');
-  }
-
-  // Initialize carousel after modal is shown
-  setTimeout(() => {
-    initializeHabitCompletionCarousel(modal);
-  }, 300);
+  if (escapeBound) return;
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || topModalId() !== MODAL_ID) return;
+    event.preventDefault();
+    closeHabitStatsModal();
+  });
+  escapeBound = true;
 }
 
 /**
@@ -125,321 +123,142 @@ export function openHabitStatsModal(habit, stats) {
  * @returns {string} HTML string for the statistics content
  */
 export function buildHabitStatsContent(habit, stats, category) {
-  if (!stats || stats.daysTracked === 0) {
-    return `
-      <div class="text-center py-8">
-        <span class="material-icons text-4xl text-gray-400 mb-4">bar_chart</span>
-        <p class="text-gray-600 dark:text-gray-400">No data available yet</p>
-        <p class="text-sm text-gray-500 mt-2">Start completing this habit to see statistics</p>
-      </div>
-    `;
+  if (!stats || !stats.hasData) {
+    return statsEmptyState({
+      title: 'Nothing to measure yet',
+      message: 'Once this habit has had a day to succeed or miss, its record appears here.',
+    });
   }
 
-  let content = `
-    <div class="stats-grid space-y-4">
-      <!-- Overview Stats -->
-      <div class="stats-section">
-        <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Overview</h4>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-            <div class="stat-value text-2xl font-bold text-gray-900 dark:text-white">${stats.totalCompletions}</div>
-            <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Total Completions</div>
-          </div>
-          <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-            <div class="stat-value text-2xl font-bold text-gray-900 dark:text-white">${stats.completionRateTotal.toFixed(1)}%</div>
-            <div class="stat-label text-xs text-gray-500 dark:text-gray-400">All-Time Completion</div>
-          </div>
-        </div>
+  const color = normalizeHexColor(category?.color, '#3B82F6');
+  const sections = [];
+
+  if (stats.frozenOn) {
+    sections.push(`
+      <div class="rounded-xl bg-gray-100 dark:bg-gray-800 px-3 py-2 text-xs text-gray-600 dark:text-gray-300">
+        ${escapeHtml(stats.isArchived ? 'Archived' : 'Paused')} — this record stops at
+        ${escapeHtml(formatLastPerformed(stats.frozenOn).toLowerCase())} and resumes when the habit does.
       </div>
-  `;
+    `);
+  }
 
-  // Completion rates section with carousel
-  const periodLabels = stats.group === 'daily'
-    ? [{ label: '7d', rate: stats.completionRate7d }, { label: '30d', rate: stats.completionRate30d }, { label: 'All Time', rate: stats.completionRateTotal }]
-    : stats.group === 'weekly'
-      ? [{ label: '4w', rate: stats.completionRate7d }, { label: '12w', rate: stats.completionRate30d }, { label: 'All Time', rate: stats.completionRateTotal }]
-      : stats.group === 'monthly'
-        ? [{ label: '3m', rate: stats.completionRate7d }, { label: '12m', rate: stats.completionRate30d }, { label: 'All Time', rate: stats.completionRateTotal }]
-        : [{ label: '3y', rate: stats.completionRate7d }, { label: '10y', rate: stats.completionRate30d }, { label: 'All Time', rate: stats.completionRateTotal }];
-
-  const completionCarouselHTML = renderHabitCompletionCarousel(periodLabels);
-
-  content += `
-    <div class="stats-section">
-      <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Completion Rates</h4>
-      ${completionCarouselHTML}
-      <div class="grid grid-cols-2 gap-4 mt-4">
-        <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-          <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${stats.daysTracked}</div>
-          <div class="stat-label text-xs text-gray-500 dark:text-gray-400">${stats.trackedUnitLabel}</div>
+  sections.push(
+    statSection({
+      title: 'Reliability',
+      body: `
+        ${renderPeriodCarousel([
+          { label: stats.periodLabels[0], rate: stats.completionRateShort },
+          { label: stats.periodLabels[1], rate: stats.completionRateLong },
+          { label: stats.periodLabels[2], rate: stats.completionRateTotal },
+        ])}
+        <div class="mt-2.5">
+          ${statGrid([
+            statCard({ value: stats.totalCompletions, label: 'Total completions' }),
+            statCard({ value: stats.daysTracked, label: stats.trackedUnitLabel }),
+          ])}
         </div>
-        <div class="stat-card bg-orange-50 dark:bg-orange-900 p-3 rounded-lg">
-          <div class="stat-value text-xl font-bold text-orange-600 dark:text-orange-300">${stats.totalSkipped}</div>
-          <div class="stat-label text-xs text-orange-600 dark:text-orange-300">Times Skipped</div>
-          <div class="stat-sublabel text-xs text-orange-500 dark:text-orange-400 mt-1">
-            ${stats.skippedPercentage.toFixed(1)}% of actions
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
+      `,
+    })
+  );
 
-  // Streaks section
-  content += `
-    <div class="stats-section">
-      <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Streaks</h4>
-      <div class="grid grid-cols-2 gap-4">
-        <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-          <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${stats.currentStreak}</div>
-          <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Current Streak</div>
-        </div>
-        <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-          <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${stats.longestStreak}</div>
-          <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Longest Streak</div>
-        </div>
-      </div>
-    </div>
-  `;
+  sections.push(
+    statSection({
+      title: 'Streaks',
+      note: 'Skipped days are stepped over rather than counted against you.',
+      body: statGrid([
+        statCard({
+          value: stats.currentStreak,
+          label: 'Current streak',
+          tone: stats.currentStreak > 0 ? 'positive' : 'plain',
+        }),
+        statCard({ value: stats.longestStreak, label: 'Longest streak' }),
+      ]),
+    })
+  );
 
-  // Recent activity
-  const lastCompletedText = stats.lastCompleted 
-    ? formatLastPerformed(stats.lastCompleted)
-    : 'Never';
+  if (stats.targetProgress) {
+    const target = stats.targetProgress;
+    sections.push(
+      statSection({
+        title: 'Target',
+        note: `Aiming for ${target.target}${target.unit ? ` ${target.unit}` : ''} each ${
+          stats.group === 'daily' ? 'day' : stats.group.replace('ly', '')
+        }`,
+        body: statGrid([
+          statCard({
+            value: `${Math.round(target.hitRate || 0)}%`,
+            label: 'Target reached',
+            tone: 'feature',
+          }),
+          statCard({
+            value: formatAmount(target.average),
+            label: 'Average per period',
+            sub: target.unit,
+          }),
+          statCard({ value: formatAmount(target.best), label: 'Best period', sub: target.unit }),
+          statCard({
+            value: formatAmount(target.total),
+            label: 'Total recorded',
+            sub: target.unit,
+          }),
+        ]),
+      })
+    );
+  }
 
-  content += `
-    <div class="stats-section">
-      <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Recent Activity</h4>
-      <div class="grid grid-cols-2 gap-4">
-        <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-          <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${stats.recentActivity}</div>
-          <div class="stat-label text-xs text-gray-500 dark:text-gray-400">${stats.group === 'daily' ? 'Last 30 Days' : stats.group === 'weekly' ? 'Last 12 Weeks' : stats.group === 'monthly' ? 'Last 6 Months' : 'Last 3 Years'}</div>
-        </div>
-        <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-          <div class="stat-value text-sm font-bold text-gray-900 dark:text-white break-words">${lastCompletedText}</div>
-          <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Last Completed</div>
-        </div>
-      </div>
-    </div>
-  `;
+  sections.push(
+    statSection({
+      title: 'Recent',
+      body: statGrid([
+        statCard({ value: stats.recentActivity, label: stats.recentLabel }),
+        statCard({
+          value: stats.lastCompleted ? formatLastPerformed(stats.lastCompleted) : 'Never',
+          label: 'Last completed',
+        }),
+        statCard({ value: formatAmount(stats.periodAverage), label: stats.periodAverageLabel }),
+        statCard({
+          value: stats.totalSkipped,
+          label: 'Times skipped',
+          sub: stats.totalSkipped > 0 ? `${Math.round(stats.skippedPercentage)}% of days` : '',
+          tone: stats.totalSkipped > 0 ? 'caution' : 'plain',
+        }),
+      ]),
+    })
+  );
 
-  content += '</div>';
-  return content;
+  if (stats.daySeries && stats.daySeries.length > 6) {
+    sections.push(
+      statSection({
+        title: 'History',
+        note: 'Every day since this habit started, most recent on the right',
+        body: heatmap({ days: stats.daySeries, color }),
+      })
+    );
+  }
+
+  if (stats.weekdayBreakdown && stats.weekdayBreakdown.some((day) => day.decided > 0)) {
+    sections.push(
+      statSection({
+        title: 'By day of week',
+        note: 'Where this habit holds up, and where it slips',
+        body: barChart({
+          bars: stats.weekdayBreakdown.map((day) => ({ label: day.label, value: day.rate })),
+          color,
+          format: (value) => `${Math.round(value)}%`,
+        }),
+      })
+    );
+  }
+
+  return `<div class="stats-grid space-y-5">${sections.filter(Boolean).join('')}</div>`;
 }
 
 /**
- * Render completion carousel for individual habit statistics
- * @param {Array} periods - Array of period objects with rate data
- * @returns {string} HTML string for the carousel
+ * Formats a figure without a pointless trailing zero.
+ * @param {number} value Any measurement.
+ * @returns {string} Display string.
  */
-export function renderHabitCompletionCarousel(periods) {
-  if (periods.length === 1) {
-    // Single period - render simple tile
-    const period = periods[0];
-    return `
-      <div class="completion-rates">
-        <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-          <div class="text-xl font-bold text-center mb-1 text-gray-900 dark:text-white">
-            ${period.rate.toFixed(1)}%
-          </div>
-          <div class="text-center text-xs text-gray-500 dark:text-gray-400">
-            Completion Rate (${period.label})
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  // Multiple periods - render carousel
-  const slidesHTML = periods
-    .map(
-      (period, index) => `
-    <div class="carousel-slide ${index === 0 ? 'active' : ''}" data-slide="${index}">
-      <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-        <div class="text-xl font-bold text-center mb-1 text-gray-900 dark:text-white">
-          ${period.rate.toFixed(1)}%
-        </div>
-        <div class="text-center text-xs text-gray-500 dark:text-gray-400">
-          Completion Rate (${period.label})
-        </div>
-      </div>
-    </div>
-  `
-    )
-    .join('');
-
-  const dotsHTML = periods
-    .map(
-      (_, index) => `
-    <div class="carousel-dot ${index === 0 ? 'active' : ''}" data-slide="${index}"></div>
-  `
-    )
-    .join('');
-
-  return `
-    <div class="completion-rates">
-      <div class="completion-carousel" id="habit-completion-carousel">
-        <div class="carousel-container">
-          <div class="carousel-track" id="habit-carousel-track">
-            ${slidesHTML}
-          </div>
-        </div>
-        <div class="carousel-dots" id="habit-carousel-dots">
-          ${dotsHTML}
-        </div>
-      </div>
-    </div>
-  `;
+function formatAmount(value) {
+  if (!Number.isFinite(value)) return '0';
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
-
-/**
- * Initialize habit completion carousel functionality
- * @param {Element} root - The root element to search within (default: document)
- */
-export function initializeHabitCompletionCarousel(root = document) {
-  // Look for the elements relative to the provided root. Using querySelector
-  // keeps the logic unchanged while ensuring we only grab nodes inside the
-  // habit-stats modal when it is provided as the root.
-  const carousel = root.querySelector('.completion-carousel');
-  const track = carousel ? carousel.querySelector('.carousel-track') : null;
-  const dots = carousel ? carousel.querySelector('.carousel-dots') : null;
-
-  if (!carousel || !track || !dots) return;
-
-  const slides = track.querySelectorAll('.carousel-slide');
-  const dotElements = dots.querySelectorAll('.carousel-dot');
-
-  if (slides.length <= 1) return;
-
-  let currentSlide = 0;
-  let touchStartX = 0;
-  let touchEndX = 0;
-
-  // Update active slide and dot
-  function updateActiveSlide(index) {
-    if (index < 0 || index >= slides.length) return;
-
-    currentSlide = index;
-
-    // Update slides
-    slides.forEach((slide, i) => {
-      slide.classList.toggle('active', i === currentSlide);
-    });
-
-    // Update dots
-    dotElements.forEach((dot, i) => {
-      dot.classList.toggle('active', i === currentSlide);
-    });
-  }
-
-  // Go to next slide
-  function nextSlide() {
-    const next = (currentSlide + 1) % slides.length;
-    updateActiveSlide(next);
-  }
-
-  // Go to previous slide
-  function prevSlide() {
-    const prev = (currentSlide - 1 + slides.length) % slides.length;
-    updateActiveSlide(prev);
-  }
-
-  // Dot click handlers
-  dotElements.forEach((dot, index) => {
-    dot.addEventListener('click', (e) => {
-      e.stopPropagation();
-      updateActiveSlide(index);
-    });
-  });
-
-  // Touch/swipe handlers
-  carousel.addEventListener('touchstart', (e) => {
-    touchStartX = e.touches[0].clientX;
-  });
-
-  carousel.addEventListener('touchend', (e) => {
-    touchEndX = e.changedTouches[0].clientX;
-    handleSwipe();
-  });
-
-  // Mouse drag handlers for desktop
-  let isDragging = false;
-  let startX = 0;
-
-  carousel.addEventListener('mousedown', (e) => {
-    isDragging = true;
-    startX = e.clientX;
-    carousel.style.cursor = 'grabbing';
-  });
-
-  carousel.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    e.preventDefault();
-  });
-
-  carousel.addEventListener('mouseup', (e) => {
-    if (!isDragging) return;
-    isDragging = false;
-    carousel.style.cursor = 'grab';
-
-    const endX = e.clientX;
-    const diffX = startX - endX;
-
-    if (Math.abs(diffX) > 50) {
-      if (diffX > 0) {
-        nextSlide();
-      } else {
-        prevSlide();
-      }
-    }
-  });
-
-  function handleSwipe() {
-    const swipeThreshold = 50;
-    const diffX = touchStartX - touchEndX;
-
-    if (Math.abs(diffX) > swipeThreshold) {
-      if (diffX > 0) {
-        nextSlide(); // Swipe left - next slide
-      } else {
-        prevSlide(); // Swipe right - previous slide
-      }
-    }
-  }
-
-  // Add CSS cursor
-  carousel.style.cursor = 'grab';
-
-  // --- Auto-scroll functionality ---
-  // Clear any existing global interval
-  if (activeCarouselInterval) {
-    clearInterval(activeCarouselInterval);
-  }
-  
-  // Start auto-scroll every 10 seconds
-  activeCarouselInterval = setInterval(() => {
-    nextSlide();
-  }, 10000);
-
-  // Pause auto-scroll on hover
-  carousel.addEventListener('mouseenter', () => {
-    if (activeCarouselInterval) {
-      clearInterval(activeCarouselInterval);
-      activeCarouselInterval = null;
-    }
-  });
-
-  // Resume auto-scroll when mouse leaves (but only if not dragging)
-  carousel.addEventListener('mouseleave', (e) => {
-    // Handle dragging state
-    if (isDragging) {
-      isDragging = false;
-      carousel.style.cursor = 'grab';
-    }
-    
-    // Resume auto-scroll
-    if (activeCarouselInterval) clearInterval(activeCarouselInterval);
-    activeCarouselInterval = setInterval(() => {
-      nextSlide();
-    }, 10000);
-  });
-} 

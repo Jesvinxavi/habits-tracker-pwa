@@ -9,19 +9,21 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActionTypes, dispatch } from '../../src/core/state.js';
-import { calculateActivityStatistics } from '../../src/features/fitness/helpers/activityStats.js';
 import {
-  calculateHabitStatistics,
-  calculateCurrentStreak,
-  calculateHabitCompletionRate,
-} from '../../src/features/habits/helpers/habitStats.js';
+  calculateActivityStatistics,
+  extractProgressionSeries,
+} from '../../src/features/fitness/helpers/activityStats.js';
+import { calculateHabitStatistics } from '../../src/features/habits/helpers/habitStats.js';
 import {
   STRENGTH_ACTIVITY,
   TIME_ACTIVITY,
   TODAY,
   dailyHabit,
+  daysAgo,
+  keyDaysAgo,
   record,
   recordedActivities,
+  targetHabit,
 } from '../fixtures/statsScenarios.js';
 
 /**
@@ -43,8 +45,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('activity statistics as they behave today', () => {
-  it('truncates a decimal duration, disagreeing with its own best-session card', () => {
+describe('activity statistics', () => {
+  it('keeps the fraction of a decimal duration', () => {
     seed({
       activities: [TIME_ACTIVITY],
       recordedActivities: recordedActivities([
@@ -53,15 +55,14 @@ describe('activity statistics as they behave today', () => {
       ]),
     });
 
-    const stats = calculateActivityStatistics('act-run');
+    const stats = calculateActivityStatistics('act-run', TODAY);
 
-    // BUG(C1): parseInt('1.5') === 1, so 90 minutes is banked as 60.
-    expect(stats.totalDuration).toBe(90);
-    // ...while the record chosen as "best" still holds its true 90 minutes.
-    expect(stats.bestSession.duration).toBe(1.5);
+    // FIXED(C1): ninety minutes plus thirty, not sixty plus thirty.
+    expect(stats.totalDuration).toBe(120);
+    expect(stats.bestSession.id).toBe('a');
   });
 
-  it('dilutes the duration average with sessions that carry no duration', () => {
+  it('averages duration over the sessions that have one', () => {
     seed({
       activities: [TIME_ACTIVITY],
       recordedActivities: recordedActivities([
@@ -72,15 +73,15 @@ describe('activity statistics as they behave today', () => {
       ]),
     });
 
-    const stats = calculateActivityStatistics('act-run');
+    const stats = calculateActivityStatistics('act-run', TODAY);
 
-    expect(stats.totalDuration).toBe(120);
     expect(stats.totalSessions).toBe(3);
-    // BUG(C3): divided by every session, not by the two that have a duration.
-    expect(stats.averageDuration).toBe(40);
+    expect(stats.unloggedSessions).toBe(1);
+    // FIXED(C3): 120 over the two timed sessions, not over all three.
+    expect(stats.averageDuration).toBe(60);
   });
 
-  it('picks the best strength session by its best single set', () => {
+  it('picks the best strength session by the work it did in total', () => {
     seed({
       activities: [STRENGTH_ACTIVITY],
       recordedActivities: recordedActivities([
@@ -103,13 +104,16 @@ describe('activity statistics as they behave today', () => {
       ]),
     });
 
-    const stats = calculateActivityStatistics('act-bench');
+    const stats = calculateActivityStatistics('act-bench', TODAY);
 
-    // BUG(C2): 1500 kg of total volume loses to a session of 600.
-    expect(stats.bestSession.id).toBe('single-heavy');
+    // FIXED(C2): 1500 kg of volume beats 600.
+    expect(stats.bestSession.id).toBe('volume');
+    expect(stats.totalVolume).toBe(2100);
+    // The heaviest single lift is still reported, as its own record.
+    expect(stats.personalBests.heaviest.value).toBe(60);
   });
 
-  it('treats the day a session was logged as the day it was performed', () => {
+  it('counts a session on the day it was performed, not the day it was typed in', () => {
     seed({
       activities: [TIME_ACTIVITY],
       recordedActivities: recordedActivities([
@@ -118,13 +122,14 @@ describe('activity statistics as they behave today', () => {
       ]),
     });
 
-    const stats = calculateActivityStatistics('act-run');
+    const stats = calculateActivityStatistics('act-run', TODAY);
 
-    // BUG(C4): counted inside the 30-day window because it was *logged* today.
-    expect(stats.recentFrequency).toBe(1);
+    // FIXED(C4): outside the 30-day window, where it belongs.
+    expect(stats.recentFrequency).toBe(0);
+    expect(stats.lastPerformed).toBe(keyDaysAgo(60));
   });
 
-  it('reports an implausible weekly average for a brand-new activity', () => {
+  it('does not extrapolate a week from a single day', () => {
     seed({
       activities: [TIME_ACTIVITY],
       recordedActivities: recordedActivities([
@@ -133,48 +138,70 @@ describe('activity statistics as they behave today', () => {
       ]),
     });
 
-    const stats = calculateActivityStatistics('act-run');
+    const stats = calculateActivityStatistics('act-run', TODAY);
 
-    // BUG(C5): two sessions across one day extrapolates to fourteen a week.
-    expect(stats.weeklyAverage).toBeGreaterThan(10);
+    // FIXED(C5): two sessions in the first week reads as two a week.
+    expect(stats.weeklyAverage).toBe(2);
+  });
+
+  it('leaves bodyweight sessions out of the weight progression', () => {
+    seed({
+      activities: [STRENGTH_ACTIVITY],
+      recordedActivities: recordedActivities([
+        record({
+          id: 'weighted',
+          activityId: 'act-bench',
+          daysBack: 6,
+          sets: [{ reps: '8', value: '60', unit: 'kg' }],
+        }),
+        record({
+          id: 'bodyweight',
+          activityId: 'act-bench',
+          daysBack: 3,
+          sets: [{ reps: '20', value: '', unit: 'none' }],
+        }),
+      ]),
+    });
+
+    const { points } = extractProgressionSeries({ ...STRENGTH_ACTIVITY });
+
+    // FIXED(C8): one point, not a second one plotted at zero.
+    expect(points).toHaveLength(1);
+    expect(points[0].value).toBe(60);
   });
 });
 
-describe('habit statistics as they behave today', () => {
-  it('counts a skipped day as a missed day', () => {
-    seed({
-      categories: [{ id: 'cat-health', name: 'Health', color: '#34C759' }],
-      // Six days old, completed every day except the one that was skipped.
-      habits: [
-        dailyHabit({
-          createdDaysAgo: 6,
-          completedOn: (day) => day !== 3,
-          skippedDaysAgo: [3],
-        }),
-      ],
+describe('habit statistics', () => {
+  it('leaves a skipped day out of the completion rate', () => {
+    const habit = dailyHabit({
+      createdDaysAgo: 6,
+      completedOn: (day) => (day === 3 ? null : true),
+      skippedDaysAgo: [3],
     });
+    seed({ categories: [{ id: 'cat-health', name: 'Health', color: '#34C759' }], habits: [habit] });
 
-    const habit = { ...dailyHabit({ createdDaysAgo: 6, completedOn: (day) => day !== 3, skippedDaysAgo: [3] }) };
-    const rate = calculateHabitCompletionRate(habit, 7);
+    const stats = calculateHabitStatistics(habit.id, TODAY);
 
-    // BUG(H1): 6 completions over 7 scheduled days. The skipped day belongs in
-    // neither numerator nor denominator, which would read 100%.
-    expect(Math.round(rate)).toBe(86);
+    // FIXED(H1): six of six decided days. The skip is in neither side.
+    expect(stats.completionRateTotal).toBe(100);
+    expect(stats.totalSkipped).toBe(1);
   });
 
-  it('breaks the current streak on a skipped day', () => {
+  it('steps over a skipped day rather than breaking the streak', () => {
     const habit = dailyHabit({
       createdDaysAgo: 10,
-      completedOn: (day) => day !== 2,
+      completedOn: (day) => (day === 2 ? null : true),
       skippedDaysAgo: [2],
     });
     seed({ categories: [], habits: [habit] });
 
-    // BUG(H1): the skip stops the walk, so a ten-day run reads as two days.
-    expect(calculateCurrentStreak(habit)).toBe(2);
+    const stats = calculateHabitStatistics(habit.id, TODAY);
+
+    // FIXED(H1): eleven days, one of them stood down, none of them broken.
+    expect(stats.currentStreak).toBe(10);
   });
 
-  it('reports a zero current streak until today is completed', () => {
+  it('keeps the streak alive until today has actually been missed', () => {
     const habit = dailyHabit({
       createdDaysAgo: 30,
       // Everything done except today, which has not happened yet.
@@ -182,11 +209,13 @@ describe('habit statistics as they behave today', () => {
     });
     seed({ categories: [], habits: [habit] });
 
-    // BUG(H2): a 30-day run reads as 0 from midnight until today is ticked.
-    expect(calculateCurrentStreak(habit)).toBe(0);
+    const stats = calculateHabitStatistics(habit.id, TODAY);
+
+    // FIXED(H2): thirty days, still standing, all morning.
+    expect(stats.currentStreak).toBe(30);
   });
 
-  it('erases a paused habit’s entire history', () => {
+  it('keeps a paused habit’s history', () => {
     const habit = dailyHabit({
       id: 'habit-paused',
       createdDaysAgo: 30,
@@ -195,22 +224,52 @@ describe('habit statistics as they behave today', () => {
     });
     seed({ categories: [], habits: [habit] });
 
-    const stats = calculateHabitStatistics('habit-paused');
+    const stats = calculateHabitStatistics('habit-paused', TODAY);
 
-    // BUG(H6): thirty completed days, all invisible, because pause applies to
-    // every past date rather than from the moment of pausing.
-    expect(stats.totalCompletions).toBe(0);
-    expect(stats.longestStreak).toBe(0);
+    // FIXED(H6): thirty-one completed days, all still there.
+    expect(stats.totalCompletions).toBe(31);
+    expect(stats.longestStreak).toBe(31);
   });
 
-  it('never shows its empty state, however new the habit is', () => {
+  it('shows an empty state for a habit that has nothing to report', () => {
     const habit = dailyHabit({ id: 'habit-new', createdDaysAgo: 0, completedOn: () => null });
     seed({ categories: [], habits: [habit] });
 
-    const stats = calculateHabitStatistics('habit-new');
+    const stats = calculateHabitStatistics('habit-new', TODAY);
 
-    // BUG(U3): the modal's empty state is gated on daysTracked === 0, and every
-    // group floors the count at 1.
-    expect(stats.daysTracked).toBeGreaterThanOrEqual(1);
+    // FIXED(U3): today is pending, nothing has resolved, so there is no data.
+    expect(stats.hasData).toBe(false);
+  });
+
+  it('reports the day a period habit was completed, never a future boundary', () => {
+    const monday = daysAgo(TODAY.getDay() === 0 ? 6 : TODAY.getDay() - 1);
+    const habit = targetHabit({
+      id: 'habit-weekly',
+      targetFrequency: 'weekly',
+      createdDaysAgo: 30,
+      completed: { [weekKeyFor(monday)]: true },
+    });
+    seed({ categories: [], habits: [habit] });
+
+    const stats = calculateHabitStatistics('habit-weekly', TODAY);
+
+    // FIXED(H9): a real day in the past, so "last completed" cannot read as
+    // "-2 days ago" from a period end that has not arrived.
+    expect(stats.lastCompleted).not.toBeNull();
+    expect(stats.lastCompleted <= keyDaysAgo(0)).toBe(true);
   });
 });
+
+/**
+ * The weekly period key the app stores completions under.
+ * @param {Date} date Any date in the week.
+ * @returns {string} Period key.
+ */
+function weekKeyFor(date) {
+  const tmp = new Date(date.getTime());
+  tmp.setHours(0, 0, 0, 0);
+  tmp.setDate(tmp.getDate() + 4 - (tmp.getDay() || 7));
+  const yearStart = new Date(tmp.getFullYear(), 0, 1);
+  const week = Math.ceil(((tmp - yearStart) / 86400000 + 1) / 7);
+  return `${tmp.getFullYear()}-W${week}`;
+}

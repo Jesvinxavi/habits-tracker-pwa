@@ -6,42 +6,45 @@
  */
 
 import { getActivity } from '../activities.js';
-import { formatDuration, formatLastPerformed } from '../../../shared/datetime.js';
+import {
+  calendarDaysBetween,
+  formatDuration,
+  formatLastPerformed,
+  mondayStart,
+} from '../../../shared/datetime.js';
 import { escapeHtml, normalizeHexColor } from '../../../shared/sanitize.js';
+import {
+  barChart,
+  comparisonRow,
+  statCard,
+  statGrid,
+  statSection,
+  statsEmptyState,
+} from '../../stats/statsUi.js';
 import { getRecordedHistoryIndex } from './recordedHistory.js';
+import {
+  averageOver,
+  durationMinutes,
+  hasDuration,
+  hasMetrics,
+  hasSets,
+  isWeightedSet,
+  recordDate,
+  recordDateKey,
+  recordsWithinDays,
+  sessionMaxWeight,
+  sessionOneRepMax,
+  sessionReps,
+  sessionVolume,
+  sessionWeightUnit,
+} from './recordMetrics.js';
 
-/**
- * Calculates comprehensive statistics for an activity
- * @param {string} activityId - The ID of the activity
- * @returns {Object|null} Statistics object or null if activity not found
- */
-export function calculateActivityStatistics(activityId) {
-  const activity = getActivity(activityId);
-  if (!activity) return null;
-
-  // Get all records for this activity across all dates
-  const allRecords = getRecordedHistoryIndex().byActivity.get(activityId) || [];
-
-  if (allRecords.length === 0) {
-    return {
-      totalSessions: 0,
-      totalDuration: 0,
-      totalSets: 0,
-      totalReps: 0,
-      totalVolume: 0,
-      averageDuration: 0,
-      averageSets: 0,
-      averageReps: 0,
-      mostCommonIntensity: null,
-      lastPerformed: null,
-      bestSession: null,
-      recentFrequency: 0,
-      weeklyAverage: 0,
-    };
-  }
-
-  const stats = {
-    totalSessions: allRecords.length,
+/** An activity with no sessions yet, so every reader gets the same shape. */
+function emptyStatistics() {
+  return {
+    totalSessions: 0,
+    loggedSessions: 0,
+    unloggedSessions: 0,
     totalDuration: 0,
     totalSets: 0,
     totalReps: 0,
@@ -49,103 +52,189 @@ export function calculateActivityStatistics(activityId) {
     averageDuration: 0,
     averageSets: 0,
     averageReps: 0,
+    averageVolume: 0,
+    intensityCounts: {},
     mostCommonIntensity: null,
-    lastPerformed: allRecords[allRecords.length - 1].timestamp,
+    lastPerformed: null,
     bestSession: null,
+    personalBests: null,
     recentFrequency: 0,
     weeklyAverage: 0,
+    firstPerformed: null,
+    weightUnit: '',
   };
+}
 
-  // Calculate metrics based on tracking type
+/**
+ * Calculates comprehensive statistics for an activity
+ * @param {string} activityId - The ID of the activity
+ * @param {Date} [today] - The current date, injectable for tests
+ * @returns {Object|null} Statistics object or null if activity not found
+ */
+export function calculateActivityStatistics(activityId, today = new Date()) {
+  const activity = getActivity(activityId);
+  if (!activity) return null;
+
+  // Get all records for this activity across all dates, oldest first by the day
+  // they were performed on.
+  const allRecords = getRecordedHistoryIndex().byActivity.get(activityId) || [];
+  if (allRecords.length === 0) return emptyStatistics();
+
+  const stats = emptyStatistics();
+  stats.totalSessions = allRecords.length;
+  stats.loggedSessions = allRecords.filter(hasMetrics).length;
+  // Quick-records carry no metrics by design. They are real sessions, so they
+  // count as sessions, but averaging them in as zero would be a lie.
+  stats.unloggedSessions = stats.totalSessions - stats.loggedSessions;
+  stats.lastPerformed = recordDateKey(allRecords[allRecords.length - 1]) || null;
+  stats.firstPerformed = recordDateKey(allRecords[0]) || null;
+
   if (activity.trackingType === 'sets-reps') {
-    let maxVolume = 0;
+    const sessions = allRecords.filter(hasSets);
+    let bestVolume = 0;
     let bestSessionRecord = null;
 
-    allRecords.forEach((record) => {
-      if (record.sets && record.sets.length > 0) {
-        stats.totalSets += record.sets.length;
-
-        record.sets.forEach((set) => {
-          if (set.reps) stats.totalReps += parseInt(set.reps) || 0;
-          if (set.value && set.unit && set.unit !== 'none') {
-            const weight = parseFloat(set.value) || 0;
-            const reps = parseInt(set.reps) || 0;
-            const volume = weight * reps;
-            stats.totalVolume += volume;
-
-            // Track best session by total volume
-            if (volume > maxVolume) {
-              maxVolume = volume;
-              bestSessionRecord = record;
-            }
-          }
-        });
+    for (const record of sessions) {
+      stats.totalSets += record.sets.length;
+      stats.totalReps += sessionReps(record);
+      // Volume is accumulated per session and compared once, so the session
+      // that did the most work wins rather than the one with the single
+      // heaviest set in it.
+      const volume = sessionVolume(record);
+      stats.totalVolume += volume;
+      if (volume > bestVolume) {
+        bestVolume = volume;
+        bestSessionRecord = record;
       }
-    });
+    }
 
-    stats.averageSets = stats.totalSets / stats.totalSessions;
-    stats.averageReps = stats.totalReps / stats.totalSessions;
+    // A bodyweight activity records no volume at all, so fall back to the
+    // session that did the most reps rather than showing no best session.
+    if (!bestSessionRecord && sessions.length > 0) {
+      bestSessionRecord = sessions.reduce((best, record) =>
+        sessionReps(record) > sessionReps(best) ? record : best
+      );
+    }
+
+    const sets = averageOver(allRecords, hasSets, (record) => record.sets.length);
+    const reps = averageOver(allRecords, hasSets, sessionReps);
+    const volume = averageOver(allRecords, hasSets, sessionVolume);
+    stats.averageSets = sets.average;
+    stats.averageReps = reps.average;
+    stats.averageVolume = volume.average;
     stats.bestSession = bestSessionRecord;
+    stats.weightUnit = weightUnitForRecords(sessions, activity);
+    stats.personalBests = strengthPersonalBests(sessions, stats.weightUnit);
   } else {
-    // Time-based tracking
-    const intensities = {};
     const lowerIsBetter = prefersLower(activity);
     let bestDuration = null;
     let bestSessionRecord = null;
 
-    allRecords.forEach((record) => {
-      if (record.duration) {
-        let durationInMinutes = parseInt(record.duration) || 0;
-
-        // Convert to minutes for consistency
-        if (record.durationUnit === 'hours') {
-          durationInMinutes *= 60;
-        } else if (record.durationUnit === 'seconds') {
-          durationInMinutes /= 60;
-        }
-
-        stats.totalDuration += durationInMinutes;
-
-        // Best session is the longest, or the quickest when the activity is one
-        // where a smaller figure is the improvement.
+    for (const record of allRecords) {
+      if (hasDuration(record)) {
+        const minutes = durationMinutes(record);
+        // Best is the longest, or the quickest when the activity is one where a
+        // smaller figure is the improvement.
         const better =
-          bestDuration === null ||
-          (lowerIsBetter ? durationInMinutes < bestDuration : durationInMinutes > bestDuration);
+          bestDuration === null || (lowerIsBetter ? minutes < bestDuration : minutes > bestDuration);
         if (better) {
-          bestDuration = durationInMinutes;
+          bestDuration = minutes;
           bestSessionRecord = record;
         }
       }
-
       if (record.intensity) {
-        intensities[record.intensity] = (intensities[record.intensity] || 0) + 1;
+        stats.intensityCounts[record.intensity] = (stats.intensityCounts[record.intensity] || 0) + 1;
       }
-    });
+    }
 
-    stats.averageDuration = stats.totalDuration / stats.totalSessions;
+    const duration = averageOver(allRecords, hasDuration, durationMinutes);
+    stats.totalDuration = duration.total;
+    stats.averageDuration = duration.average;
     stats.bestSession = bestSessionRecord;
 
-    // Find most common intensity
-    if (Object.keys(intensities).length > 0) {
-      stats.mostCommonIntensity = Object.entries(intensities).sort(([, a], [, b]) => b - a)[0][0];
+    const intensities = Object.entries(stats.intensityCounts);
+    if (intensities.length > 0) {
+      stats.mostCommonIntensity = intensities.sort(([, a], [, b]) => b - a)[0][0];
+    }
+    stats.personalBests = durationPersonalBests(allRecords, lowerIsBetter);
+  }
+
+  stats.recentFrequency = recordsWithinDays(allRecords, 30, today).length;
+
+  // Sessions per week since the first one, floored at a week so a pair of
+  // sessions logged on one day cannot extrapolate to fourteen a week.
+  const firstDate = recordDate(allRecords[0]);
+  const daysSinceFirst = firstDate ? calendarDaysBetween(today, firstDate) + 1 : 1;
+  stats.weeklyAverage = stats.totalSessions / (Math.max(7, daysSinceFirst) / 7);
+
+  return stats;
+}
+
+/**
+ * Picks the weight unit an activity's sessions are recorded in.
+ * @param {object[]} records Sessions holding sets, oldest first.
+ * @param {object} activity The activity, for its declared unit.
+ * @returns {string} Unit, or an empty string when nothing is weighted.
+ */
+function weightUnitForRecords(records, activity) {
+  for (let index = records.length - 1; index >= 0; index -= 1) {
+    const unit = sessionWeightUnit(records[index]);
+    if (unit) return unit;
+  }
+  return activity?.units || '';
+}
+
+/**
+ * Personal bests for a strength activity.
+ * @param {object[]} records Sessions holding sets.
+ * @param {string} unit The weight unit in play.
+ * @returns {object|null} Bests, or null when nothing is weighted.
+ */
+function strengthPersonalBests(records, unit) {
+  let heaviest = null;
+  let bestVolume = null;
+  let bestOneRepMax = null;
+
+  for (const record of records) {
+    const weight = sessionMaxWeight(record);
+    if (weight > 0 && (!heaviest || weight > heaviest.value)) {
+      heaviest = { value: weight, date: recordDateKey(record), unit };
+    }
+    const volume = sessionVolume(record);
+    if (volume > 0 && (!bestVolume || volume > bestVolume.value)) {
+      bestVolume = { value: volume, date: recordDateKey(record), unit };
+    }
+    const oneRepMax = sessionOneRepMax(record);
+    if (oneRepMax > 0 && (!bestOneRepMax || oneRepMax > bestOneRepMax.value)) {
+      bestOneRepMax = { value: oneRepMax, date: recordDateKey(record), unit };
     }
   }
 
-  // Calculate recent frequency (last 30 days)
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  if (!heaviest && !bestVolume) return null;
+  return { heaviest, bestVolume, bestOneRepMax };
+}
 
-  const recentRecords = allRecords.filter((record) => new Date(record.timestamp) > thirtyDaysAgo);
-  stats.recentFrequency = recentRecords.length;
-
-  // Calculate weekly average (total sessions / weeks since first session)
-  const firstSession = new Date(allRecords[0].timestamp);
-  const now = new Date();
-  const daysSinceFirst = Math.max(1, (now - firstSession) / (1000 * 60 * 60 * 24));
-  const weeksSinceFirst = daysSinceFirst / 7;
-  stats.weeklyAverage = stats.totalSessions / weeksSinceFirst;
-
-  return stats;
+/**
+ * Personal bests for a time-tracked activity.
+ * @param {object[]} records Sessions.
+ * @param {boolean} lowerIsBetter Whether a smaller figure is the improvement.
+ * @returns {object|null} Bests, or null when nothing is timed.
+ */
+function durationPersonalBests(records, lowerIsBetter) {
+  let best = null;
+  let longest = null;
+  for (const record of records) {
+    if (!hasDuration(record)) continue;
+    const minutes = durationMinutes(record);
+    if (!best || (lowerIsBetter ? minutes < best.value : minutes > best.value)) {
+      best = { value: minutes, date: recordDateKey(record) };
+    }
+    if (!longest || minutes > longest.value) {
+      longest = { value: minutes, date: recordDateKey(record) };
+    }
+  }
+  if (!best) return null;
+  return { best, longest, lowerIsBetter };
 }
 
 /**
@@ -157,137 +246,219 @@ export function calculateActivityStatistics(activityId) {
  */
 export function buildStatsContent(activity, stats, category) {
   if (stats.totalSessions === 0) {
-    return `
-      <div class="text-center py-8">
-        <span class="material-icons text-4xl text-gray-400 mb-4">bar_chart</span>
-        <p class="text-gray-600 dark:text-gray-400">No recorded sessions yet</p>
-        <p class="text-sm text-gray-500 mt-2">Start tracking this activity to see statistics</p>
-      </div>
-    `;
+    return statsEmptyState({
+      title: 'No sessions yet',
+      message: 'Record this activity and its statistics will build up here.',
+    });
   }
 
-  let content = `
-    <div class="stats-grid space-y-4">
-      <!-- Overview Stats -->
-      <div class="stats-section">
-        <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Overview</h4>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-            <div class="stat-value text-2xl font-bold text-gray-900 dark:text-white">${stats.totalSessions}</div>
-            <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Total Sessions</div>
-          </div>
-          <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-            <div class="stat-value text-2xl font-bold text-gray-900 dark:text-white">${stats.weeklyAverage.toFixed(1)}</div>
-            <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Per Week Average</div>
-          </div>
-        </div>
-      </div>
-  `;
+  const isStrength = activity.trackingType === 'sets-reps';
+  const accent = normalizeHexColor(category?.color, '#3B82F6');
+  const sections = [];
 
-  // Activity-specific stats
-  if (activity.trackingType === 'sets-reps') {
-    content += `
-      <div class="stats-section">
-        <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Strength Metrics</h4>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-            <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${stats.totalSets}</div>
-            <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Total Sets</div>
-          </div>
-          <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-            <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${stats.totalReps}</div>
-            <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Total Reps</div>
-          </div>
-          <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-            <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${stats.averageSets.toFixed(1)}</div>
-            <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Avg Sets/Session</div>
-          </div>
-          <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-            <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${stats.averageReps.toFixed(1)}</div>
-            <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Avg Reps/Session</div>
-          </div>
-        </div>
-        ${
+  // What the user came for: how often, and how recently.
+  sections.push(
+    statSection({
+      title: 'Activity',
+      body: statGrid([
+        statCard({
+          value: stats.totalSessions,
+          label: 'Total sessions',
+          sub: stats.unloggedSessions > 0 ? `${stats.unloggedSessions} without details` : '',
+          tone: 'feature',
+        }),
+        statCard({
+          value: formatMetric(stats.weeklyAverage),
+          label: 'Sessions per week',
+          sub: 'Since the first one',
+        }),
+        statCard({ value: stats.recentFrequency, label: 'Last 30 days' }),
+        statCard({ value: formatLastPerformed(stats.lastPerformed), label: 'Last performed' }),
+      ]),
+    })
+  );
+
+  if (isStrength) {
+    sections.push(
+      statSection({
+        title: 'Workload',
+        note:
+          stats.unloggedSessions > 0
+            ? 'Averages cover only the sessions with sets recorded.'
+            : '',
+        body: statGrid([
+          statCard({ value: stats.totalSets, label: 'Total sets' }),
+          statCard({ value: stats.totalReps, label: 'Total reps' }),
+          statCard({ value: formatMetric(stats.averageSets), label: 'Avg sets per session' }),
+          statCard({ value: formatMetric(stats.averageReps), label: 'Avg reps per session' }),
           stats.totalVolume > 0
-            ? `
-        <div class="mt-4">
-          <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-            <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${stats.totalVolume.toFixed(1)}</div>
-            <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Total Volume (weight × reps)</div>
-          </div>
-        </div>
-      `
-            : ''
-        }
-      </div>
-    `;
-    // No progression chart here: the activity details modal already charts it,
-    // and this modal is the numbers view.
+            ? statCard({
+                value: `${formatMetric(stats.totalVolume)}${stats.weightUnit}`,
+                label: 'Total volume lifted',
+                sub: `Averaging ${formatMetric(stats.averageVolume)}${stats.weightUnit} a session`,
+                wide: true,
+              })
+            : '',
+        ]),
+      })
+    );
   } else {
-    content += `
-      <div class="stats-section">
-        <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Duration Metrics</h4>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-            <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${formatDuration(stats.totalDuration)}</div>
-            <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Total Duration</div>
-          </div>
-          <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-            <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${formatDuration(stats.averageDuration)}</div>
-            <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Avg Duration</div>
-          </div>
-        </div>
-        ${
-          stats.mostCommonIntensity
-            ? `
-          <div class="mt-4">
-            <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-              <div class="stat-value text-lg font-bold text-gray-900 dark:text-white capitalize">${stats.mostCommonIntensity}</div>
-              <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Most Common Intensity</div>
+    sections.push(
+      statSection({
+        title: 'Time',
+        note:
+          stats.unloggedSessions > 0 ? 'Averages cover only the sessions with a duration.' : '',
+        body: statGrid([
+          statCard({ value: formatDuration(stats.totalDuration), label: 'Total time' }),
+          statCard({ value: formatDuration(stats.averageDuration), label: 'Average session' }),
+        ]),
+      })
+    );
+
+    const intensities = Object.entries(stats.intensityCounts);
+    if (intensities.length > 0) {
+      const total = intensities.reduce((sum, [, count]) => sum + count, 0);
+      const order = ['low', 'moderate', 'high'];
+      const rows = intensities
+        .sort(([a], [b]) => order.indexOf(a) - order.indexOf(b))
+        .map(([name, count]) =>
+          comparisonRow({
+            label: name.charAt(0).toUpperCase() + name.slice(1),
+            value: `${Math.round((count / total) * 100)}%`,
+            sub: `${count} ${count === 1 ? 'session' : 'sessions'}`,
+            fraction: count / total,
+            color: accent,
+          })
+        )
+        .join('');
+      sections.push(statSection({ title: 'Intensity', body: rows }));
+    }
+  }
+
+  sections.push(buildPersonalBests(stats, isStrength, accent));
+
+  const trend = buildFrequencyTrend(activity.id, accent);
+  if (trend) {
+    sections.push(
+      statSection({ title: 'Frequency', note: 'Sessions per week, last 12 weeks', body: trend })
+    );
+  }
+
+  if (stats.bestSession) {
+    sections.push(
+      statSection({
+        title: 'Best session',
+        body: `
+          <div class="rounded-xl p-3 bg-gray-50 dark:bg-gray-800/70 border-l-[3px]" style="border-left-color:${accent};">
+            ${formatBestSession(stats.bestSession, activity)}
+            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5">
+              ${escapeHtml(formatLastPerformed(recordDateKey(stats.bestSession)))}
             </div>
           </div>
-        `
-            : ''
-        }
-      </div>
-    `;
+        `,
+      })
+    );
   }
 
-  // Recent activity
-  content += `
-    <div class="stats-section">
-      <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Recent Activity</h4>
-      <div class="grid grid-cols-2 gap-4">
-        <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-          <div class="stat-value text-xl font-bold text-gray-900 dark:text-white">${stats.recentFrequency}</div>
-          <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Last 30 Days</div>
-        </div>
-        <div class="stat-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-          <div class="stat-value text-sm font-bold text-gray-900 dark:text-white">${formatLastPerformed(stats.lastPerformed)}</div>
-          <div class="stat-label text-xs text-gray-500 dark:text-gray-400">Last Performed</div>
-        </div>
-      </div>
-    </div>
-  `;
+  return `<div class="stats-grid space-y-5">${sections.filter(Boolean).join('')}</div>`;
+}
 
-  // Best session
-  if (stats.bestSession) {
-    const categoryColor = normalizeHexColor(category?.color);
-    content += `
-      <div class="stats-section">
-        <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Best Session</h4>
-        <div class="stat-card bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border-2" style="border-color: ${categoryColor}40;">
-          ${formatBestSession(stats.bestSession, activity)}
-          <div class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            ${new Date(stats.bestSession.timestamp).toLocaleDateString()}
-          </div>
-        </div>
-      </div>
-    `;
+/**
+ * The records worth chasing: the heaviest lift, the biggest session, the best
+ * estimated one-rep max, or for a timed activity the best time in whichever
+ * direction counts as an improvement for it.
+ * @param {object} stats Calculated statistics.
+ * @param {boolean} isStrength Whether the activity tracks sets and reps.
+ * @param {string} accent The category colour.
+ * @returns {string} Section markup, or an empty string when there are none.
+ */
+function buildPersonalBests(stats, isStrength, accent) {
+  const bests = stats.personalBests;
+  if (!bests) return '';
+
+  if (isStrength) {
+    return statSection({
+      title: 'Personal bests',
+      body: statGrid([
+        bests.heaviest
+          ? statCard({
+              value: `${formatMetric(bests.heaviest.value)}${bests.heaviest.unit}`,
+              label: 'Heaviest lift',
+              sub: formatLastPerformed(bests.heaviest.date),
+              tone: 'positive',
+            })
+          : '',
+        bests.bestOneRepMax
+          ? statCard({
+              value: `${formatMetric(bests.bestOneRepMax.value)}${bests.bestOneRepMax.unit}`,
+              label: 'Estimated 1RM',
+              sub: 'Epley estimate, not a tested max',
+            })
+          : '',
+        bests.bestVolume
+          ? statCard({
+              value: `${formatMetric(bests.bestVolume.value)}${bests.bestVolume.unit}`,
+              label: 'Best session volume',
+              sub: formatLastPerformed(bests.bestVolume.date),
+              wide: !bests.bestOneRepMax,
+            })
+          : '',
+      ]),
+    });
   }
 
-  content += '</div>';
-  return content;
+  const cards = [
+    statCard({
+      value: formatDuration(bests.best.value),
+      label: bests.lowerIsBetter ? 'Fastest session' : 'Longest session',
+      sub: formatLastPerformed(bests.best.date),
+      tone: 'positive',
+    }),
+  ];
+  // A "longest" card beside a "fastest" one is only interesting when the
+  // activity is scored the other way round.
+  if (bests.lowerIsBetter && bests.longest && bests.longest.value !== bests.best.value) {
+    cards.push(
+      statCard({
+        value: formatDuration(bests.longest.value),
+        label: 'Longest session',
+        sub: formatLastPerformed(bests.longest.date),
+      })
+    );
+  }
+  return statSection({ title: 'Personal bests', body: statGrid(cards) });
+}
+
+/**
+ * Sessions per week over the last twelve weeks.
+ * @param {string} activityId The activity id.
+ * @param {string} accent Bar colour.
+ * @returns {string} Chart markup, or an empty string when there is too little.
+ */
+function buildFrequencyTrend(activityId, accent) {
+  const records = getRecordedHistoryIndex().byActivity.get(activityId) || [];
+  if (records.length < 3) return '';
+
+  const weeks = 12;
+  const buckets = new Array(weeks).fill(0);
+  const thisMonday = mondayStart(new Date());
+
+  for (const record of records) {
+    const date = recordDate(record);
+    if (!date) continue;
+    const weeksBack = Math.floor(calendarDaysBetween(thisMonday, mondayStart(date)) / 7);
+    if (weeksBack >= 0 && weeksBack < weeks) buckets[weeks - 1 - weeksBack] += 1;
+  }
+
+  if (buckets.every((count) => count === 0)) return '';
+
+  return barChart({
+    bars: buckets.map((value, index) => ({
+      value,
+      label: index === weeks - 1 ? 'Now' : index % 3 === 0 ? `${weeks - 1 - index}w` : '',
+    })),
+    color: accent,
+  });
 }
 
 /**
@@ -297,73 +468,44 @@ export function buildStatsContent(activity, stats, category) {
  * @returns {string} HTML string for the best session display
  */
 function formatBestSession(session, activity) {
-  if (activity.trackingType === 'sets-reps' && session.sets) {
-    const totalVolume = session.sets.reduce((sum, set) => {
-      const weight = parseFloat(set.value) || 0;
-      const reps = parseInt(set.reps) || 0;
-      return sum + weight * reps;
-    }, 0);
-
-    const maxWeight = Math.max(...session.sets.map((set) => parseFloat(set.value) || 0));
-
-    return `
-      <div class="text-sm font-semibold text-gray-900 dark:text-white">
-        ${session.sets.length} sets • ${totalVolume.toFixed(1)} volume
-      </div>
-      <div class="text-xs text-gray-600 dark:text-gray-300">
-        Max weight: ${maxWeight}${session.sets[0]?.unit !== 'none' ? escapeHtml(session.sets[0]?.unit || '') : ''}
-      </div>
-    `;
-  } else {
-    let durationText = '';
-    if (session.duration) {
-      let duration = session.duration;
-      let unit = session.durationUnit || 'minutes';
-
-      if (unit === 'hours') {
-        duration = duration * 60;
-        unit = 'minutes';
-      } else if (unit === 'seconds') {
-        duration = Math.round(duration / 60);
-        unit = 'minutes';
-      }
-
-      durationText = `${duration} ${unit === 'minutes' ? 'min' : unit}`;
-    }
+  if (activity.trackingType === 'sets-reps' && hasSets(session)) {
+    const volume = sessionVolume(session);
+    const maxWeight = sessionMaxWeight(session);
+    const unit = sessionWeightUnit(session);
+    const detail =
+      maxWeight > 0
+        ? `Heaviest set: ${formatMetric(maxWeight)}${escapeHtml(unit)}`
+        : `${sessionReps(session)} reps in total`;
 
     return `
       <div class="text-sm font-semibold text-gray-900 dark:text-white">
-        ${escapeHtml(durationText)}${session.intensity ? ` • ${escapeHtml(session.intensity)} intensity` : ''}
+        ${session.sets.length} sets${volume > 0 ? ` • ${formatMetric(volume)}${escapeHtml(unit)} volume` : ''}
       </div>
       <div class="text-xs text-gray-600 dark:text-gray-300">
-        ${prefersLower(activity) ? 'Quickest session' : 'Longest duration session'}
+        ${detail}
       </div>
     `;
   }
+
+  const minutes = durationMinutes(session);
+  return `
+    <div class="text-sm font-semibold text-gray-900 dark:text-white">
+      ${escapeHtml(formatDuration(minutes))}${session.intensity ? ` • ${escapeHtml(session.intensity)} intensity` : ''}
+    </div>
+    <div class="text-xs text-gray-600 dark:text-gray-300">
+      ${prefersLower(activity) ? 'Quickest session' : 'Longest duration session'}
+    </div>
+  `;
 }
 
 /**
- * Gets the weight unit used for an activity by looking at recent recorded sets
- * @param {string} activityId - The activity ID
- * @returns {string} - The weight unit (e.g., 'lbs', 'kg') or empty string
+ * Formats a metric without a trailing `.0` on whole numbers.
+ * @param {number} value Any measurement.
+ * @returns {string} Display string.
  */
-function getWeightUnitForActivity(activityId) {
-  const allRecords = (getRecordedHistoryIndex().byActivity.get(activityId) || []).filter(
-    (record) => record.sets
-  );
-
-  // Find the most recent record with a non-'none' unit
-  for (let i = allRecords.length - 1; i >= 0; i--) {
-    const record = allRecords[i];
-    if (record.sets && record.sets.length > 0) {
-      const set = record.sets.find(s => s.unit && s.unit !== 'none');
-      if (set && set.unit) {
-        return set.unit;
-      }
-    }
-  }
-
-  return 'lbs'; // Default fallback
+export function formatMetric(value) {
+  if (!Number.isFinite(value)) return '0';
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
 /**
@@ -376,16 +518,12 @@ function extractDurationProgressionData(activityId) {
   const activity = getActivity(activityId);
   if (!activity || activity.trackingType === 'sets-reps') return [];
 
-  const allRecords = (getRecordedHistoryIndex().byActivity.get(activityId) || []).filter(
-    (record) => record.duration
-  );
-
-  return allRecords.map((record) => {
-    let minutes = parseFloat(record.duration) || 0;
-    if (record.durationUnit === 'hours') minutes *= 60;
-    else if (record.durationUnit === 'seconds') minutes /= 60;
-    return { date: record.date, value: Math.round(minutes * 10) / 10 };
-  });
+  return (getRecordedHistoryIndex().byActivity.get(activityId) || [])
+    .filter(hasDuration)
+    .map((record) => ({
+      date: recordDateKey(record),
+      value: Math.round(durationMinutes(record) * 10) / 10,
+    }));
 }
 
 /**
@@ -397,45 +535,28 @@ function extractDurationProgressionData(activityId) {
 export function extractProgressionSeries(activity) {
   if (!activity) return { points: [], unit: '' };
   if (activity.trackingType === 'sets-reps') {
+    const records = (getRecordedHistoryIndex().byActivity.get(activity.id) || []).filter(hasSets);
     return {
-      points: extractStrengthProgressionData(activity.id),
-      unit: getWeightUnitForActivity(activity.id),
+      points: extractStrengthProgressionData(records),
+      unit: weightUnitForRecords(records, activity),
     };
   }
   return { points: extractDurationProgressionData(activity.id), unit: 'min' };
 }
 
-function extractStrengthProgressionData(activityId) {
-  const activity = getActivity(activityId);
-  if (!activity || activity.trackingType !== 'sets-reps') return [];
-
-  // Flatten records similar to calculateActivityStatistics
-  const allRecords = getRecordedHistoryIndex().byActivity.get(activityId) || [];
-
-  if (allRecords.length === 0) return [];
-
-  const progression = [];
-
-  allRecords.forEach((record) => {
-    if (!record.sets || record.sets.length === 0) return;
-
-    // Determine the heaviest weight lifted in this session
-    // Ignore sets with unit === 'none'. Treat missing/invalid as 0.
-    const maxWeight = Math.max(
-      ...record.sets.map((set) => {
-        const weight = parseFloat(set.value);
-        return isNaN(weight) ? 0 : weight;
-      }),
-      0,
-    );
-
-    // Use the actual recorded date from the fitness page, not the timestamp
-    const date = record.date;
-
-    progression.push({ date, value: maxWeight });
-  });
-
-  return progression;
+/**
+ * One point per session, holding the heaviest weight lifted in it.
+ *
+ * Bodyweight sessions are left out rather than plotted as zero: a chart that
+ * drops to the floor every time the user trained without weights describes the
+ * recording format, not the progress.
+ * @param {object[]} records Sessions holding sets, oldest first.
+ * @returns {Array<{date: string, value: number}>} Progression data.
+ */
+function extractStrengthProgressionData(records) {
+  return records
+    .filter((record) => record.sets.some(isWeightedSet))
+    .map((record) => ({ date: recordDateKey(record), value: sessionMaxWeight(record) }));
 }
 
 /**

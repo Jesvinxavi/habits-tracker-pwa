@@ -30,8 +30,8 @@ function isNthWeekdayOfMonth(date, ordinalWord) {
   return Math.floor((date.getDate() - 1) / 7) + 1 === nth;
 }
 
-function _isHabitScheduledOnDate(habit, date) {
-  if (habit.paused === true) return false;
+function _isHabitScheduledOnDate(habit, date, { ignorePause = false } = {}) {
+  if (habit.paused === true && !ignorePause) return false;
   const d = new Date(date);
   if (isNaN(d)) return false;
 
@@ -136,7 +136,15 @@ function _isHabitScheduledOnDate(habit, date) {
 }
 
 export class ScheduleEngine {
-  static isDue(habit, date) {
-    return _isHabitScheduledOnDate(habit, date);
+  /**
+   * Reports whether a habit is due on a date.
+   * @param {object} habit The habit.
+   * @param {Date|string} date The date to test.
+   * @param {object} [options] Evaluation options.
+   * @param {boolean} [options.ignorePause] Evaluate as though not paused.
+   * @returns {boolean} True when due.
+   */
+  static isDue(habit, date, options) {
+    return _isHabitScheduledOnDate(habit, date, options);
   }
 }

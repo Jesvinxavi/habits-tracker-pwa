@@ -1,4 +1,5 @@
 import { getState } from '../../../core/state.js';
+import { compareRecords } from './recordMetrics.js';
 
 let indexedSource = null;
 let cachedIndex = null;
@@ -28,8 +29,11 @@ export function getRecordedHistoryIndex(
     });
   });
 
+  // Ordered by the day a session was performed, not the moment it was typed in,
+  // so back-filling last month's sessions puts them where they belong rather
+  // than at the end of the history.
   byActivity.forEach((records) => {
-    records.sort((left, right) => new Date(left.timestamp) - new Date(right.timestamp));
+    records.sort(compareRecords);
   });
 
   indexedSource = recordedActivities;
