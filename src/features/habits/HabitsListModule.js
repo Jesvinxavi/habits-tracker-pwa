@@ -1,6 +1,7 @@
 import { getState, dispatch, Actions } from '../../core/state.js';
 import { getFrequencyText, getFrequencyIcon } from './habits.js';
 import { hexToRgba } from '../../shared/color.js';
+import { escapeHtml } from '../../shared/sanitize.js';
 import { handleHabitStatsClick } from './modals/HabitStatsModal.js';
 import { openEditHabitModal } from './modals/HabitFormModal.js';
 
@@ -35,13 +36,13 @@ function createHabitItem(habit, category, isLast) {
   } else {
     // Frequency chip (without extra parts after •)
     const frequencyText = getFrequencyText(habit).split(' • ')[0];
-    chips.push(buildChip(`${getFrequencyIcon(habit)} ${frequencyText}`));
+    chips.push(buildChip(`${getFrequencyIcon(habit)} ${escapeHtml(frequencyText)}`));
 
     // Scheduled time chip with clock icon
     if (habit.scheduledTime) {
       const clockIcon =
         '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-      chips.push(buildChip(`${clockIcon} ${habit.scheduledTime}`));
+      chips.push(buildChip(`${clockIcon} ${escapeHtml(habit.scheduledTime)}`));
     }
 
     // Holiday chip
@@ -59,10 +60,10 @@ function createHabitItem(habit, category, isLast) {
       </div>
       <div class="habit-item flex items-center px-4 py-1.5 bg-white dark:bg-gray-800 border-[2.5px] rounded-xl ${borderClass} flex-grow w-full" style="border-color: ${category.color}" data-habit-id="${habit.id}">
         <div class="habit-icon w-8 h-8 rounded-lg flex items-center justify-center mr-4 text-xl" style="background-color: ${category.color}20;">
-          ${habit.icon || '📋'}
+          ${escapeHtml(habit.icon || '📋')}
         </div>
         <div class="habit-content flex-grow">
-          <div class="habit-name text-sm font-semibold text-gray-900 dark:text-white">${habit.name}</div>
+          <div class="habit-name text-sm font-semibold text-gray-900 dark:text-white">${escapeHtml(habit.name)}</div>
           ${metaHTML}
         </div>
         <div class="habit-actions flex items-center gap-2 ml-2">
@@ -106,7 +107,7 @@ function createCategorySection(category, habits) {
         <div class="category-header flex items-center justify-between px-4 py-2 rounded-xl cursor-pointer select-none flex-grow" style="background:${hexToRgba(category.color, 0.25)};">
           <div class="category-title flex items-center gap-2">
             <div class="w-4 h-4 rounded-md flex-shrink-0" style="background-color:${category.color}"></div>
-            <span class="font-semibold text-base leading-none text-black">${category.name}</span>
+            <span class="font-semibold text-base leading-none text-black">${escapeHtml(category.name)}</span>
           </div>
           ${arrowBtn}
         </div>

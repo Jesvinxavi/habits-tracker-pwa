@@ -17,6 +17,7 @@ const {
 
 // Import cache invalidation function
 import { invalidatePillsCache } from './HomeProgressPills.js';
+import { escapeHtml } from '../../../shared/sanitize.js';
 
 /**
  * HomeHabitsList component that manages habit rendering
@@ -254,7 +255,7 @@ export const HomeHabitsList = {
     }</div>`;
 
     let middle = `<div class="habit-content flex-grow">
-        <div class="habit-name font-semibold leading-tight">${habit.name}</div>`;
+        <div class="habit-name font-semibold leading-tight">${escapeHtml(habit.name)}</div>`;
 
     // Category pill
     middle += `<span class="category-pill inline-block whitespace-nowrap px-2 py-0.5 rounded-lg text-xs font-medium mt-0" style="display:inline-block;width:max-content;background:${cat.color};color:#fff;border-radius:8px;">${cat.name || ''}</span>`;
