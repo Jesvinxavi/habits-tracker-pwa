@@ -145,14 +145,24 @@ export function calculateHabitStatistics(today = new Date()) {
  * Skips are neutral by design, which is exactly why they deserve to be visible:
  * a habit skipped every week is one the schedule is wrong about, and nothing
  * else on the page would ever say so.
+ *
+ * Counted over the same calendar month as the total it sits beside. Measuring
+ * one over a rolling thirty days and the other over the month meant that on the
+ * first of a month the card read "0 skips — most often: Meditate".
  * @param {object[]} habits Live habits.
  * @param {Date} today The current date.
  * @returns {{name: string, icon: string, count: number}|null} The habit, or null.
  */
 function mostSkippedHabit(habits, today) {
+  const daysIntoMonth = today.getDate();
   let worst = null;
   for (const habit of habits) {
-    const skipped = summariseSeries(habitDaySeries(habit, { today, days: 30 })).skipped;
+    const thisMonth = habitDaySeries(habit, { today, days: daysIntoMonth }).filter(
+      (day) =>
+        day.date.getMonth() === today.getMonth() &&
+        day.date.getFullYear() === today.getFullYear()
+    );
+    const skipped = summariseSeries(thisMonth).skipped;
     if (skipped > 0 && (!worst || skipped > worst.count)) {
       worst = { name: habit.name, icon: habit.icon || '', count: skipped };
     }

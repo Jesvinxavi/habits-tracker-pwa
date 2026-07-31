@@ -18,6 +18,8 @@ import {
   barChart,
   comparisonRow,
   heatmap,
+  horizontalBarChart,
+  pieChart,
   statCard,
   statGrid,
   statSection,
@@ -386,20 +388,24 @@ function renderHabitSections(stats) {
     sections.push(renderHabitComparison(stats.completionRates));
   }
 
-  const categoryRows = stats.categoryBreakdown
-    .filter((category) => category.completionRate !== null)
-    .map((category) =>
-      comparisonRow({
-        label: category.name,
-        value: `${Math.round(category.completionRate)}%`,
-        sub: `${category.count} ${category.count === 1 ? 'habit' : 'habits'}`,
-        fraction: category.completionRate / 100,
-        color: category.color,
+  const categories = stats.categoryBreakdown.filter(
+    (category) => category.completionRate !== null
+  );
+  if (categories.length > 0) {
+    sections.push(
+      statSection({
+        title: 'By category',
+        note: 'Completion over the last 30 days',
+        body: horizontalBarChart({
+          bars: categories.map((category) => ({
+            label: category.name,
+            sub: `${category.count} ${category.count === 1 ? 'habit' : 'habits'}`,
+            value: category.completionRate,
+            color: category.color,
+          })),
+        }),
       })
-    )
-    .join('');
-  if (categoryRows) {
-    sections.push(statSection({ title: 'By category', body: categoryRows }));
+    );
   }
 
   sections.push(
@@ -645,22 +651,15 @@ function renderFitnessSections(stats) {
     sections.push(
       statSection({
         title: 'By category',
-        body: stats.byCategory
-          .map((category) =>
-            comparisonRow({
-              label: category.name,
-              value: `${category.sessions}`,
-              // The bar shows the share, so the share is what the caption
-              // explains; a duration is extra detail where one exists, not a
-              // different caption for rows that happen to have one.
-              sub: `${Math.round(category.share * 100)}% of sessions${
-                category.minutes > 0 ? ` · ${formatDuration(category.minutes)}` : ''
-              }`,
-              fraction: category.share,
-              color: category.color,
-            })
-          )
-          .join(''),
+        note: 'Share of every session recorded',
+        body: pieChart({
+          slices: stats.byCategory.map((category) => ({
+            label: category.name,
+            value: category.sessions,
+            sub: `${category.sessions} ${category.sessions === 1 ? 'session' : 'sessions'}`,
+            color: category.color,
+          })),
+        }),
       })
     );
   }

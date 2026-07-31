@@ -11,6 +11,7 @@
  */
 
 import { escapeHtml } from '../../shared/sanitize.js';
+import { readableTextOn } from '../../shared/color.js';
 
 /**
  * Card emphasis. `feature` is for the one number a section is really about;
@@ -269,4 +270,147 @@ export function barChart({
       : '';
 
   return `<div><div class="flex items-end gap-1.5">${columns}</div>${axisRow}</div>`;
+}
+
+/**
+ * A bar chart, one row per thing being compared.
+ *
+ * Rows rather than columns because the things compared here have names, and a
+ * name under a column is either truncated or turned sideways. The figure rides
+ * the bar — inside it where there is room, just past its end where there is not
+ * — and the name and count sit beneath in grey, so the bars stay the thing the
+ * eye follows down the list.
+ * @param {object} options Options.
+ * @param {Array<{label: string, sub?: string, value: number, color?: string}>} options.bars
+ *   The series. `value` is a percentage.
+ * @returns {string} Chart markup.
+ */
+export function horizontalBarChart({ bars }) {
+  if (!bars || bars.length === 0) return '';
+
+  const rows = bars
+    .map((bar) => {
+      const value = Math.max(0, Math.min(100, Number.isFinite(bar.value) ? bar.value : 0));
+      const color = bar.color || '#3B82F6';
+      const label = `${Math.round(value)}%`;
+      // A fill narrower than about a quarter cannot hold its own figure, so
+      // that one sits just past the end of the bar instead.
+      const inside = value >= 25;
+
+      return `
+        <div class="chart-row py-1.5">
+          <div class="relative h-7 rounded-md bg-gray-200/70 dark:bg-gray-700/60 overflow-hidden">
+            <div class="absolute inset-y-0 left-0 rounded-md flex items-center justify-end"
+                 style="width:${value.toFixed(1)}%;background-color:${color};">
+              ${
+                inside
+                  ? `<span class="text-[11px] font-bold tabular-nums pr-2" style="color:${readableTextOn(color)};">${label}</span>`
+                  : ''
+              }
+            </div>
+            ${
+              inside
+                ? ''
+                : `<span class="absolute inset-y-0 flex items-center text-[11px] font-bold tabular-nums text-gray-600 dark:text-gray-300"
+                         style="left:calc(${value.toFixed(1)}% + 6px);">${label}</span>`
+            }
+          </div>
+          <div class="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+            <span class="font-medium text-gray-500 dark:text-gray-400">${escapeHtml(bar.label)}</span>${
+              bar.sub ? ` · ${escapeHtml(bar.sub)}` : ''
+            }
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+
+  return `<div>${rows}</div>`;
+}
+
+/**
+ * A pie chart with its shares written into the segments, and a legend beneath.
+ *
+ * The legend carries the names because a segment is rarely wide enough for one,
+ * and slices too thin to hold even a percentage are left unlabelled rather than
+ * printed on top of their neighbours.
+ * @param {object} options Options.
+ * @param {Array<{label: string, value: number, sub?: string, color?: string}>} options.slices
+ *   Segments; `value` is a raw amount, not a percentage.
+ * @returns {string} Chart markup.
+ */
+export function pieChart({ slices }) {
+  const usable = (slices || []).filter((slice) => slice.value > 0);
+  if (usable.length === 0) return '';
+
+  const total = usable.reduce((sum, slice) => sum + slice.value, 0);
+  const centre = 50;
+  const radius = 46;
+  const point = (radians, distance) => [
+    (centre + distance * Math.cos(radians)).toFixed(2),
+    (centre + distance * Math.sin(radians)).toFixed(2),
+  ];
+
+  const shapes = [];
+  const labels = [];
+  const legend = [];
+  let angle = -Math.PI / 2; // start at twelve o'clock
+
+  for (const slice of usable) {
+    const share = slice.value / total;
+    const color = slice.color || '#3B82F6';
+    const sweep = share * Math.PI * 2;
+    const start = angle;
+    const mid = angle + sweep / 2;
+    angle += sweep;
+
+    if (usable.length === 1) {
+      // One category fills the circle, and an arc whose start meets its end
+      // draws nothing at all, so that case is a plain circle.
+      shapes.push(`<circle cx="${centre}" cy="${centre}" r="${radius}" fill="${color}"/>`);
+    } else {
+      const [x1, y1] = point(start, radius);
+      const [x2, y2] = point(angle, radius);
+      const largeArc = sweep > Math.PI ? 1 : 0;
+      shapes.push(
+        `<path d="M ${centre} ${centre} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z" fill="${color}"/>`
+      );
+    }
+
+    const percent = Math.round(share * 100);
+    // Below roughly a twelfth of the circle a label would overlap its
+    // neighbours. The legend still names and quantifies it.
+    if (share >= 0.08) {
+      // A slice that is the whole circle has no meaningful mid-point on the
+      // rim, so its label belongs in the middle.
+      const [labelX, labelY] =
+        usable.length === 1 ? [centre, centre] : point(mid, radius * 0.62);
+      labels.push(
+        `<text x="${labelX}" y="${labelY}" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="700" fill="${readableTextOn(color)}">${percent}%</text>`
+      );
+    }
+
+    legend.push(`
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background-color:${color};"></span>
+        <span class="text-xs text-gray-700 dark:text-gray-200 truncate">${escapeHtml(slice.label)}</span>
+        <span class="text-xs text-gray-400 dark:text-gray-500 tabular-nums ml-auto flex-shrink-0">${percent}%${slice.sub ? ` \u00b7 ${escapeHtml(slice.sub)}` : ''}</span>
+      </div>
+    `);
+  }
+
+  const summary = usable
+    .map((slice) => `${slice.label} ${Math.round((slice.value / total) * 100)}%`)
+    .join(', ');
+
+  return `
+    <div class="flex flex-col items-center gap-3">
+      <svg viewBox="0 0 100 100" class="w-36 h-36 flex-shrink-0" role="img"
+           aria-label="Share by category: ${escapeHtml(summary)}">
+        ${shapes.join('')}
+        ${labels.join('')}
+      </svg>
+      <div class="w-full space-y-1.5">${legend.join('')}</div>
+    </div>
+  `;
 }
