@@ -22,6 +22,7 @@ import {
   sessionVolume,
 } from '../fitness/helpers/recordMetrics.js';
 import { isRestDay } from '../../shared/restDays.js';
+import { getProgramProgress, getPrograms } from '../fitness/programs.js';
 import { calendarDaysBetween, dateToKey, mondayStart } from '../../shared/datetime.js';
 
 /**
@@ -53,7 +54,7 @@ export function calculateFitnessStatistics(today = new Date()) {
     totalVolume: records.reduce((sum, record) => sum + sessionVolume(record), 0),
     totalSets: records.reduce((sum, record) => sum + (hasSets(record) ? record.sets.length : 0), 0),
     totalReps: records.reduce((sum, record) => sum + sessionReps(record), 0),
-    activeDays: new Set(records.map(recordDateKey).filter(Boolean)).size,
+    activeDayKeys: [...new Set(records.map(recordDateKey).filter(Boolean))],
     byCategory: [],
     byMuscleGroup: [],
     weeklyVolume: [],
@@ -66,6 +67,7 @@ export function calculateFitnessStatistics(today = new Date()) {
   };
 
   stats.unloggedSessions = stats.totalSessions - stats.loggedSessions;
+  stats.activeDays = stats.activeDayKeys.length;
   if (records.length > 0) {
     stats.lastSession = recordDateKey(records.reduce((latest, record) =>
       recordDateKey(record) > recordDateKey(latest) ? record : latest
@@ -142,8 +144,40 @@ export function calculateFitnessStatistics(today = new Date()) {
   stats.restDaysPercentage = (restDays / restWindow) * 100;
 
   Object.assign(stats, trainingStreaks(records, today));
+  stats.programs = programAdherence();
 
   return stats;
+}
+
+/**
+ * How closely each program has actually been followed.
+ *
+ * Programs declare what a week should hold, and until now nothing ever compared
+ * that against what was recorded — the plan had no feedback loop at all. The
+ * arithmetic already exists for the program detail screen; this borrows it so
+ * the same figure appears where the user is looking at their training as a
+ * whole.
+ * @returns {Array<object>} One entry per program that has started, newest first.
+ */
+function programAdherence() {
+  return getPrograms()
+    .map((program) => {
+      const progress = getProgramProgress(program);
+      if (!progress || progress.plannedWorkouts === 0) return null;
+      return {
+        id: program.id,
+        name: program.name,
+        percent: progress.percent,
+        completed: progress.completedWorkouts,
+        planned: progress.plannedWorkouts,
+        week: progress.week,
+        totalWeeks: progress.totalWeeks,
+        phase: progress.phase,
+        active: Boolean(program.active),
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => Number(right.active) - Number(left.active));
 }
 
 /**

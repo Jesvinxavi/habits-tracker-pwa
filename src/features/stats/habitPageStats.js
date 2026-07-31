@@ -24,10 +24,12 @@ import {
   groupCompletionRate,
   groupDaySeries,
   groupStreaks,
+  habitDaySeries,
   habitReliability,
   isLiveHabit,
   periodCompletionRate,
   periodStreaks,
+  summariseSeries,
 } from '../habits/helpers/habitCalculations.js';
 
 /** A habit with the shape the calculators rely on, however it arrived. */
@@ -132,8 +134,30 @@ export function calculateHabitStatistics(today = new Date()) {
 
   stats.categoryBreakdown = buildCategoryBreakdown(liveHabits, stats.completionRates, categoriesById);
   stats.holidayDaysThisYear = countHolidays(today);
+  stats.mostSkipped = mostSkippedHabit(liveHabits, today);
 
   return stats;
+}
+
+/**
+ * The habit standing down most often this month, if any is.
+ *
+ * Skips are neutral by design, which is exactly why they deserve to be visible:
+ * a habit skipped every week is one the schedule is wrong about, and nothing
+ * else on the page would ever say so.
+ * @param {object[]} habits Live habits.
+ * @param {Date} today The current date.
+ * @returns {{name: string, icon: string, count: number}|null} The habit, or null.
+ */
+function mostSkippedHabit(habits, today) {
+  let worst = null;
+  for (const habit of habits) {
+    const skipped = summariseSeries(habitDaySeries(habit, { today, days: 30 })).skipped;
+    if (skipped > 0 && (!worst || skipped > worst.count)) {
+      worst = { name: habit.name, icon: habit.icon || '', count: skipped };
+    }
+  }
+  return worst;
 }
 
 /**

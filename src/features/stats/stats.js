@@ -225,6 +225,7 @@ function renderOverviewSection(habitStats, fitnessStats) {
     habitStats.onTrackThisPeriod > 0
       ? `${habitStats.onTrackThisPeriod} more on track this period`
       : '';
+  const activeDays = combinedActiveDays(habitStats, fitnessStats);
 
   return statSection({
     title: 'Overview',
@@ -253,8 +254,45 @@ function renderOverviewSection(habitStats, fitnessStats) {
           sub: 'Last 30 days',
         })}
       </div>
+      ${
+        activeDays.total > 0
+          ? `<div class="mt-2.5">${statCard({
+              value: `${activeDays.last30} of 30`,
+              label: 'Days you did something',
+              sub: `${activeDays.total} active days all time`,
+              wide: true,
+            })}</div>`
+          : ''
+      }
     `,
   });
+}
+
+/**
+ * Days on which the user did anything at all — a habit or a session.
+ *
+ * Every other figure on this page belongs to one half of the app. This is the
+ * one that spans both, and it is the honest answer to "am I actually showing
+ * up", which neither half can give on its own.
+ * @param {object} habitStats Habit statistics.
+ * @param {object} fitnessStats Fitness statistics.
+ * @returns {{total: number, last30: number}} Active-day counts.
+ */
+function combinedActiveDays(habitStats, fitnessStats) {
+  const days = new Set(fitnessStats.activeDayKeys || []);
+  for (const day of habitStats.dailySeries || []) {
+    if (day.completed > 0) days.add(day.dateKey);
+  }
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 29);
+  const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
+  let last30 = 0;
+  for (const day of days) {
+    if (day >= cutoffKey) last30 += 1;
+  }
+
+  return { total: days.size, last30 };
 }
 
 function renderToggle() {
@@ -344,39 +382,44 @@ function renderHabitSections(stats) {
   // already calculated and never shown. With only a handful of habits the two
   // lists would overlap and print the same habit twice, so a habit is only ever
   // in one of them, and with too few to divide the list is simply shown whole.
-  if (stats.completionRates.length >= 2) {
+  if (stats.completionRates.length > 0) {
     const ranked = stats.completionRates;
+    const spread = ranked[0].rate - ranked[ranked.length - 1].rate;
+    // Splitting the list into "holding up" and "needs attention" is only honest
+    // when the two ends are actually different. Four habits all within a few
+    // points of each other are all doing the same thing, and labelling the last
+    // of them a problem invents one.
+    const worthSplitting = ranked.length >= 4 && spread >= 15;
     const listSize = Math.min(3, Math.floor(ranked.length / 2));
-    const best = ranked.slice(0, listSize);
-    const struggling = ranked
-      .slice(listSize)
-      .reverse()
-      .filter((entry) => entry.rate < 100)
-      .slice(0, 3);
 
     sections.push(
       statSection({
         title: 'Habit by habit',
         note: 'Each habit measured over its own recent periods',
-        body:
-          listSize === 0
-            ? ranked.map((entry) => habitRow(entry, '#3B82F6')).join('')
-            : `
+        body: worthSplitting
+          ? `
               <div class="space-y-3">
                 <div>
                   <p class="text-xs font-medium text-emerald-700 dark:text-emerald-300 mb-1">Holding up</p>
-                  ${best.map((entry) => habitRow(entry, '#22C55E')).join('')}
+                  ${ranked
+                    .slice(0, listSize)
+                    .map((entry) => habitRow(entry, '#22C55E'))
+                    .join('')}
                 </div>
-                ${
-                  struggling.length > 0
-                    ? `<div>
-                        <p class="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">Needs attention</p>
-                        ${struggling.map((entry) => habitRow(entry, '#F59E0B')).join('')}
-                      </div>`
-                    : ''
-                }
+                <div>
+                  <p class="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">Needs attention</p>
+                  ${ranked
+                    .slice(-listSize)
+                    .reverse()
+                    .map((entry) => habitRow(entry, '#F59E0B'))
+                    .join('')}
+                </div>
               </div>
-            `,
+            `
+          : ranked
+              .slice(0, 6)
+              .map((entry) => habitRow(entry, entry.rate >= 70 ? '#22C55E' : '#F59E0B'))
+              .join(''),
       })
     );
   }
@@ -404,6 +447,7 @@ function renderHabitSections(stats) {
         statCard({
           value: stats.totalSkipsThisMonth,
           label: 'Skips this month',
+          sub: stats.mostSkipped ? `Most often: ${stats.mostSkipped.name}` : '',
           tone: stats.totalSkipsThisMonth > 0 ? 'caution' : 'plain',
         }),
         statCard({ value: stats.holidayDaysThisYear, label: 'Holiday days this year' }),
@@ -506,6 +550,29 @@ function renderFitnessSections(stats) {
     })
   );
 
+  if (stats.programs.length > 0) {
+    sections.push(
+      statSection({
+        title: 'Programme adherence',
+        note: 'Sessions recorded against sessions planned',
+        body: stats.programs
+          .map((program) =>
+            comparisonRow({
+              label: program.name,
+              value: `${Math.round(program.percent)}%`,
+              sub:
+                program.phase === 'before'
+                  ? 'Not started yet'
+                  : `${program.completed} of ${program.planned} · week ${program.week} of ${program.totalWeeks}`,
+              fraction: program.percent / 100,
+              color: program.active ? '#22C55E' : '#94A3B8',
+            })
+          )
+          .join(''),
+      })
+    );
+  }
+
   if (stats.weeklySessions.some((count) => count > 0)) {
     sections.push(
       statSection({
@@ -520,6 +587,21 @@ function renderFitnessSections(stats) {
     );
   }
 
+  if (stats.weeklyVolume.some((volume) => volume > 0)) {
+    sections.push(
+      statSection({
+        title: 'Training load',
+        note: 'Volume lifted per week, last 12 weeks',
+        body: barChart({
+          bars: stats.weeklyVolume.map((value) => ({ value, label: '' })),
+          axis: ['12 weeks ago', '6 weeks', 'This week'],
+          color: '#8B5CF6',
+          format: (value) => (value >= 1000 ? `${Math.round(value / 1000)}k` : String(Math.round(value))),
+        }),
+      })
+    );
+  }
+
   if (stats.byCategory.length > 0) {
     sections.push(
       statSection({
@@ -529,10 +611,12 @@ function renderFitnessSections(stats) {
             comparisonRow({
               label: category.name,
               value: `${category.sessions}`,
-              sub:
-                category.minutes > 0
-                  ? `${formatDuration(category.minutes)} total`
-                  : `${Math.round(category.share * 100)}% of sessions`,
+              // The bar shows the share, so the share is what the caption
+              // explains; a duration is extra detail where one exists, not a
+              // different caption for rows that happen to have one.
+              sub: `${Math.round(category.share * 100)}% of sessions${
+                category.minutes > 0 ? ` · ${formatDuration(category.minutes)}` : ''
+              }`,
               fraction: category.share,
               color: category.color,
             })

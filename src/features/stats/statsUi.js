@@ -184,15 +184,16 @@ export function heatmap({ days, weeks = 13, color = '#22C55E' }) {
         else if (day.status === 'skipped') opacity = 0.18;
       }
 
+      // Every past day gets a base tint so the grid reads as a grid; a day with
+      // nothing done is a visible gap rather than a hole in the layout. Days
+      // that have not happened yet are left blank entirely.
       const filled = opacity > 0;
+      const base = future ? '' : 'bg-gray-200/70 dark:bg-gray-700/50';
+      const fill = filled
+        ? `background-color:${color};opacity:${Math.max(0.25, opacity).toFixed(2)};`
+        : '';
       cells.push(
-        `<div class="heat-cell rounded-[2px] aspect-square" title="${dateKey}" style="${
-          future
-            ? 'background-color:transparent;'
-            : filled
-              ? `background-color:${color};opacity:${Math.max(0.22, opacity).toFixed(2)};`
-              : ''
-        }" ${future || filled ? '' : 'data-empty="true"'}></div>`
+        `<div class="heat-cell rounded-[2px] aspect-square ${base}" title="${escapeHtml(dateKey)}" style="${fill}"></div>`
       );
     }
     columns.push(`<div class="grid grid-rows-7 gap-[3px]">${cells.join('')}</div>`);

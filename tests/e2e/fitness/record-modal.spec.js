@@ -308,7 +308,9 @@ test.describe('record activity modal', () => {
     await page.locator('#activity-details-info-tile').click();
     await page.locator('#activity-info-stats-btn').click();
     await expect(page.locator('#activity-stats-modal')).toContainText('Quickest session');
-    await expect(page.locator('#activity-stats-modal')).toContainText('26 min');
+    // The statistics modal formats every duration the same way the rest of the
+    // app does, so 26 minutes reads as "26m" here rather than "26 min".
+    await expect(page.locator('#activity-stats-modal')).toContainText('26m');
   });
 
   test('higher stays the default for time activities', async ({ page }) => {
