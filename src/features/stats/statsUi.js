@@ -218,6 +218,9 @@ export function heatmap({ days, weeks = 13, color = '#22C55E' }) {
  * @param {Array<{label: string, value: number, sub?: string}>} options.bars The series.
  * @param {string} [options.color] Bar colour.
  * @param {(value: number) => string} [options.format] Value formatter for labels.
+ * @param {string[]} [options.axis] Start/middle/end labels, for long series.
+ * @param {number|null} [options.scaleTo] Fix the top of the scale, e.g. 100 for
+ *   percentages, instead of scaling to the tallest bar.
  * @returns {string} Chart markup.
  */
 export function barChart({
@@ -225,9 +228,13 @@ export function barChart({
   color = '#3B82F6',
   format = (value) => String(Math.round(value)),
   axis = [],
+  scaleTo = null,
 }) {
   if (!bars || bars.length === 0) return '';
-  const max = Math.max(...bars.map((bar) => bar.value), 0);
+  // Percentages are scaled to a fixed 100 rather than to the tallest bar: a set
+  // of rates between 78% and 81% auto-scaled looks like a dramatic spread, when
+  // the real story is that they are all the same.
+  const max = scaleTo ?? Math.max(...bars.map((bar) => bar.value), 0);
   // Past about seven columns there is no room under each one for a legible
   // label, so a long series gets a start/middle/end axis instead of trying to
   // squeeze a word into twenty pixels.

@@ -244,6 +244,7 @@ export function buildHabitStatsContent(habit, stats, category) {
         body: barChart({
           bars: stats.weekdayBreakdown.map((day) => ({ label: day.label, value: day.rate })),
           color,
+          scaleTo: 100,
           format: (value) => `${Math.round(value)}%`,
         }),
       })

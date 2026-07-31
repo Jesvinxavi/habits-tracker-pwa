@@ -295,5 +295,26 @@ export function isHabitCompleted(habit, dateObj) {
 export function isHabitSkippedToday(habit, date = new Date()) {
   const d = date instanceof Date ? date : new Date(date);
   const key = getPeriodKey(habit, d);
-  return Array.isArray(habit.skippedDates) && habit.skippedDates.includes(key);
+  return skippedKeys(habit).has(key);
+}
+
+// A linear scan of the skip list per day per habit is invisible on one screen
+// and quadratic across a year of history, so the list is indexed once per habit
+// version. Immutable updates make object identity a complete invalidation key,
+// exactly as for the derived start date above.
+const skippedKeyCache = new WeakMap();
+
+/**
+ * The set of period keys a habit has been stood down on.
+ * @param {object} habit The habit.
+ * @returns {Set<string>} Skipped keys.
+ */
+function skippedKeys(habit) {
+  if (!habit || typeof habit !== 'object') return new Set();
+  let keys = skippedKeyCache.get(habit);
+  if (!keys) {
+    keys = new Set(Array.isArray(habit.skippedDates) ? habit.skippedDates : []);
+    skippedKeyCache.set(habit, keys);
+  }
+  return keys;
 }

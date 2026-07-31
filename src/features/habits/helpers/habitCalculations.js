@@ -210,11 +210,21 @@ export function completionRate(habit, { days, today = new Date() } = {}) {
  * @returns {number} Consecutive completed days.
  */
 export function currentStreak(habit, { today = new Date() } = {}) {
+  const end = habitEvaluationEnd(habit, today);
+  const start = habitStartDate(habit, today);
+  if (end < start) return 0;
+
+  // Walked day by day rather than over a materialised series: a streak ends at
+  // the first miss, so building years of history to read the last few days of
+  // it is work thrown away.
   let streak = 0;
-  for (const day of habitDaySeries(habit, { today })) {
-    if (day.status === DayStatus.COMPLETED) streak += 1;
-    else if (day.status === DayStatus.MISSED) break;
+  const cursor = new Date(end);
+  while (cursor >= start) {
+    const status = dayStatus(habit, cursor, { today, evaluationEnd: end });
+    if (status === DayStatus.COMPLETED) streak += 1;
+    else if (status === DayStatus.MISSED) break;
     // Inactive, skipped and pending days are stepped over.
+    cursor.setDate(cursor.getDate() - 1);
   }
   return streak;
 }
