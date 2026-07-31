@@ -383,45 +383,7 @@ function renderHabitSections(stats) {
   // lists would overlap and print the same habit twice, so a habit is only ever
   // in one of them, and with too few to divide the list is simply shown whole.
   if (stats.completionRates.length > 0) {
-    const ranked = stats.completionRates;
-    const spread = ranked[0].rate - ranked[ranked.length - 1].rate;
-    // Splitting the list into "holding up" and "needs attention" is only honest
-    // when the two ends are actually different. Four habits all within a few
-    // points of each other are all doing the same thing, and labelling the last
-    // of them a problem invents one.
-    const worthSplitting = ranked.length >= 4 && spread >= 15;
-    const listSize = Math.min(3, Math.floor(ranked.length / 2));
-
-    sections.push(
-      statSection({
-        title: 'Habit by habit',
-        note: 'Each habit measured over its own recent periods',
-        body: worthSplitting
-          ? `
-              <div class="space-y-3">
-                <div>
-                  <p class="text-xs font-medium text-emerald-700 dark:text-emerald-300 mb-1">Holding up</p>
-                  ${ranked
-                    .slice(0, listSize)
-                    .map((entry) => habitRow(entry, '#22C55E'))
-                    .join('')}
-                </div>
-                <div>
-                  <p class="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">Needs attention</p>
-                  ${ranked
-                    .slice(-listSize)
-                    .reverse()
-                    .map((entry) => habitRow(entry, '#F59E0B'))
-                    .join('')}
-                </div>
-              </div>
-            `
-          : ranked
-              .slice(0, 6)
-              .map((entry) => habitRow(entry, entry.rate >= 70 ? '#22C55E' : '#F59E0B'))
-              .join(''),
-      })
-    );
+    sections.push(renderHabitComparison(stats.completionRates));
   }
 
   const categoryRows = stats.categoryBreakdown
@@ -460,6 +422,83 @@ function renderHabitSections(stats) {
   );
 
   return sections.filter(Boolean).join('');
+}
+
+/** How many habits fit before a full list stops being readable at a glance. */
+const HABIT_LIST_LIMIT = 6;
+/** Percentage points between best and worst before the gap is worth naming. */
+const MEANINGFUL_SPREAD = 15;
+
+/**
+ * The habit-by-habit comparison.
+ *
+ * Long lists are the hard case. Printing thirty rows buries the two that matter;
+ * printing the top six and calling the section "habit by habit" is worse, because
+ * it looks complete while hiding most of the collection. So a long list shows the
+ * two ends — which is the question people actually have — says plainly how many
+ * it is showing out of how many, and puts the rest behind a disclosure so
+ * nothing is unreachable.
+ *
+ * The ends are only labelled as good and bad when they genuinely differ. Thirty
+ * habits all within a point of each other are all doing the same thing, and
+ * calling the last of them a problem invents one.
+ * @param {Array<object>} ranked Per-habit rates, best first.
+ * @returns {string} Section markup.
+ */
+function renderHabitComparison(ranked) {
+  const total = ranked.length;
+  const colorFor = (entry) => (entry.rate >= 70 ? '#22C55E' : '#F59E0B');
+
+  if (total <= HABIT_LIST_LIMIT) {
+    return statSection({
+      title: 'Habit by habit',
+      note: 'Each habit measured over its own recent periods',
+      body: ranked.map((entry) => habitRow(entry, colorFor(entry))).join(''),
+    });
+  }
+
+  const spread = ranked[0].rate - ranked[total - 1].rate;
+  const named = spread >= MEANINGFUL_SPREAD;
+  const edge = HABIT_LIST_LIMIT / 2;
+  const best = ranked.slice(0, edge);
+  const worst = ranked.slice(-edge).reverse();
+  const middle = ranked.slice(edge, total - edge);
+
+  return statSection({
+    title: 'Habit by habit',
+    note: named
+      ? `The ends of ${total} habits, each measured over its own recent periods`
+      : `All ${total} habits are within ${Math.round(spread)} points of each other`,
+    body: `
+      <div class="space-y-3">
+        <div>
+          <p class="text-xs font-medium text-emerald-700 dark:text-emerald-300 mb-1">${
+            named ? 'Holding up' : 'Most consistent'
+          }</p>
+          ${best.map((entry) => habitRow(entry, '#22C55E')).join('')}
+        </div>
+        <div>
+          <p class="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">${
+            named ? 'Needs attention' : 'Least consistent'
+          }</p>
+          ${worst.map((entry) => habitRow(entry, named ? '#F59E0B' : '#22C55E')).join('')}
+        </div>
+        ${
+          middle.length > 0
+            ? `<details class="habit-list-rest group">
+                <summary class="cursor-pointer list-none text-xs font-medium text-blue-600 dark:text-blue-300 py-1 select-none">
+                  <span class="group-open:hidden">Show the other ${middle.length}</span>
+                  <span class="hidden group-open:inline">Hide the other ${middle.length}</span>
+                </summary>
+                <div class="mt-1">
+                  ${middle.map((entry) => habitRow(entry, colorFor(entry))).join('')}
+                </div>
+              </details>`
+            : ''
+        }
+      </div>
+    `,
+  });
 }
 
 /**

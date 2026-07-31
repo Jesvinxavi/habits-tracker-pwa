@@ -95,6 +95,64 @@ test.describe('statistics surfaces', () => {
     await expect(container).toContainText('1h 30m');
   });
 
+  test('a long habit list shows its ends, says so, and keeps the rest reachable', async ({
+    page,
+  }) => {
+    await page.evaluate(() => {
+      const iso = (date) =>
+        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const ago = (days) => {
+        const date = new Date();
+        date.setDate(date.getDate() - days);
+        return date;
+      };
+
+      // Twenty habits spanning a genuine range of reliability.
+      const habits = Array.from({ length: 20 }, (_, index) => {
+        const completed = {};
+        for (let day = 1; day <= 60; day += 1) {
+          completed[iso(ago(day))] = day % Math.max(2, index + 2) !== 0;
+        }
+        return {
+          id: `habit-${index}`,
+          name: `Habit ${index}`,
+          categoryId: 'cat-health',
+          icon: '🔵',
+          paused: false,
+          activeOnHolidays: false,
+          frequency: 'daily',
+          createdAt: `${iso(ago(60))}T00:00:00.000`,
+          completed,
+          skippedDates: [],
+          sortOrder: index,
+        };
+      });
+
+      window.__APP_TEST__.seed({
+        categories: [{ id: 'cat-health', name: 'Health', color: '#34C759' }],
+        habits,
+      });
+    });
+
+    await page.getByRole('tab', { name: 'Stats view' }).click();
+    const section = page
+      .locator('#stats-container section')
+      .filter({ hasText: 'Habit by habit' });
+
+    // Six rows on screen out of twenty, and the count is stated rather than
+    // leaving the list looking complete.
+    await expect(section.locator('.comparison-row')).toHaveCount(20);
+    await expect(section.locator('details .comparison-row')).toHaveCount(14);
+    await expect(section).toContainText('20 habits');
+
+    // The remainder is one tap away, not lost.
+    const disclosure = section.locator('summary');
+    await expect(disclosure).toContainText('Show the other 14');
+    await disclosure.click();
+    await expect(section.locator('details')).toHaveAttribute('open', '');
+    await expect(section.locator('details .comparison-row').first()).toBeVisible();
+  });
+
   test('the habit statistics modal behaves like every other dialog', async ({ page }) => {
     await page.getByRole('tab', { name: 'Habits view' }).click();
     await page.locator('.stats-habit-btn[data-habit-id="habit-meditate"]').click();
