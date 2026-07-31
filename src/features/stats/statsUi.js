@@ -53,9 +53,14 @@ const TONES = {
  */
 export function statCard({ value, label, sub = '', tone = 'plain', wide = false, raw = false }) {
   const palette = TONES[tone] || TONES.plain;
+  // A card holds either a figure or a short phrase, and a phrase set at the
+  // size of a figure wraps to three lines and pushes the grid out of square.
+  // Long values step down a size rather than each caller having to say so.
+  const text = String(value ?? '');
+  const size = text.length > 10 ? 'text-base' : text.length > 6 ? 'text-xl' : 'text-2xl';
   return `
     <div class="stat-card ${palette.card} ${wide ? 'col-span-2' : ''} rounded-xl p-3">
-      <div class="stat-value text-2xl font-bold leading-tight ${palette.value}">${raw ? value : escapeHtml(value)}</div>
+      <div class="stat-value ${size} font-bold leading-tight ${palette.value}">${raw ? value : escapeHtml(text)}</div>
       <div class="stat-label text-xs font-medium mt-0.5 ${palette.label}">${escapeHtml(label)}</div>
       ${sub ? `<div class="stat-sub text-[11px] mt-1 ${palette.label} opacity-80">${escapeHtml(sub)}</div>` : ''}
     </div>
@@ -215,24 +220,45 @@ export function heatmap({ days, weeks = 13, color = '#22C55E' }) {
  * @param {(value: number) => string} [options.format] Value formatter for labels.
  * @returns {string} Chart markup.
  */
-export function barChart({ bars, color = '#3B82F6', format = (value) => String(Math.round(value)) }) {
+export function barChart({
+  bars,
+  color = '#3B82F6',
+  format = (value) => String(Math.round(value)),
+  axis = [],
+}) {
   if (!bars || bars.length === 0) return '';
   const max = Math.max(...bars.map((bar) => bar.value), 0);
+  // Past about seven columns there is no room under each one for a legible
+  // label, so a long series gets a start/middle/end axis instead of trying to
+  // squeeze a word into twenty pixels.
+  const perColumnLabels = bars.length <= 7;
 
   const columns = bars
     .map((bar) => {
       const height = max > 0 ? Math.max(2, (bar.value / max) * 100) : 2;
+      const showValue = perColumnLabels || bar.value > 0;
       return `
         <div class="flex flex-col items-center gap-1 flex-1 min-w-0">
-          <div class="text-[10px] font-semibold text-gray-600 dark:text-gray-300 tabular-nums">${escapeHtml(format(bar.value))}</div>
+          <div class="text-[10px] font-semibold text-gray-600 dark:text-gray-300 tabular-nums h-3">${showValue ? escapeHtml(format(bar.value)) : ''}</div>
           <div class="w-full flex items-end" style="height:64px;">
-            <div class="w-full rounded-t-[3px]" style="height:${height.toFixed(1)}%;background-color:${color};opacity:${bar.value > 0 ? 1 : 0.25};"></div>
+            <div class="w-full rounded-t-[3px]" style="height:${height.toFixed(1)}%;background-color:${color};opacity:${bar.value > 0 ? 1 : 0.2};"></div>
           </div>
-          <div class="text-[10px] text-gray-500 dark:text-gray-400 truncate w-full text-center">${escapeHtml(bar.label)}</div>
+          ${
+            perColumnLabels
+              ? `<div class="text-[10px] text-gray-500 dark:text-gray-400 truncate w-full text-center">${escapeHtml(bar.label)}</div>`
+              : ''
+          }
         </div>
       `;
     })
     .join('');
 
-  return `<div class="flex items-end gap-1.5">${columns}</div>`;
+  const axisRow =
+    !perColumnLabels && axis.length > 0
+      ? `<div class="flex justify-between mt-1.5 text-[10px] text-gray-500 dark:text-gray-400">
+           ${axis.map((label) => `<span>${escapeHtml(label)}</span>`).join('')}
+         </div>`
+      : '';
+
+  return `<div><div class="flex items-end gap-1.5">${columns}</div>${axisRow}</div>`;
 }

@@ -453,10 +453,8 @@ function buildFrequencyTrend(activityId, accent) {
   if (buckets.every((count) => count === 0)) return '';
 
   return barChart({
-    bars: buckets.map((value, index) => ({
-      value,
-      label: index === weeks - 1 ? 'Now' : index % 3 === 0 ? `${weeks - 1 - index}w` : '',
-    })),
+    bars: buckets.map((value) => ({ value, label: '' })),
+    axis: ['12 weeks ago', '6 weeks', 'This week'],
     color: accent,
   });
 }
@@ -505,7 +503,9 @@ function formatBestSession(session, activity) {
  */
 export function formatMetric(value) {
   if (!Number.isFinite(value)) return '0';
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  // Grouped, because a five-figure tonnage is unreadable as a run of digits.
+  const rounded = Number.isInteger(value) ? value : Number(value.toFixed(1));
+  return rounded.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
 /**

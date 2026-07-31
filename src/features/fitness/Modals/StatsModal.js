@@ -39,29 +39,28 @@ export const StatsModal = {
    */
   _createModal(activity, stats, category) {
     const color = normalizeHexColor(category.color);
-    // z-[1004] rather than the old z-50: this modal is opened from the activity
-    // details modal (z-[1002]) and the library beneath it, so anything under
-    // that ladder renders behind them and looks like nothing happened.
+    // No z-index of its own: the modal stack assigns one on open, ordered by
+    // how deep this dialog sits under the library and the details view above it.
     const modalHTML = `
-      <div id="${MODAL_ID}" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[1004] hidden">
-        <div class="modal-content bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] flex flex-col">
-          <div class="modal-header flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-            <div class="flex items-center gap-3">
-              <div class="activity-icon w-10 h-10 rounded-full flex items-center justify-center text-xl" style="background-color: ${color}20; color: ${color};">
+      <div id="${MODAL_ID}" class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="modal-content bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] flex flex-col">
+          <div class="modal-header flex-shrink-0 flex items-center justify-between gap-3 p-4 border-b border-gray-200 dark:border-gray-800">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="activity-icon w-10 h-10 rounded-full flex items-center justify-center text-xl flex-shrink-0" style="background-color: ${color}20; color: ${color};">
                 ${escapeHtml(activity.icon || category.icon || '🎯')}
               </div>
-              <div>
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${escapeHtml(activity.name)}</h3>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Activity Statistics</p>
+              <div class="min-w-0">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white truncate">${escapeHtml(activity.name)}</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 truncate">${escapeHtml(category.name || 'Activity statistics')}</p>
               </div>
             </div>
-            <button id="close-stats-modal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+            <button id="close-stats-modal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 flex-shrink-0" aria-label="Close statistics">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               </svg>
             </button>
           </div>
-          
+
           <div class="modal-body flex-1 overflow-y-auto p-4">
             ${buildStatsContent(activity, stats, category)}
           </div>

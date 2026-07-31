@@ -512,10 +512,8 @@ function renderFitnessSections(stats) {
         title: 'Consistency',
         note: 'Sessions per week, last 12 weeks',
         body: barChart({
-          bars: stats.weeklySessions.map((value, index) => ({
-            value,
-            label: index === stats.weeklySessions.length - 1 ? 'Now' : index % 3 === 0 ? `${11 - index}w` : '',
-          })),
+          bars: stats.weeklySessions.map((value) => ({ value, label: '' })),
+          axis: ['12 weeks ago', '6 weeks', 'This week'],
           color: '#6366F1',
         }),
       })
