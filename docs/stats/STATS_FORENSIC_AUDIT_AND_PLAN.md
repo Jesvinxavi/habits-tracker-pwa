@@ -1,5 +1,10 @@
 # Statistics Forensic Audit and Implementation Plan
 
+> **Implemented.** The findings below were all addressed on this branch; see
+> [§13 Implementation record](#13-implementation-record) for what changed, what
+> the measurements became, and the two things the audit got wrong. The findings
+> and evidence are kept because they are what the changes argue from.
+
 Date: 2026-07-31. Branch: `stats-audit` from `develop` at `0cef3904` (clean
 tree). Scope: every statistics surface and every calculation feeding one —
 the Stats page (`src/features/stats/stats.js`), the activity statistics modal
@@ -917,3 +922,104 @@ Each ships with its unit fixtures and a screenshot in the PR description.
 *Produced on branch `stats-audit`. Companion to the PR that carries it; no
 code changes accompany this document by design — implementation follows the
 phases above after the § 9 decisions are confirmed.*
+
+---
+
+## 13. Implementation record
+
+Completed 2026-07-31 on `stats-audit`. Every phase in §11 was carried out. This
+section records what actually changed, what the numbers became, and where the
+audit above was wrong.
+
+### 13.1 What the code looks like now
+
+Five new modules carry everything the surfaces used to each implement:
+
+| Module | Responsibility |
+|---|---|
+| `src/features/habits/helpers/habitCalculations.js` | Every habit calculation, option-driven. The four semantic decisions live here and nowhere else. |
+| `src/features/fitness/helpers/recordMetrics.js` | Every reading of a recorded session: durations, volume, reps, one-rep-max estimates, performed-date, windows. |
+| `src/features/stats/habitPageStats.js` | The whole-collection habit view for the Stats page. |
+| `src/features/stats/fitnessStats.js` | The whole-library fitness view, including programme adherence. |
+| `src/features/stats/statsUi.js` + `completionCarousel.js` | One card, section, comparison row, heatmap, bar chart and carousel, shared by the page and both modals. |
+
+`habitStats.js` and `activityStats.js` remain as the per-modal view models but
+now only *ask questions*; they hold no arithmetic of their own. The three
+divergent calculator suites (X1) and the two carousel copies (X2) are gone.
+
+### 13.2 Findings and their resolutions
+
+All of **C1–C9**, **H1–H14**, **X1–X4**, **U1–U5**, **P1–P2**, **M1–M2** are
+resolved. Notes where the resolution differed from the proposal:
+
+- **H6 / D3** — implemented with an additive `pausedAt` (client, Convex schema,
+  persistence router, and a reducer that stamps it on the false→true edge and
+  clears it on resume). A habit paused before the field existed has no stamp, so
+  its whole history stays visible and only the live pause flag hides it from
+  today. `isHabitScheduledOnDate` gained an `{ ignorePause }` option that only
+  statistics pass, so everyday surfaces are untouched.
+- **H13** — the audit blamed `getISOWeekNumber`, which is in fact correct. The
+  real defect was `getPeriodKey` pairing the correct week number with the
+  *calendar* year, so the week spanning New Year split into two keys. Fixed with
+  a new `getISOWeekYear` helper. Noted in §13.4.
+- **H11 / D7** — the 366-day cap is gone; longest streaks are all-time, which
+  the performance work made free.
+- **C7 / C9** — the duplicated overview tile is gone, all-time session count is
+  shown, and the empty state is now decided *before* any section renders.
+- **U2** — see §13.4: the injection this fixed was not only in the statistics
+  modal.
+
+### 13.3 Measurements
+
+Stats view-model build, dev build, this machine, median of repeated runs:
+
+| Account | Before | After |
+|---|---|---|
+| 12 daily habits × 1 year | ~470–770 ms | — |
+| 12 daily habits × 2 years | froze the renderer | **28 ms** |
+| 20 daily habits × 5 years | not measurable | **68 ms** |
+
+Two indexes did most of it: the derived habit start date and the skipped-day
+lookup, both keyed on habit object identity in a `WeakMap`, which immutable
+state updates invalidate for free. The current-streak walk also stops at the
+first miss instead of materialising the whole history first.
+`tests/unit/statsPerformance.test.js` holds a 400 ms gate and separately asserts
+that cost stays linear in history length.
+
+### 13.4 Two things the audit got wrong
+
+1. **The >30 s freeze was partly an artefact.** The original measurement used
+   `requestAnimationFrame` to time a render while the browser pane was hidden,
+   and rAF does not fire in a hidden pane, so the tool call timed out for a
+   reason unrelated to the app. The underlying quadratic cost was real and is
+   measured above; the "30 seconds" figure was not a fair reading.
+2. **The injection (U2) was worse than reported.** The audit found unescaped
+   interpolation in the habit statistics modal. Writing the end-to-end test for
+   it showed a habit named `<img src=x onerror=…>` executes from the **Habits
+   list** and the **Home list** before any statistics screen is opened —
+   `HabitsListModule.js` and `HomeHabitsList.js` interpolated names, icons,
+   category names and scheduled times raw. All three surfaces now escape.
+
+### 13.5 Coverage added
+
+- `tests/unit/habitCalculations.test.js` — 26 cases pinning the semantics.
+- `tests/unit/statsCharacterisation.test.js` — the before/after suite; its
+  `BUG(...)` assertions are now `FIXED(...)`.
+- `tests/unit/lazyModalFailure.test.js` — the three distinct causes of a screen
+  failing to open.
+- `tests/unit/statsPerformance.test.js` — the budget and the growth check.
+- `tests/unit/habitPauseStamp.test.js` — the pause stamp's lifecycle.
+- `tests/e2e/stats-surfaces.spec.js` — the page's sections, the habit modal's
+  dialog behaviour and focus, the injection test, and the activity modal opening
+  through the real lazy-load chain.
+
+Suite at close: 273 unit tests, 157 e2e, lint, Convex typecheck, dead-code,
+cycles and bundle budgets all green.
+
+### 13.6 New statistics shipped
+
+N1–N16 are all in, with two placement notes: weekly training **load** and
+**programme adherence** landed on the Stats page's fitness half rather than in a
+modal, and programme adherence reuses `computeProgramProgress` rather than
+reimplementing it. Skip analytics (N7) gained a "most often" line naming the
+habit being stood down most, which was not in the original proposal.
