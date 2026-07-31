@@ -6,6 +6,19 @@ All notable user-facing and operational changes are documented here.
 
 ### Added
 
+- Statistics reorganised into labelled sections across the Stats page and both
+  statistics modals, with one card system, colour reserved for figures that have
+  a good and a bad direction, and charts where a bare number does not carry the
+  meaning
+- Habit statistics: progress against a numeric target for habits that carry one,
+  a completion heatmap of every day since the habit started, reliability by day
+  of the week, and the habits holding up against the ones needing attention
+- Fitness statistics: personal bests including an estimated one-rep max, session
+  frequency and training-load trends, intensity split, sessions by category and
+  sets by muscle group, week-by-week training streaks, and programme adherence
+- Perfect days, skip analytics naming the habit stood down most often, and an
+  active-day count spanning habits and training together
+
 - Routines: named, ordered sets of activities, created and edited from a
   Routines modal reached by the new **Routines** button, with a search and a
   **New** button in its header
@@ -84,6 +97,32 @@ All notable user-facing and operational changes are documented here.
   background. Tapping a page still fetches it immediately
 
 ### Fixed
+
+- Statistics: a session recorded as a decimal duration is no longer truncated —
+  an hour and a half counted as an hour in every total
+- Statistics: the best strength session is the one that did the most work, not
+  the one holding the single heaviest set
+- Statistics: averages divide by the sessions that carry the metric, so a
+  session logged without details no longer drags them down
+- Statistics: a session counts on the day it was performed rather than the day it
+  was typed in, so back-filling no longer distorts recent activity
+- Statistics: a skipped day is neutral everywhere — it leaves both sides of a
+  completion rate and never breaks a streak, matching the home progress ring
+- Statistics: a streak survives the morning; today counts once it is done rather
+  than reading as a break from midnight
+- Statistics: pausing a habit freezes its record instead of erasing it, and
+  archived habits stop dragging category averages toward zero
+- Statistics: "Completed today" counts what was completed today, rather than
+  counting a weekly habit every day of the week it was done in
+- A screen that will not open says what actually went wrong: offline says so, a
+  screen belonging to a newer version offers a reload, and a screen that failed
+  for its own reasons no longer blames the connection
+- A habit completed on 31 December is no longer treated as untouched on 1 January
+- Habit names are escaped everywhere they are displayed
+- The Stats page no longer recomputes a user's whole history from scratch on
+  every change: two years of a dozen habits went from around half a second to
+  under thirty milliseconds
+
 
 - Deleting a second activity in one session did nothing until a reload: the
   editor's delete button acted on whichever activity had been opened first
