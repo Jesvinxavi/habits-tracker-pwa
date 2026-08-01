@@ -20,6 +20,70 @@ export function getISOWeekNumber(date) {
 }
 
 /**
+ * Calculate the ISO-8601 week-**year** for a date, which is not always its
+ * calendar year: 31 December 2025 belongs to ISO week 1 of 2026, and 1 January
+ * 2027 belongs to week 53 of 2026. Pairing this with {@link getISOWeekNumber}
+ * is what keeps one key for one week across a year boundary.
+ * @param {Date} date JS Date object.
+ * @returns {number} ISO week-year.
+ */
+export function getISOWeekYear(date) {
+  const tmp = new Date(date.getTime());
+  tmp.setHours(0, 0, 0, 0);
+  // The Thursday of a week always falls in that week's ISO year.
+  tmp.setDate(tmp.getDate() + 4 - (tmp.getDay() || 7));
+  return tmp.getFullYear();
+}
+
+/**
+ * Returns the local midnight of a date, leaving the original untouched.
+ * @param {Date|string|number} value Any date-like value.
+ * @returns {Date} Local midnight.
+ */
+export function startOfLocalDay(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+/**
+ * Counts whole calendar days between two dates, ignoring clock time.
+ *
+ * Subtracting timestamps and dividing by 86,400,000 drifts by an hour across a
+ * daylight-saving boundary, which is enough to round a day count the wrong way;
+ * comparing calendar positions cannot.
+ * @param {Date|string|number} later The later date.
+ * @param {Date|string|number} earlier The earlier date.
+ * @returns {number} Signed day difference.
+ */
+export function calendarDaysBetween(later, earlier) {
+  const dayNumber = (value) => {
+    const date = value instanceof Date ? value : new Date(value);
+    return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000;
+  };
+  return dayNumber(later) - dayNumber(earlier);
+}
+
+/**
+ * Parses a stored date value into a local Date.
+ *
+ * A bare `YYYY-MM-DD` is a **calendar day**, not an instant: handing it to
+ * `new Date()` parses it as UTC midnight, which lands on the previous day for
+ * every timezone west of Greenwich. Those are parsed component-wise instead.
+ * @param {unknown} value Stored date value.
+ * @returns {Date|null} Local date, or null when unparsable.
+ */
+export function dateFromStoredValue(value) {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    const localDate = new Date(year, month - 1, day);
+    if (dateToKey(localDate) === value) return localDate;
+  }
+  if (value == null) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/**
  * Return true if two dates belong to the same logical period for the given
  * habit group.
  * @param {Date} a
@@ -236,14 +300,20 @@ export function formatElapsedTime(seconds) {
 export function formatLastPerformed(timestamp) {
   if (!timestamp) return 'Never';
 
-  const date = new Date(timestamp);
+  const date = dateFromStoredValue(timestamp);
+  if (!date) return 'Never';
   const now = new Date();
-  const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+  const diffDays = calendarDaysBetween(now, date);
 
+  // A period end that has not arrived yet used to render as "-2 days ago".
+  if (diffDays < 0) return 'Today';
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays} days ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+  if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return weeks === 1 ? 'A week ago' : `${weeks} weeks ago`;
+  }
   return date.toLocaleDateString();
 }
 

@@ -25,6 +25,55 @@ function loadModal(name) {
   return loaded.get(name);
 }
 
+/**
+ * Explains why a screen would not open, in the terms the user can act on.
+ *
+ * These are three different failures and used to be reported as one. A screen
+ * lives in its own chunk fetched on first use, so:
+ *
+ * - Offline, it cannot be fetched. Connectivity really is the problem.
+ * - Online, a failed fetch almost always means the running page is older than
+ *   what is deployed: the file it is asking for was replaced by a build with
+ *   different hashed names. Reloading is the fix, and telling that user to
+ *   check their connection sends them to look at a router that is working.
+ * - If the chunk loaded and then the screen threw while opening, the network
+ *   was never involved at all.
+ *
+ * @param {Error} error What went wrong.
+ * @param {boolean} whileOpening Whether the failure happened after the load.
+ * @returns {void}
+ */
+function reportModalFailure(error, whileOpening) {
+  if (whileOpening) {
+    showConfirm({
+      title: 'Something went wrong',
+      message: 'This screen could not be displayed. If it keeps happening, please report it.',
+      okText: 'OK',
+      cancelText: '',
+    });
+    return;
+  }
+
+  if (navigator.onLine === false) {
+    showConfirm({
+      title: 'You’re offline',
+      message: 'This screen has not been downloaded yet. Reconnect and try again.',
+      okText: 'OK',
+      cancelText: '',
+    });
+    return;
+  }
+
+  showConfirm({
+    title: 'Update needed',
+    message:
+      'This screen belongs to a newer version of the app. Reload to pick it up — nothing you have saved is affected.',
+    okText: 'Reload',
+    cancelText: 'Not now',
+    onOK: () => window.location.reload(),
+  });
+}
+
 function openLazyModal(name, open) {
   if (pendingOpens.has(name)) return pendingOpens.get(name);
   const opener = document.activeElement;
@@ -32,18 +81,26 @@ function openLazyModal(name, open) {
   opener?.setAttribute?.('aria-busy', 'true');
   if (isButton) opener.disabled = true;
 
+  // Which half failed is the whole diagnosis, so the two are caught separately
+  // rather than behind one catch that could only guess.
   const pending = loadModal(name)
-    .then(open)
     .catch((error) => {
       loaded.delete(name);
-      console.error(`Unable to open ${name}:`, error);
-      showConfirm({
-        title: 'Unable to Open',
-        message: 'This screen could not be loaded. Check your connection and try again.',
-        okText: 'OK',
-        cancelText: '',
-      });
+      // eslint-disable-next-line no-console
+      console.error(`Unable to load the ${name} screen:`, error);
+      reportModalFailure(error, false);
       return null;
+    })
+    .then((modal) => {
+      if (!modal) return null;
+      try {
+        return open(modal);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error(`The ${name} screen failed to open:`, error);
+        reportModalFailure(error, true);
+        return null;
+      }
     })
     .finally(() => {
       opener?.removeAttribute?.('aria-busy');
@@ -193,6 +250,11 @@ export const Modals = {
    * @param {Object} [callbacks] - Overrides for onRecord, onEdit and onStats
    */
   openActivityInfo(activityId, callbacks = {}) {
+    // The two screens reachable from this one, fetched while the user is
+    // reading it. Statistics in particular used to pay a cold fetch on tap,
+    // which is both a delay and the window in which a stale deploy fails.
+    prefetchFitnessModal('stats');
+    prefetchFitnessModal('addEditActivity');
     return openLazyModal('activityInfo', (modal) =>
       modal.open(activityId, {
         onRecord: (id) => void recordToToday(id),

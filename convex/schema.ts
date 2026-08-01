@@ -83,6 +83,9 @@ export default defineSchema({
       months: v.optional(v.array(v.number())),
       yearInterval: v.optional(v.number()),
       paused: v.boolean(),
+      // When the current pause began. Statistics stop a habit's record here
+      // rather than treating a pause as though it had never been kept at all.
+      pausedAt: v.optional(v.number()),
       activeOnHolidays: v.boolean(),
       icon: v.string(),
       target: v.optional(v.number()),

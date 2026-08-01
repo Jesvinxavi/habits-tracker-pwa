@@ -7,6 +7,8 @@
 import {
   weeksBetween,
   getISOWeekNumber,
+  getISOWeekYear,
+  dateFromStoredValue,
 } from '../../shared/datetime.js';
 import { ScheduleEngine } from '../../shared/ScheduleEngine.js';
 
@@ -41,86 +43,112 @@ function getAnchorDate(habit) {
   return new Date(0); // epoch fallback – keeps maths deterministic
 }
 
-// Helper: derive the earliest meaningful start date for a habit from any evidence
-function _getEarliestStartDate(habit) {
-  const candidates = [];
+// The derived start date depends only on fields that cannot change without the
+// habit object being replaced, because state updates are immutable. Object
+// identity is therefore a complete invalidation key, and this memo turns a
+// per-call scan of every completion entry into a single scan per habit version.
+// That scan sat inside every scheduling check, which is what made the Stats
+// page quadratic in history length.
+const startDateCache = new WeakMap();
 
-  // createdAt
-  if (habit?.createdAt) {
-    const d = new Date(habit.createdAt);
-    if (!isNaN(d)) {
-      d.setHours(0, 0, 0, 0);
-      candidates.push(d);
-    }
+/**
+ * Derives the earliest date a habit can meaningfully be evaluated from.
+ *
+ * Preference order is explicit creation date, then the timestamp prefix legacy
+ * ids carry, then the earliest date the habit has any recorded evidence for.
+ * @param {object} habit The habit.
+ * @returns {Date|null} Local midnight start date, or null when nothing is known.
+ */
+export function getEarliestStartDate(habit) {
+  if (!habit || typeof habit !== 'object') return null;
+  if (startDateCache.has(habit)) return startDateCache.get(habit);
+
+  let earliest = null;
+  const consider = (value) => {
+    const parsed = dateFromStoredValue(value);
+    if (!parsed) return;
+    const local = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+    if (earliest === null || local < earliest) earliest = local;
+  };
+
+  consider(habit.createdAt);
+
+  if (typeof habit.id === 'string' && /^[0-9]{13}/.test(habit.id)) {
+    const timestamp = Number.parseInt(habit.id.slice(0, 13), 10);
+    if (Number.isFinite(timestamp)) consider(new Date(timestamp));
   }
 
-  // ID timestamp (numeric 13-digit prefix)
-  if (typeof habit?.id === 'string' && /^[0-9]{13}/.test(habit.id)) {
-    const ts = parseInt(habit.id.slice(0, 13), 10);
-    if (!Number.isNaN(ts)) {
-      const d = new Date(ts);
-      d.setHours(0, 0, 0, 0);
-      candidates.push(d);
-    }
-  }
-
-  // Earliest from completed keys (YYYY-MM-DD) and skippedDates
-  let earliestData = null;
-  if (habit && typeof habit.completed === 'object' && habit.completed !== null) {
+  if (habit.completed && typeof habit.completed === 'object') {
     for (const key of Object.keys(habit.completed)) {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
-        const d = new Date(key);
-        if (!isNaN(d) && (earliestData === null || d < earliestData)) earliestData = d;
-      }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(key)) consider(key);
     }
   }
-  if (Array.isArray(habit?.skippedDates)) {
+  if (Array.isArray(habit.skippedDates)) {
     for (const key of habit.skippedDates) {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
-        const d = new Date(key);
-        if (!isNaN(d) && (earliestData === null || d < earliestData)) earliestData = d;
-      }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(key)) consider(key);
     }
-  }
-  if (earliestData) {
-    earliestData.setHours(0, 0, 0, 0);
-    candidates.push(earliestData);
   }
 
-  if (candidates.length === 0) return null;
-  return new Date(Math.min(...candidates.map((d) => d.getTime())));
+  startDateCache.set(habit, earliest);
+  return earliest;
 }
 
-export function isHabitScheduledOnDate(habit, date) {
+/**
+ * Reports the local midnight from which a lifecycle stamp takes effect.
+ * @param {unknown} stamp Epoch millis or an ISO string.
+ * @returns {Date|null} Local midnight, or null when absent or unparsable.
+ */
+function lifecycleCutoff(stamp) {
+  if (stamp == null) return null;
+  const parsed = stamp instanceof Date ? stamp : new Date(stamp);
+  if (Number.isNaN(parsed.valueOf())) return null;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+}
+
+/**
+ * Reports whether a habit is due on a date.
+ *
+ * @param {object} habit The habit.
+ * @param {Date|string} date The date to test.
+ * @param {object} [options] Evaluation options.
+ * @param {boolean} [options.ignorePause] Evaluate as though the habit were not
+ *   paused. Statistics pass this so a pause stops the record advancing without
+ *   retroactively erasing the days already earned; everyday surfaces do not, so
+ *   a paused habit still disappears from today's list.
+ * @returns {boolean} True when the habit is due.
+ */
+export function isHabitScheduledOnDate(habit, date, options = {}) {
   // First check if the date is before the habit was created
   const checkDate = new Date(date);
   if (isNaN(checkDate)) return false;
 
+  const normalizedCheck = new Date(
+    checkDate.getFullYear(),
+    checkDate.getMonth(),
+    checkDate.getDate()
+  );
+
   // Archived habits remain available for historical dates but stop appearing
   // from the local calendar day on which they were removed.
-  if (habit?.archivedAt) {
-    const archivedDate = new Date(habit.archivedAt);
-    if (!Number.isNaN(archivedDate.valueOf())) {
-      archivedDate.setHours(0, 0, 0, 0);
-      const selectedDate = new Date(checkDate);
-      selectedDate.setHours(0, 0, 0, 0);
-      if (selectedDate >= archivedDate) return false;
-    }
-  }
+  const archivedFrom = lifecycleCutoff(habit?.archivedAt);
+  if (archivedFrom && normalizedCheck >= archivedFrom) return false;
+
+  // A pause is the same shape of event: everything up to it stands, nothing
+  // after it accrues. Habits paused before this was recorded have no stamp, so
+  // their history stays whole and only the live pause flag hides them.
+  const pausedFrom = lifecycleCutoff(habit?.pausedAt);
+  if (habit?.paused && pausedFrom && normalizedCheck >= pausedFrom) return false;
 
   // Compute effective creation/start date as the earliest available evidence
-  const creationDate = _getEarliestStartDate(habit);
+  const creationDate = getEarliestStartDate(habit);
 
   // If we have a valid creation date, check if the requested date is before it
   // Period-aware guard: reject only when the ENTIRE period precedes habit creation.
   if (creationDate && !isNaN(creationDate)) {
     // Normalise to local-midnight for consistent comparisons
-    const normalizedCreationDate = new Date(creationDate);
-    normalizedCreationDate.setHours(0, 0, 0, 0);
-    
-    const normalizedCheckDate = new Date(checkDate);
-    normalizedCheckDate.setHours(0, 0, 0, 0);
-    
+    const normalizedCreationDate = creationDate;
+    const normalizedCheckDate = normalizedCheck;
+
     // Determine effective frequency (targetFrequency takes precedence)
     const freqRaw = habit.targetFrequency || habit.frequency || 'daily';
     const freq = typeof freqRaw === 'string' ? freqRaw.toLowerCase() : freqRaw;
@@ -150,7 +178,7 @@ export function isHabitScheduledOnDate(habit, date) {
   }
 
   // Proceed with normal scheduling logic
-  return ScheduleEngine.isDue(habit, date);
+  return ScheduleEngine.isDue(habit, date, options);
 }
 
 export function belongsToSelectedGroup(habit, group) {
@@ -223,8 +251,11 @@ export function getPeriodKey(habit, dateObj) {
     return `${yyyy}-${mm}-${dd}`; // e.g. 2025-06-17
   }
   if (freq === 'weekly') {
+    // Paired with the ISO week-**year**, not the calendar year: the week
+    // straddling New Year would otherwise split into two keys, so a habit
+    // completed on 31 December read as untouched on 1 January.
     const week = getISOWeekNumber(d);
-    return `${d.getFullYear()}-W${week}`;
+    return `${getISOWeekYear(d)}-W${week}`;
   }
   if (freq === 'monthly') {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
@@ -264,5 +295,26 @@ export function isHabitCompleted(habit, dateObj) {
 export function isHabitSkippedToday(habit, date = new Date()) {
   const d = date instanceof Date ? date : new Date(date);
   const key = getPeriodKey(habit, d);
-  return Array.isArray(habit.skippedDates) && habit.skippedDates.includes(key);
+  return skippedKeys(habit).has(key);
+}
+
+// A linear scan of the skip list per day per habit is invisible on one screen
+// and quadratic across a year of history, so the list is indexed once per habit
+// version. Immutable updates make object identity a complete invalidation key,
+// exactly as for the derived start date above.
+const skippedKeyCache = new WeakMap();
+
+/**
+ * The set of period keys a habit has been stood down on.
+ * @param {object} habit The habit.
+ * @returns {Set<string>} Skipped keys.
+ */
+function skippedKeys(habit) {
+  if (!habit || typeof habit !== 'object') return new Set();
+  let keys = skippedKeyCache.get(habit);
+  if (!keys) {
+    keys = new Set(Array.isArray(habit.skippedDates) ? habit.skippedDates : []);
+    skippedKeyCache.set(habit, keys);
+  }
+  return keys;
 }

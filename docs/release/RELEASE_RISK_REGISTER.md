@@ -2,9 +2,10 @@
 
 Status: pre-release review
 
-Target: Healthy Habits Tracker 1.0.0
+Target: Healthy Habits Tracker 1.1.0
 
-Last reviewed: 30 July 2026, after the whole-app optimisation work merged.
+Last reviewed: 1 August 2026, after the statistics audit merged. The gates
+below were **not** re-examined for that release; they remain open.
 
 This register records work that must be completed or explicitly accepted before
 general availability. The release branch and draft pull request are suitable

@@ -80,9 +80,12 @@ test('a failed lazy modal chunk reports a recoverable error and restores its tri
   const trigger = page.locator('#fitness-activity-btn');
   await trigger.click();
   await expect(page.locator('#global-confirm-modal')).toBeVisible();
-  await expect(page.locator('.confirm-title')).toHaveText('Unable to Open');
-  await expect(page.locator('.confirm-message')).toContainText('Check your connection');
-  await page.locator('.confirm-ok-btn').click();
+  // Online, a chunk that will not load means the page is older than the deploy
+  // it is asking files from, so the offer is a reload rather than advice about
+  // a connection that is demonstrably working.
+  await expect(page.locator('.confirm-title')).toHaveText('Update needed');
+  await expect(page.locator('.confirm-message')).not.toContainText('connection');
+  await page.locator('.confirm-cancel-btn').click();
   await expect(trigger).toBeEnabled();
   await expect(trigger).not.toHaveAttribute('aria-busy', 'true');
 });

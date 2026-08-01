@@ -102,6 +102,7 @@ export function habitRecord(habit, sortOrder) {
     'targetUnit',
     'defaultIncrement',
     'archivedAt',
+    'pausedAt',
   ];
   optionalFields.forEach((field) => {
     if (habit[field] !== undefined && habit[field] !== null) {

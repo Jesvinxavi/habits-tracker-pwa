@@ -1,578 +1,233 @@
 /**
- * Habit Statistics Helper Functions
+ * Per-habit statistics for the habit statistics modal.
  *
- * Pure functions for calculating habit statistics and analytics
- * Extracted from HabitsListModule.js for better modularity
+ * All the arithmetic lives in `habitCalculations.js`; this module's job is to
+ * ask it the questions this particular screen asks — which differ by the habit's
+ * period, since "days tracked" means nothing for a yearly habit — and to hand
+ * back one flat object the modal can render.
  */
 
 import { getState } from '../../../core/state.js';
+import { calendarDaysBetween, dateToKey, startOfLocalDay } from '../../../shared/datetime.js';
+import { getPeriodKey } from '../../home/schedule.js';
 import {
-  isHabitCompleted,
-  isHabitScheduledOnDate,
-  isHabitSkippedToday,
-} from '../../home/schedule.js';
+  DayStatus,
+  completionRate,
+  currentStreak,
+  groupDaySeries,
+  habitDaySeries,
+  habitEvaluationEnd,
+  habitGroup,
+  habitPeriodSeries,
+  habitStartDate,
+  longestStreak,
+  periodCompletionRate,
+  periodsSinceStart,
+  periodStreaks,
+  summariseSeries,
+} from './habitCalculations.js';
 
-// Group derivation based on habit definition
-function getHabitGroup(habit) {
-  const isTarget = typeof habit.target === 'number' && habit.target > 0;
-  const raw = (habit.targetFrequency || habit.frequency || 'daily').toLowerCase();
-  if (raw === 'daily') return 'daily';
-  if (raw === 'weekly' || raw === 'biweekly') return 'weekly';
-  if (raw === 'monthly') return 'monthly';
-  if (raw === 'yearly') return 'yearly';
-  return isTarget ? 'daily' : 'daily';
-}
-
-function startOfWeek(d) {
-  const date = new Date(d);
-  const day = date.getDay();
-  const diff = day === 0 ? -6 : 1 - day; // Monday as start
-  date.setDate(date.getDate() + diff);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-function endOfWeek(weekStart) {
-  const end = new Date(weekStart);
-  end.setDate(end.getDate() + 6);
-  end.setHours(23, 59, 59, 999);
-  return end;
-}
-function startOfMonth(d) {
-  const date = new Date(d.getFullYear(), d.getMonth(), 1);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-function endOfMonth(d) {
-  const date = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
-  return date;
-}
-function startOfYear(d) {
-  const date = new Date(d.getFullYear(), 0, 1);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-function endOfYear(d) {
-  const date = new Date(d.getFullYear(), 11, 31, 23, 59, 59, 999);
-  return date;
-}
-
-function forEachDayInRange(start, end, cb) {
-  const cur = new Date(start);
-  while (cur <= end) {
-    cb(cur);
-    cur.setDate(cur.getDate() + 1);
-  }
-}
-
-function periodScheduledInRange(habit, start, end, creationDate) {
-  let scheduled = false;
-  forEachDayInRange(start, end, (d) => {
-    if (!scheduled && d >= creationDate && isHabitScheduledOnDate(habit, d)) scheduled = true;
-  });
-  return scheduled;
-}
-function periodCompletedInRange(habit, start, end, creationDate) {
-  let completed = false;
-  forEachDayInRange(start, end, (d) => {
-    if (!completed && d >= creationDate && isHabitCompleted(habit, d)) completed = true;
-  });
-  return completed;
-}
-
-function countWeeksSinceCreation(creationDate, today) {
-  const w0 = startOfWeek(creationDate);
-  const wT = startOfWeek(today);
-  const diffMs = wT - w0;
-  return Math.floor(diffMs / (1000 * 60 * 60 * 24 * 7)) + 1;
-}
-function countMonthsSinceCreation(creationDate, today) {
-  return (
-    (today.getFullYear() - creationDate.getFullYear()) * 12 +
-    (today.getMonth() - creationDate.getMonth()) +
-    1
-  );
-}
-function countYearsSinceCreation(creationDate, today) {
-  return today.getFullYear() - creationDate.getFullYear() + 1;
-}
-
-function calculateWeeklyCompletionRate(habit, weeks, creationDate) {
-  const today = new Date();
-  const weeksToCheck = Math.min(weeks, countWeeksSinceCreation(creationDate, today));
-  let scheduled = 0;
-  let completed = 0;
-  for (let i = 0; i < weeksToCheck; i++) {
-    const ws = startOfWeek(new Date(today.getFullYear(), today.getMonth(), today.getDate() - i * 7));
-    const we = endOfWeek(ws);
-    const hasSched = periodScheduledInRange(habit, ws, we, creationDate);
-    if (hasSched) {
-      scheduled++;
-      if (periodCompletedInRange(habit, ws, we, creationDate)) completed++;
-    }
-  }
-  return scheduled > 0 ? (completed / scheduled) * 100 : 0;
-}
-
-function calculateMonthlyCompletionRate(habit, months, creationDate) {
-  const today = new Date();
-  const monthsToCheck = Math.min(months, countMonthsSinceCreation(creationDate, today));
-  let scheduled = 0;
-  let completed = 0;
-  let cursor = new Date(today);
-  cursor.setDate(1);
-  for (let i = 0; i < monthsToCheck; i++) {
-    const ms = startOfMonth(cursor);
-    const me = endOfMonth(cursor);
-    const hasSched = periodScheduledInRange(habit, ms, me, creationDate);
-    if (hasSched) {
-      scheduled++;
-      if (periodCompletedInRange(habit, ms, me, creationDate)) completed++;
-    }
-    // move to previous month
-    cursor = new Date(ms);
-    cursor.setMonth(cursor.getMonth() - 1);
-  }
-  return scheduled > 0 ? (completed / scheduled) * 100 : 0;
-}
-
-function calculateYearlyCompletionRate(habit, years, creationDate) {
-  const today = new Date();
-  const yearsToCheck = Math.min(years, countYearsSinceCreation(creationDate, today));
-  let scheduled = 0;
-  let completed = 0;
-  for (let i = 0; i < yearsToCheck; i++) {
-    const y = today.getFullYear() - i;
-    const ys = startOfYear(new Date(y, 0, 1));
-    const ye = endOfYear(new Date(y, 0, 1));
-    const hasSched = periodScheduledInRange(habit, ys, ye, creationDate);
-    if (hasSched) {
-      scheduled++;
-      if (periodCompletedInRange(habit, ys, ye, creationDate)) completed++;
-    }
-  }
-  return scheduled > 0 ? (completed / scheduled) * 100 : 0;
-}
-
-function calculateWeeklyStreaks(habit, creationDate) {
-  const today = new Date();
-  let longest = 0;
-  let current = 0;
-  const totalWeeks = Math.min(260, countWeeksSinceCreation(creationDate, today));
-  for (let i = totalWeeks - 1; i >= 0; i--) {
-    const ws = startOfWeek(new Date(today.getFullYear(), today.getMonth(), today.getDate() - i * 7));
-    const we = endOfWeek(ws);
-    const hasSched = periodScheduledInRange(habit, ws, we, creationDate);
-    if (!hasSched) continue; // skip non-active weeks
-    const done = periodCompletedInRange(habit, ws, we, creationDate);
-    if (done) {
-      current++;
-      longest = Math.max(longest, current);
-    } else {
-      current = 0;
-    }
-  }
-  return { current, longest };
-}
-
-function calculateMonthlyStreaks(habit, creationDate) {
-  const today = new Date();
-  let longest = 0;
-  let current = 0;
-  const totalMonths = Math.min(120, countMonthsSinceCreation(creationDate, today));
-  let cursor = new Date(today);
-  cursor.setDate(1);
-  for (let i = totalMonths - 1; i >= 0; i--) {
-    const ms = startOfMonth(cursor);
-    const me = endOfMonth(cursor);
-    const hasSched = periodScheduledInRange(habit, ms, me, creationDate);
-    if (!hasSched) {
-      cursor.setMonth(cursor.getMonth() - 1);
-      continue;
-    }
-    const done = periodCompletedInRange(habit, ms, me, creationDate);
-    if (done) {
-      current++;
-      longest = Math.max(longest, current);
-    } else {
-      current = 0;
-    }
-    cursor.setMonth(cursor.getMonth() - 1);
-  }
-  return { current, longest };
-}
-
-function calculateYearlyStreaks(habit, creationDate) {
-  const today = new Date();
-  let longest = 0;
-  let current = 0;
-  const totalYears = Math.min(20, countYearsSinceCreation(creationDate, today));
-  for (let i = totalYears - 1; i >= 0; i--) {
-    const y = today.getFullYear() - i;
-    const ys = startOfYear(new Date(y, 0, 1));
-    const ye = endOfYear(new Date(y, 0, 1));
-    const hasSched = periodScheduledInRange(habit, ys, ye, creationDate);
-    if (!hasSched) continue;
-    const done = periodCompletedInRange(habit, ys, ye, creationDate);
-    if (done) {
-      current++;
-      longest = Math.max(longest, current);
-    } else {
-      current = 0;
-    }
-  }
-  return { current, longest };
-}
+/** How each group's windows are labelled and sized. */
+const GROUP_WINDOWS = {
+  daily: {
+    unit: 'day',
+    trackedLabel: 'Days tracked',
+    recentLabel: 'Last 30 days',
+    short: { label: '7d', size: 7 },
+    long: { label: '30d', size: 30 },
+    recent: 30,
+  },
+  weekly: {
+    unit: 'week',
+    trackedLabel: 'Weeks tracked',
+    recentLabel: 'Last 12 weeks',
+    short: { label: '4w', size: 4 },
+    long: { label: '12w', size: 12 },
+    recent: 12,
+  },
+  monthly: {
+    unit: 'month',
+    trackedLabel: 'Months tracked',
+    recentLabel: 'Last 6 months',
+    short: { label: '3m', size: 3 },
+    long: { label: '12m', size: 12 },
+    recent: 6,
+  },
+  yearly: {
+    unit: 'year',
+    trackedLabel: 'Years tracked',
+    recentLabel: 'Last 3 years',
+    short: { label: '3y', size: 3 },
+    long: { label: '10y', size: 10 },
+    recent: 3,
+  },
+};
 
 /**
- * Try to determine the earliest meaningful date for this habit.
- * Preference order: createdAt -> id timestamp -> earliest date present in completed/skipped data.
- * Falls back to today if nothing can be derived.
- * @param {Object} habit
- * @returns {Date}
+ * Calculates the statistics the habit modal shows.
+ * @param {string} habitId The habit's client id.
+ * @param {Date} [today] The current date, injectable for tests.
+ * @returns {object|null} Statistics, or null when the habit does not exist.
  */
-function getHabitStartDate(habit) {
-  // 1) createdAt
-  if (habit?.createdAt) {
-    const d = new Date(habit.createdAt);
-    if (!isNaN(d)) return d;
-  }
-
-  // 2) id timestamp prefix
-  if (typeof habit?.id === 'string' && /^[0-9]{13}/.test(habit.id)) {
-    const ts = parseInt(habit.id.slice(0, 13), 10);
-    if (!Number.isNaN(ts)) return new Date(ts);
-  }
-
-  // 3) earliest date from habit data (completed keys or skippedDates)
-  let earliest = null;
-
-  // completed keys: expect YYYY-MM-DD for daily keys; ignore non-daily formats
-  if (habit && typeof habit.completed === 'object' && habit.completed !== null) {
-    for (const key of Object.keys(habit.completed)) {
-      // Only parse YYYY-MM-DD keys
-      if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
-        const d = new Date(key);
-        if (!isNaN(d) && (earliest === null || d < earliest)) earliest = d;
-      }
-    }
-  }
-
-  // skippedDates are expected to be YYYY-MM-DD
-  if (Array.isArray(habit?.skippedDates)) {
-    for (const key of habit.skippedDates) {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
-        const d = new Date(key);
-        if (!isNaN(d) && (earliest === null || d < earliest)) earliest = d;
-      }
-    }
-  }
-
-  return earliest || new Date();
-}
-
-/**
- * Calculate statistics for a specific habit
- */
-export function calculateHabitStatistics(habitId) {
-  const habit = getState().habits.find((h) => h.id === habitId);
+export function calculateHabitStatistics(habitId, today = new Date()) {
+  const habit = getState().habits.find((candidate) => candidate.id === habitId);
   if (!habit) return null;
 
-  const group = getHabitGroup(habit);
-  const today = new Date();
+  const group = habitGroup(habit);
+  const windows = GROUP_WINDOWS[group];
+  const start = habitStartDate(habit, today);
+  const end = habitEvaluationEnd(habit, today);
+
   const stats = {
     group,
-    totalCompletions: 0,
-    currentStreak: 0,
-    longestStreak: 0,
-    completionRate7d: 0, // repurposed per group (e.g. 4w/3m)
-    completionRate30d: 0, // repurposed per group (e.g. 12w/12m)
-    completionRateTotal: 0,
-    recentActivity: 0,
-    lastCompleted: null,
-    targetProgress: null,
-    weeklyAverage: 0, // for daily this is completions per week; for others it's per corresponding period
-    daysTracked: 0, // repurposed per group as periods tracked
-    trackedUnitLabel: 'Days Tracked',
-    totalSkipped: 0,
-    skippedPercentage: 0,
+    habitId,
+    trackedUnitLabel: windows.trackedLabel,
+    recentLabel: windows.recentLabel,
+    periodLabels: [windows.short.label, windows.long.label, 'All Time'],
+    isPaused: Boolean(habit.paused),
+    isArchived: Boolean(habit.archivedAt),
+    frozenOn: end < startOfLocalDay(today) ? dateToKey(end) : null,
+    target: typeof habit.target === 'number' && habit.target > 0 ? habit.target : null,
+    targetUnit: habit.targetUnit || '',
   };
 
-  // Determine creation date
-  let creationDate = getHabitStartDate(habit);
-
-  // Compute depending on group
   if (group === 'daily') {
-    // Days tracked based on wall-clock days since creation
-    const daysSinceCreation = Math.max(
-      1,
-      Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)) + 1
-    );
-    stats.daysTracked = daysSinceCreation;
-    stats.trackedUnitLabel = 'Days Tracked';
+    const series = habitDaySeries(habit, { today });
+    const summary = summariseSeries(series);
 
-    // Completion rates
-    stats.completionRate7d = calculateHabitCompletionRate(habit, 7);
-    stats.completionRate30d = calculateHabitCompletionRate(habit, 30);
-    stats.completionRateTotal = calculateHabitCompletionRate(habit, daysSinceCreation);
+    stats.daysTracked = series.length;
+    stats.totalCompletions = summary.completed;
+    stats.totalMissed = summary.missed;
+    stats.totalSkipped = summary.skipped;
+    stats.completionRateShort = completionRate(habit, { days: windows.short.size, today });
+    stats.completionRateLong = completionRate(habit, { days: windows.long.size, today });
+    stats.completionRateTotal = summary.rate;
+    stats.currentStreak = currentStreak(habit, { today });
+    stats.longestStreak = longestStreak(habit, { today });
+    stats.daySeries = series;
 
-    // Streaks (existing daily)
-    stats.currentStreak = calculateCurrentStreak(habit);
-    stats.longestStreak = calculateLongestStreak(habit);
+    const recent = series.slice(0, windows.recent);
+    stats.recentActivity = summariseSeries(recent).completed;
 
-    // Recent activity (last 30 days)
-    let recentCompletions = 0;
-    for (let i = 0; i < Math.min(30, daysSinceCreation); i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      if (date < creationDate) continue;
-      if (isHabitScheduledOnDate(habit, date) && isHabitCompleted(habit, date)) {
-        recentCompletions++;
-        if (!stats.lastCompleted || date > new Date(stats.lastCompleted)) {
-          stats.lastCompleted = date.toISOString();
-        }
-      }
-    }
-    stats.recentActivity = recentCompletions;
+    const lastCompleted = series.find((day) => day.status === DayStatus.COMPLETED);
+    stats.lastCompleted = lastCompleted ? lastCompleted.dateKey : null;
 
-    // Total completions & skips (per scheduled day)
-    let totalSkipped = 0;
-    for (let i = 0; i < daysSinceCreation; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      if (date < creationDate) continue;
-      if (isHabitScheduledOnDate(habit, date)) {
-        if (isHabitCompleted(habit, date)) {
-          stats.totalCompletions++;
-        } else if (isHabitSkippedToday(habit, date)) {
-          totalSkipped++;
-        }
-      }
-    }
-    stats.totalSkipped = totalSkipped;
+    // Per week, over the weeks the habit has actually been running.
+    const weeks = Math.max(1, (calendarDaysBetween(end, start) + 1) / 7);
+    stats.periodAverage = summary.completed / weeks;
+    stats.periodAverageLabel = 'Completions per week';
+    stats.weekdayBreakdown = weekdayBreakdown(series);
+  } else {
+    const unit = windows.unit;
+    const series = habitPeriodSeries(habit, { unit, today });
+    const summary = summariseSeries(series);
 
-    const totalActions = stats.totalCompletions + stats.totalSkipped;
-    stats.skippedPercentage = totalActions > 0 ? (stats.totalSkipped / totalActions) * 100 : 0;
+    stats.daysTracked = periodsSinceStart(habit, unit, today);
+    stats.totalCompletions = summary.completed;
+    stats.totalMissed = summary.missed;
+    stats.totalSkipped = summary.skipped;
+    stats.completionRateShort = periodCompletionRate(habit, {
+      unit,
+      count: windows.short.size,
+      today,
+    });
+    stats.completionRateLong = periodCompletionRate(habit, {
+      unit,
+      count: windows.long.size,
+      today,
+    });
+    stats.completionRateTotal = summary.rate;
 
-    // Weekly average
-    const weeksSinceCreation = stats.daysTracked / 7;
-    stats.weeklyAverage = weeksSinceCreation > 0 ? stats.totalCompletions / weeksSinceCreation : 0;
-  } else if (group === 'weekly') {
-    const weeksSince = countWeeksSinceCreation(creationDate, today);
-    stats.daysTracked = weeksSince;
-    stats.trackedUnitLabel = 'Weeks Tracked';
+    const streaks = periodStreaks(habit, { unit, today });
+    stats.currentStreak = streaks.current;
+    stats.longestStreak = streaks.longest;
 
-    // Completion rates: 4w, 12w, total
-    stats.completionRate7d = calculateWeeklyCompletionRate(habit, 4, creationDate);
-    stats.completionRate30d = calculateWeeklyCompletionRate(habit, 12, creationDate);
-    stats.completionRateTotal = calculateWeeklyCompletionRate(habit, weeksSince, creationDate);
+    stats.recentActivity = summariseSeries(series.slice(0, windows.recent)).completed;
 
-    // Streaks
-    const { current, longest } = calculateWeeklyStreaks(habit, creationDate);
-    stats.currentStreak = current;
-    stats.longestStreak = longest;
+    // The day the user actually acted, not the period boundary: a period end is
+    // usually in the future, which is how "last completed" came to read as
+    // "-2 days ago".
+    const lastCompleted = series.find((period) => period.completedOn);
+    stats.lastCompleted = lastCompleted ? dateToKey(lastCompleted.completedOn) : null;
 
-    // Recent activity: last 12 weeks
-    let recent = 0;
-    const checkWeeks = Math.min(12, weeksSince);
-    for (let i = 0; i < checkWeeks; i++) {
-      const ws = startOfWeek(new Date(today.getFullYear(), today.getMonth(), today.getDate() - i * 7));
-      const we = endOfWeek(ws);
-      if (periodCompletedInRange(habit, ws, we, creationDate)) {
-        recent++;
-        // Capture a representative last completed date
-        if (!stats.lastCompleted || we > new Date(stats.lastCompleted)) {
-          stats.lastCompleted = we.toISOString();
-        }
-      }
-    }
-    stats.recentActivity = recent;
-
-    // Total completions = number of completed weeks
-    let completedWeeks = 0;
-    for (let i = 0; i < weeksSince; i++) {
-      const ws = startOfWeek(new Date(today.getFullYear(), today.getMonth(), today.getDate() - i * 7));
-      const we = endOfWeek(ws);
-      if (periodScheduledInRange(habit, ws, we, creationDate) && periodCompletedInRange(habit, ws, we, creationDate)) {
-        completedWeeks++;
-      }
-    }
-    stats.totalCompletions = completedWeeks;
-
-    // Weekly average (per week)
-    stats.weeklyAverage = weeksSince > 0 ? completedWeeks / weeksSince : 0;
-  } else if (group === 'monthly') {
-    const monthsSince = countMonthsSinceCreation(creationDate, today);
-    stats.daysTracked = monthsSince;
-    stats.trackedUnitLabel = 'Months Tracked';
-
-    // Completion rates: 3m, 12m, total
-    stats.completionRate7d = calculateMonthlyCompletionRate(habit, 3, creationDate);
-    stats.completionRate30d = calculateMonthlyCompletionRate(habit, 12, creationDate);
-    stats.completionRateTotal = calculateMonthlyCompletionRate(habit, monthsSince, creationDate);
-
-    // Streaks
-    const { current, longest } = calculateMonthlyStreaks(habit, creationDate);
-    stats.currentStreak = current;
-    stats.longestStreak = longest;
-
-    // Recent activity: last 6 months
-    let recent = 0;
-    let cursor = startOfMonth(today);
-    for (let i = 0; i < Math.min(6, monthsSince); i++) {
-      const ms = startOfMonth(cursor);
-      const me = endOfMonth(cursor);
-      if (periodCompletedInRange(habit, ms, me, creationDate)) {
-        recent++;
-        if (!stats.lastCompleted || me > new Date(stats.lastCompleted)) stats.lastCompleted = me.toISOString();
-      }
-      cursor.setMonth(cursor.getMonth() - 1);
-    }
-    stats.recentActivity = recent;
-
-    // Total completions = number of completed months
-    let completedMonths = 0;
-    cursor = startOfMonth(today);
-    for (let i = 0; i < monthsSince; i++) {
-      const ms = startOfMonth(cursor);
-      const me = endOfMonth(cursor);
-      if (periodScheduledInRange(habit, ms, me, creationDate) && periodCompletedInRange(habit, ms, me, creationDate)) {
-        completedMonths++;
-      }
-      cursor.setMonth(cursor.getMonth() - 1);
-    }
-    stats.totalCompletions = completedMonths;
-
-    // Average per month
-    stats.weeklyAverage = monthsSince > 0 ? completedMonths / monthsSince : 0;
-  } else if (group === 'yearly') {
-    const yearsSince = countYearsSinceCreation(creationDate, today);
-    stats.daysTracked = yearsSince;
-    stats.trackedUnitLabel = 'Years Tracked';
-
-    // Completion rates: 3y window, 10y window, total
-    stats.completionRate7d = calculateYearlyCompletionRate(habit, Math.min(3, yearsSince), creationDate);
-    stats.completionRate30d = calculateYearlyCompletionRate(habit, Math.min(10, yearsSince), creationDate);
-    stats.completionRateTotal = calculateYearlyCompletionRate(habit, yearsSince, creationDate);
-
-    // Streaks
-    const { current, longest } = calculateYearlyStreaks(habit, creationDate);
-    stats.currentStreak = current;
-    stats.longestStreak = longest;
-
-    // Recent activity: last 3 years
-    let recent = 0;
-    for (let i = 0; i < Math.min(3, yearsSince); i++) {
-      const y = today.getFullYear() - i;
-      const ys = startOfYear(new Date(y, 0, 1));
-      const ye = endOfYear(new Date(y, 0, 1));
-      if (periodCompletedInRange(habit, ys, ye, creationDate)) {
-        recent++;
-        if (!stats.lastCompleted || ye > new Date(stats.lastCompleted)) stats.lastCompleted = ye.toISOString();
-      }
-    }
-    stats.recentActivity = recent;
-
-    // Total completions = number of completed years
-    let completedYears = 0;
-    for (let i = 0; i < yearsSince; i++) {
-      const y = today.getFullYear() - i;
-      const ys = startOfYear(new Date(y, 0, 1));
-      const ye = endOfYear(new Date(y, 0, 1));
-      if (periodScheduledInRange(habit, ys, ye, creationDate) && periodCompletedInRange(habit, ys, ye, creationDate)) {
-        completedYears++;
-      }
-    }
-    stats.totalCompletions = completedYears;
-
-    // Average per year
-    stats.weeklyAverage = yearsSince > 0 ? completedYears / yearsSince : 0;
+    stats.periodAverage = stats.daysTracked > 0 ? summary.completed / stats.daysTracked : 0;
+    stats.periodAverageLabel = `Completions per ${unit}`;
+    stats.periodSeries = series;
+    stats.daySeries = groupDaySeries([habit], { today });
   }
+
+  stats.decidedTotal = stats.totalCompletions + stats.totalMissed;
+  stats.skippedPercentage =
+    stats.decidedTotal + stats.totalSkipped > 0
+      ? (stats.totalSkipped / (stats.decidedTotal + stats.totalSkipped)) * 100
+      : 0;
+  // The modal's empty state hangs off this: a habit that has never resolved a
+  // single period has nothing to show but zeroes.
+  stats.hasData = stats.totalCompletions > 0 || stats.totalMissed > 0 || stats.totalSkipped > 0;
+  stats.targetProgress = buildTargetProgress(habit, today);
 
   return stats;
 }
 
 /**
- * Calculate completion rate for a specific habit over the last N days
- * @param {Object} habit - The habit object
- * @param {number} days - Number of days to look back (default: 30)
- * @returns {number} Completion rate as a percentage
+ * Completion rate by weekday, so a habit that only ever fails on Fridays says so.
+ * @param {Array<{date: Date, status: string}>} series A day series.
+ * @returns {Array<{label: string, completed: number, decided: number, rate: number}>}
+ *   Monday first.
  */
-export function calculateHabitCompletionRate(habit, days = 30) {
-  const today = new Date();
-  let completed = 0;
-  let scheduled = 0;
-  let creationDate = getHabitStartDate(habit);
+function weekdayBreakdown(series) {
+  const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const buckets = labels.map((label) => ({ label, completed: 0, decided: 0, rate: 0 }));
 
-  const daysToCheck = Math.min(
-    days,
-    Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)) + 1
+  for (const day of series) {
+    if (day.status !== DayStatus.COMPLETED && day.status !== DayStatus.MISSED) continue;
+    const index = (day.date.getDay() + 6) % 7;
+    buckets[index].decided += 1;
+    if (day.status === DayStatus.COMPLETED) buckets[index].completed += 1;
+  }
+
+  for (const bucket of buckets) {
+    bucket.rate = bucket.decided > 0 ? (bucket.completed / bucket.decided) * 100 : 0;
+  }
+  return buckets;
+}
+
+/**
+ * Progress against a numeric target, for the habits that carry one.
+ *
+ * The app has always recorded how much of a target was reached each period —
+ * eight of ten glasses, three of five runs — and no statistics surface has ever
+ * shown it.
+ * @param {object} habit The habit.
+ * @param {Date} today The current date.
+ * @returns {object|null} Target statistics, or null when the habit has no target.
+ */
+function buildTargetProgress(habit, today) {
+  const target = typeof habit.target === 'number' && habit.target > 0 ? habit.target : null;
+  if (!target) return null;
+
+  const entries = Object.entries(habit.progress || {}).filter(([, value]) =>
+    Number.isFinite(Number(value))
   );
-
-  for (let i = 0; i < daysToCheck; i++) {
-    const date = new Date(today);
-    date.setDate(today.getDate() - i);
-
-    if (date < creationDate) continue;
-
-    if (isHabitScheduledOnDate(habit, date)) {
-      scheduled++;
-      if (isHabitCompleted(habit, date)) {
-        completed++;
-      }
-    }
+  if (entries.length === 0) {
+    return { target, unit: habit.targetUnit || '', recorded: 0, total: 0, average: 0, best: 0, current: 0 };
   }
 
-  return scheduled > 0 ? (completed / scheduled) * 100 : 0;
+  const values = entries.map(([, value]) => Number(value));
+  const total = values.reduce((sum, value) => sum + value, 0);
+  const best = Math.max(...values);
+  const current = Number(habit.progress?.[getPeriodKey(habit, today)] || 0);
+
+  return {
+    target,
+    unit: habit.targetUnit || '',
+    recorded: entries.length,
+    total,
+    average: total / entries.length,
+    best,
+    current,
+    // How often the target was actually reached, not merely progressed toward.
+    hitRate: (values.filter((value) => value >= target).length / values.length) * 100,
+  };
 }
 
-/**
- * Calculate current streak for a habit
- * @param {Object} habit - The habit object
- * @returns {number} Current streak count
- */
-export function calculateCurrentStreak(habit) {
-  const today = new Date();
-  let streak = 0;
-  let date = new Date(today);
-  let creationDate = getHabitStartDate(habit);
-
-  while (date >= creationDate) {
-    if (isHabitScheduledOnDate(habit, date)) {
-      if (isHabitCompleted(habit, date)) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-    date.setDate(date.getDate() - 1);
-  }
-
-  return streak;
-}
-
-/**
- * Calculate longest streak for a habit
- * @param {Object} habit - The habit object
- * @returns {number} Longest streak count
- */
-export function calculateLongestStreak(habit) {
-  const today = new Date();
-  let longestStreak = 0;
-  let currentStreak = 0;
-  let date = new Date(today);
-  let creationDate = getHabitStartDate(habit);
-
-  while (date >= creationDate) {
-    if (isHabitScheduledOnDate(habit, date)) {
-      if (isHabitCompleted(habit, date)) {
-        currentStreak++;
-        longestStreak = Math.max(longestStreak, currentStreak);
-      } else {
-        currentStreak = 0;
-      }
-    }
-    date.setDate(date.getDate() - 1);
-  }
-
-  return longestStreak;
-}
