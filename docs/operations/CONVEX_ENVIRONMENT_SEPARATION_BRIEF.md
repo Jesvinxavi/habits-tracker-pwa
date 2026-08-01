@@ -1,17 +1,45 @@
 # Brief: separate the Convex and Clerk environments, and make schema deploys automatic
 
-Status: **open**. Written 2026-08-01, after 1.1.0 shipped.
+Status: **Convex done 2026-08-01. Clerk split out and still open.**
+Written 2026-08-01, after 1.1.0 shipped; closed out the same day.
 
 This is a work brief for whoever picks the task up — human or agent. It states
 the situation as it actually is, what has to change, and how to prove each step
 worked. It is deliberately explicit about the things only the account owner can
 do, because roughly half of this cannot be done by an agent at all.
 
+## What happened
+
+The Convex half was completed as written. The deployed app now reads the
+production deployment `hushed-elephant-959`, which has its own database, its own
+`CLERK_JWT_ISSUER_DOMAIN`, and the full function and schema set. The workflow
+deploys the schema on every publish and now **fails** rather than skipping when
+`CONVEX_DEPLOY_KEY` is absent, which is the specific failure mode that nearly
+shipped the 1.1.0 `pausedAt` field without its schema change.
+
+The Clerk half could not be done, and it is not a matter of effort. A Clerk
+production instance requires a domain the account owner controls and can add DNS
+records to. The app is served from `jesvinxavi.github.io`, whose DNS zone belongs
+to GitHub, so no `pk_live_…` key can be issued for it. Parts A.2–A.4 below are
+therefore superseded by
+[`CLERK_PRODUCTION_INSTANCE_BRIEF.md`](./CLERK_PRODUCTION_INSTANCE_BRIEF.md),
+which restates them with the domain prerequisite made explicit.
+
+The consequence is that the production Convex deployment authenticates against
+the **development** Clerk instance. That is a deliberate, documented compromise
+and not the state section 1 describes: the databases are genuinely separate, the
+user pool is not. Because the issuer domain is unchanged, `ownerKey` values are
+identical across both deployments, which is what allowed the existing profile to
+be copied from dev into production by snapshot import.
+
 ---
 
-## 1. The situation as it stands
+## 1. The situation as it stood, before this work
 
-The deployed app at <https://jesvinxavi.github.io/habits-tracker-pwa/> runs
+Everything in this section describes the state on the morning of 2026-08-01.
+See "What happened" above for what is true now.
+
+The deployed app at <https://jesvinxavi.github.io/habits-tracker-pwa/> ran
 against the **development** backend:
 
 | Setting | Where it lives | Current value |
@@ -40,17 +68,22 @@ a client sending a field the deployment does not declare has its write
 release and pushed manually with `npx convex dev --once`. The next such change
 will not necessarily be caught.
 
-### Why `npx convex deploy` is the wrong command here
+### Why `npx convex deploy` was the wrong command here
+
+**No longer true as of 2026-08-01 — kept for the reasoning.**
 
 `npx convex deploy` targets the project's **production** Convex deployment.
-The app is currently pointed at the **dev** deployment, so `convex deploy` would
-push the schema somewhere the app does not read from, and the problem would look
-fixed while remaining broken. Until step 2 below is done, the correct manual
-command is:
+While the app was pointed at the **dev** deployment, `convex deploy` would push
+the schema somewhere the app did not read from, and the problem would have
+looked fixed while remaining broken. The correct manual command was then:
 
 ```bash
 npx convex dev --once
 ```
+
+Now that `VITE_CONVEX_URL` points at production, `npx convex deploy` is correct
+and CI runs it automatically. `npx convex dev --once` still targets the dev
+deployment, which is what local development wants.
 
 ---
 
@@ -119,14 +152,18 @@ Once part A is done and the values are available:
 
 ## 3. Acceptance criteria
 
-- [ ] `gh variable list` shows a `pk_live_…` key and a production Convex URL.
+- [x] `gh variable list` shows a production Convex URL
+      (`https://hushed-elephant-959.convex.cloud`).
+- [ ] `gh variable list` shows a `pk_live_…` key. **Blocked** — needs a domain;
+      see the Clerk brief.
 - [ ] `gh secret list` shows `CONVEX_DEPLOY_KEY`.
 - [ ] A deploy run shows "Deploy Convex functions" as **success**, not skipped.
-- [ ] The deployed sign-in card shows no "Development mode" badge.
+- [ ] The deployed sign-in card shows no "Development mode" badge. **Blocked** —
+      same reason.
 - [ ] A habit created in the deployed app is absent from the local dev database.
 - [ ] Pausing a habit in the deployed app syncs without error.
 - [ ] `docs/release/RELEASE_RISK_REGISTER.md` has its "Production identity" gate
-      marked closed, with the date and who verified it.
+      marked closed. Recorded as *partly* closed; it stays open on Clerk.
 
 ## 4. Notes for whoever does this
 
