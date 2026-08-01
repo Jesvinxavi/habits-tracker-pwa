@@ -4,6 +4,8 @@ All notable user-facing and operational changes are documented here.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-01
+
 ### Added
 
 - Statistics reorganised into labelled sections across the Stats page and both

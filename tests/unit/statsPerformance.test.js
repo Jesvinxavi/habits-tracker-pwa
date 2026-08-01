@@ -52,10 +52,19 @@ describe('Stats page calculation cost', () => {
     // first-touch caches every real render after the first also enjoys.
     calculateHabitStatistics(TODAY);
 
-    const started = performance.now();
-    const stats = calculateHabitStatistics(TODAY);
-    calculateFitnessStatistics(TODAY);
-    const elapsed = performance.now() - started;
+    // Best of several, because this shares a machine with whatever else is
+    // running. A single sample can be descheduled mid-measurement and report a
+    // number that says more about the CPU it competed for than about this code;
+    // a quadratic regression is slow in every sample, so the best one still
+    // catches it.
+    let elapsed = Infinity;
+    let stats = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const started = performance.now();
+      stats = calculateHabitStatistics(TODAY);
+      calculateFitnessStatistics(TODAY);
+      elapsed = Math.min(elapsed, performance.now() - started);
+    }
 
     // The work was actually done, not skipped by an empty-state short circuit.
     expect(stats.dailySeries.length).toBeGreaterThan(DAYS - 2);
@@ -84,8 +93,11 @@ describe('Stats page calculation cost', () => {
       return performance.now() - started;
     };
 
-    const short = Math.max(build(180), 0.5);
-    const long = build(720);
+    // Best of three for the same reason as above: the ratio is only meaningful
+    // if both halves were measured on a machine that was paying attention.
+    const bestOf = (days) => Math.min(build(days), build(days), build(days));
+    const short = Math.max(bestOf(180), 0.5);
+    const long = bestOf(720);
 
     // Four times the history should cost roughly four times as much. Ten times
     // as much would mean the per-day work had started scanning the history

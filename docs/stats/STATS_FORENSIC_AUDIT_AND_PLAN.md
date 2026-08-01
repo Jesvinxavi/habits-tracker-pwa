@@ -1,6 +1,6 @@
 # Statistics Forensic Audit and Implementation Plan
 
-> **Implemented.** The findings below were all addressed on this branch; see
+> **Implemented and shipped** in 1.1.0. The findings below were all addressed; see
 > [§13 Implementation record](#13-implementation-record) for what changed, what
 > the measurements became, and the two things the audit got wrong. The findings
 > and evidence are kept because they are what the changes argue from.
@@ -919,9 +919,8 @@ Each ships with its unit fixtures and a screenshot in the PR description.
 
 ---
 
-*Produced on branch `stats-audit`. Companion to the PR that carries it; no
-code changes accompany this document by design — implementation follows the
-phases above after the § 9 decisions are confirmed.*
+*Produced on branch `stats-audit` and merged to `develop` in PR #5, released in
+1.1.0. Kept as the record of what was wrong, what was decided, and why.*
 
 ---
 
