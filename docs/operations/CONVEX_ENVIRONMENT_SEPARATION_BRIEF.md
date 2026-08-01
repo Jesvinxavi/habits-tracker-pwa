@@ -156,8 +156,10 @@ Once part A is done and the values are available:
       (`https://hushed-elephant-959.convex.cloud`).
 - [ ] `gh variable list` shows a `pk_live_…` key. **Blocked** — needs a domain;
       see the Clerk brief.
-- [ ] `gh secret list` shows `CONVEX_DEPLOY_KEY`.
-- [ ] A deploy run shows "Deploy Convex functions" as **success**, not skipped.
+- [x] `gh secret list` shows `CONVEX_DEPLOY_KEY`.
+- [x] A deploy run shows "Deploy Convex functions" as **success**, not skipped.
+      Run `30704683707`, 2026-08-01: every step green, and the published bundle
+      resolves to `hushed-elephant-959.convex.cloud`.
 - [ ] The deployed sign-in card shows no "Development mode" badge. **Blocked** —
       same reason.
 - [ ] A habit created in the deployed app is absent from the local dev database.
