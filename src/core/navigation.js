@@ -198,27 +198,11 @@ export async function initializeNavigation() {
     }
   }
 
-  // Force Home on startup (ignore saved tab)
+  // Every fresh document starts on Home, whatever tab the last one ended on.
+  // A restored page is not a fresh document: its tab and its selected date are
+  // still the ones the reader left, and coming back from another page keeps
+  // them rather than resetting the app underneath the reader.
   await setActiveView('home-view');
-
-  // Also enforce Home once per cold start (covers PWA session restore)
-  try {
-    if (!sessionStorage.getItem('bootForcedHome')) {
-      sessionStorage.setItem('bootForcedHome', '0');
-    }
-    window.addEventListener('pageshow', () => {
-      try {
-        if (sessionStorage.getItem('bootForcedHome') !== '1') {
-          void setActiveView('home-view');
-          sessionStorage.setItem('bootForcedHome', '1');
-        }
-      } catch (error) {
-        console.warn('Failed to handle pageshow event:', error);
-      }
-    });
-  } catch (error) {
-    console.warn('Failed to initialize bootForcedHome:', error);
-  }
 
   tabItems.forEach((item) => {
     item.addEventListener('click', async (e) => {

@@ -23,7 +23,6 @@ excluded from source fingerprints.
 | `activeHabitTrackerTab` | localStorage | Device-only; retire |
 | `habitsAppFitnessMigrationV1` | localStorage | Migration evidence only |
 | `fitnessRestDays` | localStorage | Merge into normalized rest days |
-| `bootForcedHome` | sessionStorage | Session-only |
 | `__storage_test__` | localStorage | Temporary availability probe; ignore |
 
 The service worker persists only the application shell through Workbox. Timer,
