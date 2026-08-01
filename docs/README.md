@@ -35,6 +35,9 @@ are not active implementation checklists.
 
 ## Operations
 
+- [Convex environment separation brief](operations/CONVEX_ENVIRONMENT_SEPARATION_BRIEF.md)
+  — open work: production currently runs on the development Convex and Clerk
+  instances, and schema changes do not deploy themselves
 - [Build and deploy](operations/BUILD_AND_DEPLOY.md)
 - [Convex setup and recovery runbook](operations/CONVEX_SETUP_AND_RECOVERY_RUNBOOK.md)
 
