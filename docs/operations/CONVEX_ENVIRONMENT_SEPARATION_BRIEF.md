@@ -162,8 +162,21 @@ Once part A is done and the values are available:
       resolves to `hushed-elephant-959.convex.cloud`.
 - [ ] The deployed sign-in card shows no "Development mode" badge. **Blocked** —
       same reason.
-- [ ] A habit created in the deployed app is absent from the local dev database.
-- [ ] Pausing a habit in the deployed app syncs without error.
+- [x] A habit created in the deployed app is absent from the local dev database.
+      Verified 2026-08-01: `Prod-check-1` exists in `hushed-elephant-959` under
+      `user_3HIyxBReEdQ4cVfgub496iZStB0`, and the dev deployment still holds only
+      its original three habits, all owned by the other profile.
+- [x] Pausing a habit in the deployed app syncs without error. Verified: `paused`
+      went `true`, `revision` `1 → 2`, `updatedAt` advanced.
+      **But it surfaced a separate, pre-existing bug: `pausedAt` is never
+      persisted at all.** The reducer stamps it (`src/core/state.js:519`), but
+      `dispatch` calls `persistStateAction` *before* committing the reducer
+      (`src/core/state.js:463`), and the persistence layer rebuilds the record as
+      a plain `{ ...current, ...updates }` merge (`src/core/persistenceRouter.js:372`),
+      so the stamp never reaches the outbox. The field lives in memory for the
+      session and is lost on reload. This is unrelated to environment separation
+      — it would have behaved identically against the dev deployment — and it is
+      tracked separately.
 - [ ] `docs/release/RELEASE_RISK_REGISTER.md` has its "Production identity" gate
       marked closed. Recorded as *partly* closed; it stays open on Clerk.
 
