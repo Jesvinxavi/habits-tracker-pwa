@@ -123,6 +123,17 @@ describe('pausing a habit', () => {
     expect(habit().pausedAt).toBe(supplied);
   });
 
+  it('stamps a habit that is created already paused', () => {
+    dispatch({
+      type: ActionTypes.ADD_HABIT,
+      payload: { ...HABIT, id: 'habit-2', paused: true },
+      meta: { source: 'device' },
+    });
+
+    const created = getState().habits.find((entry) => entry.id === 'habit-2');
+    expect(created.pausedAt).toBe(Date.now());
+  });
+
   it('stamps afresh when a habit is paused, resumed and paused again', () => {
     updateHabit({ paused: true });
     updateHabit({ paused: false });
@@ -155,6 +166,29 @@ describe('pausing a habit, as written to the outbox', () => {
 
     expect(payload.paused).toBe(false);
     expect(payload.pausedAt).toBeUndefined();
+  });
+
+  it('stamps a habit that is created already paused', async () => {
+    committed.length = 0;
+    await persistStateAction(
+      {
+        type: ActionTypes.ADD_HABIT,
+        payload: { ...HABIT, id: 'habit-2', paused: true },
+      },
+      { habits: [HABIT], categories: [] }
+    );
+
+    expect(committed[0].operation.payload.pausedAt).toBe(Date.now());
+  });
+
+  it('leaves a habit created running without a stamp', async () => {
+    committed.length = 0;
+    await persistStateAction(
+      { type: ActionTypes.ADD_HABIT, payload: { ...HABIT, id: 'habit-2' } },
+      { habits: [HABIT], categories: [] }
+    );
+
+    expect(committed[0].operation.payload.pausedAt).toBeUndefined();
   });
 
   it('re-stamps rather than trusting a stamp left over from an earlier pause', async () => {

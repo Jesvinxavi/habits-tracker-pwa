@@ -353,7 +353,10 @@ export async function persistStateAction(action, state) {
       break;
     }
     case ActionTypes.ADD_HABIT: {
-      const optimistic = habitRecord(action.payload, state.habits.length);
+      const optimistic = habitRecord(
+        mergeHabitUpdate(null, action.payload),
+        state.habits.length
+      );
       operations.push(
         sharedOperation(
           runtime,

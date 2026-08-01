@@ -500,7 +500,10 @@ export function dispatch(action) {
 function reducer(state, action) {
   switch (action.type) {
     case ActionTypes.ADD_HABIT:
-      const newHabit = deepClone(action.payload);
+      // A habit can be created already paused, which is a pause like any other
+      // and has to carry its stamp. Passing no previous habit says "this one is
+      // new", so the rule treats it as a transition into a pause.
+      const newHabit = mergeHabitUpdate(null, deepClone(action.payload));
       ensureHabitIntegrity(newHabit);
       return {
         ...state,

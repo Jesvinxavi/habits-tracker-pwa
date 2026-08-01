@@ -22,7 +22,9 @@
  * as authoritative would date the new pause to the old one. The stale value is
  * inert while the habit runs, because every reader tests `paused` first.
  *
- * @param {object} previous The habit as it currently stands.
+ * @param {object|null} previous The habit as it currently stands, or null when
+ *   it is being created — a habit created already paused is stamped like any
+ *   other transition into a pause.
  * @param {object} updates The fields being changed.
  * @param {number} [now] Timestamp to stamp with; defaults to the current time.
  * @returns {object} The merged habit.
