@@ -1,7 +1,18 @@
 # Brief: move Clerk to a production instance
 
-Status: **blocked on a custom domain**. Written 2026-08-01, split out of
-`CONVEX_ENVIRONMENT_SEPARATION_BRIEF.md` when the domain requirement surfaced.
+Status: **not scheduled — accepted as-is on 2026-08-01.** Blocked on a custom
+domain, and Jesvin decided not to pursue one for now. Written 2026-08-01, split
+out of `CONVEX_ENVIRONMENT_SEPARATION_BRIEF.md` when the domain requirement
+surfaced.
+
+This is a standing brief, not open work. Nobody should pick it up unprompted.
+The trigger to revisit it is **user growth**: Clerk's development-instance
+limits are the binding constraint, so if this app moves beyond a small circle of
+users, this becomes necessary rather than optional. The other trigger is a
+domain being acquired for unrelated reasons, which makes the whole thing cheap.
+
+Do it sooner rather than later if you do it at all — see the note at the end
+about orphaned data. The migration cost grows with every day of real use.
 
 ## Why this is separate
 
