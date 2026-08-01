@@ -7,6 +7,7 @@ import {
   sanitizeActivityRecord,
 } from './operationPayload.js';
 import { generateUuid } from '../shared/common.js';
+import { mergeHabitUpdate } from './habitLifecycle.js';
 
 const PERSISTENT_ACTIONS = new Set([
   ActionTypes.ADD_HABIT,
@@ -369,7 +370,7 @@ export async function persistStateAction(action, state) {
     case ActionTypes.UPDATE_HABIT: {
       const current = findHabit(action.payload.habitId);
       const optimistic = habitRecord(
-        { ...current, ...action.payload.updates },
+        mergeHabitUpdate(current, action.payload.updates),
         state.habits.indexOf(current)
       );
       operations.push(

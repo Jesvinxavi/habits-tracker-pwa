@@ -175,8 +175,9 @@ Once part A is done and the values are available:
       a plain `{ ...current, ...updates }` merge (`src/core/persistenceRouter.js:372`),
       so the stamp never reaches the outbox. The field lives in memory for the
       session and is lost on reload. This is unrelated to environment separation
-      — it would have behaved identically against the dev deployment — and it is
-      tracked separately.
+      — it would have behaved identically against the dev deployment. **Fixed
+      the same day**: the merge rule now lives in `src/core/habitLifecycle.js`
+      and both paths call it.
 - [ ] `docs/release/RELEASE_RISK_REGISTER.md` has its "Production identity" gate
       marked closed. Recorded as *partly* closed; it stays open on Clerk.
 

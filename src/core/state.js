@@ -10,6 +10,7 @@ import {
 } from '../shared/fitnessValidation.js';
 import { installTestHarnessApi, isTestHarnessEnabled } from './testHarness.js';
 import { getCloudRuntime } from './cloudRuntime.js';
+import { mergeHabitUpdate } from './habitLifecycle.js';
 
 // Helper to get local date without timezone issues
 function getLocalDateISO() {
@@ -511,17 +512,7 @@ function reducer(state, action) {
         ...state,
         habits: state.habits.map((habit) => {
           if (habit.id !== action.payload.habitId) return habit;
-          const updated = { ...habit, ...action.payload.updates };
-          // Statistics need to know *when* a pause began, or they cannot tell a
-          // habit that was never kept from one that was kept for a year and
-          // then put down. Stamped here so every path that pauses a habit —
-          // the form, a sync, a future shortcut — records it.
-          if (updated.paused && !habit.paused && updated.pausedAt == null) {
-            updated.pausedAt = Date.now();
-          } else if (!updated.paused) {
-            delete updated.pausedAt;
-          }
-          return updated;
+          return mergeHabitUpdate(habit, action.payload.updates);
         }),
       };
 
